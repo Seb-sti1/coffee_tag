@@ -5,6 +5,7 @@
 #
 
 import pandas as pd
+import sqlite3 as sql
 from tkinter import ttk  # ttk for ListeCombo
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -13,10 +14,11 @@ from itertools import count, islice  # Islice for list iteration not starting at
 import threading  # Threads for non-blocking timer callbacks
 import time  # Timer and sleeps
 from enum import Enum
+from datetime import datetime as dt
 
-DEV_MODE = True
+DEV_MODE = False
 VERBOSE = False
-COFFEE_PRICE = 0.2
+COFFEE_PRICE = 0.25
 
 # Give access to GPIO and import pn532 to use NFC reader
 if not DEV_MODE:
@@ -135,16 +137,42 @@ class BadgeEntry:
 class Finder:
     """ A class to search a user in a database """
 
-    def __init__(self, csv_path, root):
+    def __init__(self, db_path,view_db, root):
         # Open csv file, and fill NaN with empty string
-        self.path = csv_path
-        self.file = (pd.read_csv(csv_path, delimiter=',')).fillna("")
+        self.path = db_path
+        self.view_db = view_db
+        #self.connection = sql.connect(csv_path)
+        #self.cursor=self.connection.cursor()
         # Get csv reader as a list to have an easy access through index
-        self.my_csv_data = self.file.values.tolist()
+        #self.my_csv_data = self.file.values.tolist()
         self.main = root
         # Create a BadgeEntry object for continuous reading from NFC reader
         self.badgeEntry = BadgeEntry(self.find_me, root)
 
+    def query_txt (self, sql_txt,other=''):
+        if (other==''):
+            other=self.path
+        con = sql.connect(other)
+        with con:
+            cur = con.cursor()
+            cur.execute(sql_txt)
+            res = cur.fetchall()
+        if con:
+            con.close()
+        return res
+
+    def query_var (self,sql_txt,values,other=''):
+        if (other==''):
+            other=self.path
+        con = sql.connect(other)
+        with con:
+            cur = con.cursor()
+            cur.execute(sql_txt,values)
+            res = cur.fetchall()
+        if con:
+            con.close()
+        return res
+    
     def stop(self):
         self.badgeEntry.stop()
         global current_windows
@@ -283,9 +311,13 @@ class Finder:
         new_root.geometry('320x230')
         new_root.title('Summation')
         new_root['bg'] = '#754c24'
-        on_closing()
-        use_surname = self.my_csv_data[index][2] == "" or pd.isna(self.my_csv_data[index][2])
-        user = str(self.my_csv_data[index][0 if use_surname else 2])
+        #on_closing()
+        query="SELECT * FROM current WHERE id = ? "
+        query_variables=(index,)
+        res=self.query_var(query,query_variables)
+        response=res[0]
+        use_surname = response[3] == "" 
+        user = str(response[1 if use_surname else 3])
         welcome_lbl = tk.Label(
             new_root,
             text="Thank you " +
@@ -300,7 +332,7 @@ class Finder:
         txt_lbl = tk.Label(new_root, text="Your account is now",
                            font='Helvetica 15', fg='#c9a589', bg='#754c24')
         txt_lbl.pack(side="top")
-        amount = -float(self.my_csv_data[index][5])
+        amount = -float(response[8])
         amount_lbl = tk.Label(new_root, text=str(
             round(amount, 2)) + " €", font='Helvetica 22 bold', fg="white", bg='#754c24')
         amount_lbl.pack(side="top", pady=10, fill='x')
@@ -317,19 +349,32 @@ class Finder:
         on_closing()
 
     def update_csv(self, entry, root, index):
-        price = round(int(entry.get()) * COFFEE_PRICE, 2)
-        if VERBOSE: print(f"It will cost {price:.2f} € to {self.my_csv_data[index][0]}")
+        entry_val=entry.get()
+        price = round(int(entry_val) * COFFEE_PRICE, 2)
+        # get iformation of current sold
+        current_data=self.query_var("SELECT id, name,surname, debit, sold FROM current WHERE id=?",(index,))
+        if VERBOSE: print(f"It will cost {price:.2f} € to {current_data[0][1]}")
         on_closing()
         root.destroy()
+        # get time
+        date=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        
+        response=current_data[0]
+        self.query_var("INSERT INTO coffee_count VALUES (?,?,?,?)",(index,date,int(entry_val),price))
         # Note: in csv file, a debt is positive and an advance negative
-        new_debt = round(float(self.my_csv_data[index][5]) + price, 2)
+        total_debt=response[3]+price
+        new_debt = round(float(response[4]) + price, 2)
         if VERBOSE: print(f"New debt is {-new_debt:.2f}")
+        self.query_var("UPDATE current SET debit = ?, sold =? WHERE id = ?",(total_debt,new_debt,index))
+        self.query_var("UPDATE view SET sold =? WHERE name = ? AND surname = ?",(new_debt,response[1],response[2]),self.view_db )
+        if VERBOSE: print(f"ALL it's ok for update table")
+        """   old version
         # set value of a cell which has index label "index" and column label "Amount"
         self.file.at[index, 'Amount'] = new_debt
         # writing into the file (use index False not to print fields for index)
         self.file.to_csv(self.path, index=False)
         # Update local my_csv_data variable with new value as well
-        self.my_csv_data = self.file.values.tolist()
+        self.my_csv_data = self.file.values.tolist()"""
 
     def found(self, index):
         new_root = tk.Toplevel(self.main)
@@ -339,22 +384,53 @@ class Finder:
         new_root.transient(self.main)  # set to be on top of the main window
         # hijack all commands from the master (clicks on the main window are ignored)
         new_root.grab_set()
-        new_root.geometry('370x300')
+        new_root.geometry('370x370')
         new_root.title('found')
         new_root['bg'] = '#754c24'
         new_root.resizable(height=False, width=False)
-        use_surname = self.my_csv_data[index][2] == "" or pd.isna(self.my_csv_data[index][2])
-        user = str(self.my_csv_data[index][0 if use_surname else 2])
+        query="SELECT * FROM current WHERE id = ? "
+        query_variables=(index,)
+        res=self.query_var(query,query_variables)
+        response=res[0]
+        use_surname = response[3] == ""
+        user = str(response[1 if use_surname else 3])
+        query="SELECT date FROM coffee_count where id = ? order by date desc limit 1"
+        query_variables=(index,)
+        resdate=self.query_var(query,query_variables)
+
         welcome_lbl = tk.Label(new_root, text="Hello " + str(user) +
                                " !", font='Helvetica 22 bold', fg="white", bg='#754c24')
         welcome_lbl.pack(side="top", pady=10, fill='x')
         txt_lbl = tk.Label(new_root, text="Your account is currently",
                            font='Helvetica 15', fg='#c9a589', bg='#754c24')
         txt_lbl.pack(side="top")
-        amount = -float(self.my_csv_data[index][5])
+        query="SELECT * FROM payement WHERE id = ? AND already_taken = ?"
+        query_variables=(index,0)
+        res_payement=self.query_var(query,query_variables)
+        # upodate table with credit account
+        for raw in res_payement:
+            response=(response[0],response[1],response[2],response[3],response[4],response[5],response[6]+raw[2],response[7],response[8]-raw[2])
+            
+            query="UPDATE current SET credit = ?, sold = ? WHERE id = ?"
+            query_variables=(response[6],response[8],index)
+            self.query_var(query,query_variables)
+            query="UPDATE payement SET already_taken = ? WHERE id = ? AND already_taken = ? AND date = ?"
+            query_variables=(1,index,0,raw[1])
+            self.query_var(query,query_variables)
+        amount = -float(response[8])
         amount_lbl = tk.Label(new_root, text=str(
             round(amount, 2)) + " €", font='Helvetica 22 bold', fg="white", bg='#754c24')
         amount_lbl.pack(side="top", pady=10, fill='x')
+
+        date_now=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        if len(resdate)>0:
+            delta=dt.strptime(date_now,"%Y-%m-%d %H:%M:%S") - dt.strptime((resdate[0])[0],"%Y-%m-%d %H:%M:%S")
+            info_time_lbl = tk.Label(new_root, text="delta time "+delta.__str__(),
+                           font='Helvetica 15', fg='#c9a589', bg='#754c24')
+            info_time_lbl.pack(side="top",fill='x')
+        #time_lbl = tk.Label(new_root, text=delta.__str__(),
+        #                   font='Helvetica 15', fg='#c9a589', bg='#754c24')
+        #time_lbl.pack(side="top",fill='x')
 
         coffee_lbl = tk.Label(new_root, text="How many coffees will you take ?",
                               font='Helvetica 15', fg='#c9a589', bg='#754c24')
@@ -368,17 +444,17 @@ class Finder:
         entry.delete(0, 'end')
         entry.insert(0, "1")
         entry.focus_set()
-        entry.place(x=168, y=197)
+        entry.place(x=168, y=227)
         incr_bt_lbl = tk.Button(new_root, text="►", font='Helvetica 25', fg='#5b3719', bg='#c9a589',
                                 height=1, width=1, command=lambda: self.update_coffee(1, entry))
-        incr_bt_lbl.place(x=230, y=185)
+        incr_bt_lbl.place(x=230, y=215)
         incr_bt_lbl = tk.Button(new_root, text="◄", font='Helvetica 25', fg='#5b3719', bg='#c9a589',
                                 height=1, width=1, command=lambda: self.update_coffee(-1, entry))
-        incr_bt_lbl.place(x=90, y=185)
+        incr_bt_lbl.place(x=90, y=215)
         # A button to validate number of coffees to count
         bt_lbl = tk.Button(new_root, text="OK", font='Helvetica 14 bold', fg='#5b3719', bg='#c9a589',
-                           height=1, width=2, command=lambda: self.confirm(entry, new_root, index))
-        bt_lbl.place(x=160, y=245)
+                           height=2, width=2, command=lambda: self.confirm(entry, new_root, index))
+        bt_lbl.place(x=160, y=275)
 
     def register(self, root, name_entry, surname_entry, mail_entry, nickname_entry):
         surname = surname_entry.get()
@@ -427,6 +503,25 @@ class Finder:
         # If entries are correctly filled, look for any conflict with existing mail or [surname, name]
         error = Error.NONE
         user_index = -1
+
+        query="SELECT * FROM current WHERE name LIKE ? AND surname LIKE ? UNION SELECT * FROM current WHERE name LIKE ? AND surname LIKE ?"
+        query_variables=(name,surname,surname,name)
+        res=self.query_var(query,query_variables)
+        print("return of query: ",res," ",len(res))
+        if (len(res)!=0):
+            user_index = res[0][0]
+            error = Error.NAME
+        query="SELECT * FROM current WHERE mail LIKE ?"
+        query_variables=(mail,)
+        res=self.query_var(query,query_variables)
+        print("return of mail query: ",res," ",len(res))
+        if (len(res)!=0):
+            user_index = res[0][0]
+            error = Error.MAIL
+
+        
+
+        """   old version
         for i in range(0, len(self.my_csv_data)):
             # Look for the user string in Surname, Name, Nickname, or badge ID /!\ For
             # NaN values, csv data is considered as a float, so cast in string if
@@ -441,7 +536,7 @@ class Finder:
                     name.lower() == str(self.my_csv_data[i][1]).lower())):
                 user_index = i
                 error = Error.NAME
-                break
+                break"""
         new_root = tk.Toplevel(self.main)
         new_root.protocol("WM_DELETE_WINDOW", lambda: [
             on_closing(), new_root.destroy()])
@@ -465,9 +560,12 @@ class Finder:
                 fg='#c9a589',
                 bg='#754c24')
             warn_lbl.pack(side="top", pady=10, fill='x')
+            query="SELECT * FROM current WHERE id = ?"
+            query_variables=(name,surname,surname,name)
+            res=self.query_var(user_index)
             name_lbl = tk.Label(new_root,
                                 text=str(
-                                    self.my_csv_data[user_index][0]) + " " + str(self.my_csv_data[user_index][1]),
+                                    res[0][1]) + " " + str(res[0][2]),
                                 wraplength=240,
                                 justify="center",
                                 font='Helvetica 12 bold',
@@ -537,6 +635,17 @@ class Finder:
                 fg='#c9a589',
                 bg='#754c24')
             profile_lbl.pack(side="top", fill='x')
+
+            query="SELECT id FROM current ORDER BY id DESC limit 1"
+            res=self.query_txt(query)
+            query="INSERT INTO current VALUES (?,?,?,?,?,?,?,?,?)"
+            query_view="INSERT INTO view VALUES (?,?,?,?,?)"
+            new_id=res[0][0]+1
+            query_variables=(new_id,name,surname,nickname,mail,badge_id,0,0,0)
+            query_variables_view=(name,surname,nickname,mail,0)
+            self.query_var(query,query_variables)
+            self.query_var(query_view,query_variables_view,self.view_db )
+            """   old version
             # Append data frame to CSV file
             data = {
                 'Surname': [surname],
@@ -551,6 +660,8 @@ class Finder:
             # update local variables
             self.file = pd.read_csv(self.path, delimiter=',')
             self.my_csv_data = self.file.values.tolist()
+            """
+
             # automatic close
             closing_lbl = tk.Label(
                 new_root, font='Helvetica 12 bold italic', fg="white", bg='#754c24')
@@ -565,7 +676,10 @@ class Finder:
             on_closing()
 
     def link(self, root, combo_box, badge_string):
-        index = combo_box.current()
+        #index = combo_box.current()
+        value=combo_box.get()
+        value=value.split(" ")
+
         global current_windows
         new_root = tk.Toplevel(self.main)
         new_root.protocol("WM_DELETE_WINDOW", lambda: [
@@ -579,20 +693,27 @@ class Finder:
         new_root['bg'] = '#754c24'
         root.destroy()
         on_closing()
-        use_surname = self.my_csv_data[index][2] == "" or pd.isna(self.my_csv_data[index][2])
-        user = str(self.my_csv_data[index][0 if use_surname else 2])
+        #use_surname = self.my_csv_data[index][2] == "" or pd.isna(self.my_csv_data[index][2])
+        user = str(value[0])
         welcome_lbl = tk.Label(new_root, text="Hello " + str(user) +
                                ",", font='Helvetica 22 bold', fg="white", bg='#754c24')
         welcome_lbl.pack(side="top", pady=10, fill='x')
         amount_lbl = tk.Label(new_root, text="Your badge has been successfully linked to yout account",
                               font='Helvetica 14', fg='#c9a589', bg='#754c24', wraplength=280, justify="center")
         amount_lbl.pack(side="top")
+        query="UPDATE current SET id_badge = ? WHERE name = ? AND surname = ?"
+        query2="UPDATE current SET id_badge = ? WHERE surname = ? AND name = ?"
+        query_variables=(badge_string,value[0],value[1])
+        self.query_var(query,query_variables)
+        self.query_var(query2,query_variables)
+        """     old version
         # Replace value in Pandas Serie first
         self.file.loc[index, "ID"] = badge_string
         # print(self.file.iloc[index,4])
         self.my_csv_data = self.file.values.tolist()
         # Update the csv by re-writing everything from our local Pandas Serie
         self.file.to_csv(self.path, index=False)
+        """
         # automatic close
         closing_lbl = tk.Label(
             new_root, font='Helvetica 12 bold italic', fg="white", bg='#754c24')
@@ -623,8 +744,10 @@ class Finder:
         txt_lbl = tk.Label(new_root, text="Select a account to synchronize with",
                            font='Helvetica 16 bold', fg='#c9a589', bg='#754c24')
         txt_lbl.pack(side="top", pady=10, fill='x')
-        sublist = (self.file.loc[:, ["Surname", "Name"]]).values.tolist()
-        combo_box = ttk.Combobox(new_root, values=sublist, width=30)
+        query="SELECT name,surname FROM current ORDER BY name"
+        res=self.query_txt(query)
+        #sublist = (self.file.loc[:, ["Surname", "Name"]]).values.tolist()
+        combo_box = ttk.Combobox(new_root, values=res, width=30)
         combo_box.current(0)
         combo_box.pack(side="top", pady=10)
         # Button
@@ -788,6 +911,15 @@ class Finder:
         # Add a reservoir list for found names while searching
         users_index = []
         found = 0
+        # table request
+        query="SELECT * FROM current WHERE name LIKE ? OR surname LIKE ? OR nickname LIKE ? OR id_badge LIKE ? "
+        query_variables=(user_string,user_string,user_string,user_string)
+        res=self.query_var(query,query_variables)
+        found=len(res)
+        for response in res:
+            users_index.append(response[0])
+
+        """    old version
         # Look for name (without caps with lower())
         # Ignore first line containing columns names
         for i in range(0, len(self.my_csv_data)):
@@ -798,7 +930,7 @@ class Finder:
                     user_string == str(self.my_csv_data[i][4])):
                 found += 1
                 users_index.append(i)
-        # print("Found = ", found)
+        # print("Found = ", found)"""
         if found == 0:
             # If the user is not found, interface will change depending on the identification way (ID or name)
             if VERBOSE: print("Not found")
@@ -877,7 +1009,7 @@ class Finder:
             new_root.grab_set()
             # Set size + position relative to main window
             geometry = "300x" + \
-                str(210 + 40 * len(users_index)) + "+247+120"
+                str(210 + 40 * len(res)) + "+247+120"  #users_index
             new_root.geometry(geometry)
             new_root.title('Precise')
             new_root['bg'] = '#754c24'
@@ -904,7 +1036,7 @@ class Finder:
             txt_lbl = tk.Label(new_root, text="Are you... ?",
                                font='Helvetica 12 bold italic', fg='#c9a589', bg='#754c24')
             txt_lbl.pack(side="top", pady=10, fill='x')
-            for i in range(0, len(users_index)):
+            for i in range(0, len(res)):
                 #  Create a button for each corresponding name, and send the user index depending on the clicked button
                 # Warning ! When lambda is used to define the function, the call doesn't get the value of the variable i at the time the function is defined.
                 # Instead, it makes a closure, which is sort of like a note to itself saying "I should look for what the value of the variable i is at the time
@@ -913,16 +1045,16 @@ class Finder:
                 # at the time lambda is defined, instead of waiting to look up the value
                 # of i later.
                 bt_lbl = tk.Button(new_root,
-                                   text=self.my_csv_data[users_index[i]][0] +
+                                   text=res[i][1] +
                                    " " +
-                                   self.my_csv_data[users_index[i]][1],
+                                   res[i][2],
                                    font='Helvetica 12 bold',
                                    fg='#5b3719',
                                    bg='#c9a589',
                                    height=1,
                                    width=18,
                                    command=lambda i=i: self.erase_and_found(new_root,
-                                                                            users_index[i]))
+                                                                            res[i][0]))
                 bt_lbl.pack(side="top")
             not_you_lbl = tk.Label(
                 new_root, text="It's not you ?", font='Helvetica 12 bold', fg='white', bg='#754c24')
@@ -1004,7 +1136,7 @@ if __name__ == "__main__":
     root.resizable(height=False, width=False)
 
     # Create a Finder, the main tool for matching a user with a database
-    finder = Finder('users.csv', root)
+    finder = Finder('/home/pi/Documents/coffee/coffee_test.db','/home/pi/Documents/coffee/coffee_test_view.db', root)
 
     # Labels
     # Text labels
@@ -1025,7 +1157,7 @@ if __name__ == "__main__":
     lbl = ImageLabel(root, borderwidth=0, highlightthickness=0)
 
     lbl.pack()
-    lbl.load('media/cup.gif')
+    lbl.load('/home/pi/Documents/coffee/media/cup.gif')
 
     # Add a protocol handler to kill everything if main window is closed
     root.protocol("WM_DELETE_WINDOW", finder.stop)
