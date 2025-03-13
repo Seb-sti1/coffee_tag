@@ -7,6 +7,11 @@ This readme mainly describes how to install and use this python package
 
 ### Build this python package
 
+> [!tip]
+> The python package it automatically built when a branch is merged on main.
+> See all releases [here](https://gitlab.ensta.fr/toralba/coffee_tag/-/releases).
+> See how to configure the CI [here](#gitlab-ci).
+
 To build the package, run the commands below
 
 ```bash
@@ -65,6 +70,19 @@ pip install -r requirements.txt # install dependencies
 > conda install pip
 > pip install -r requirements.txt
 > ```
+
+### Gitlab CI
+
+#### Gitlab Runner
+
+The DSI (IT service) doesn't provide any runners on the GitLab. I (Sébastien Kerbourc'h) added DaTA's one (computer
+science club).
+
+#### Automated release configuration
+
+Create a token [here](https://gitlab.ensta.fr/toralba/coffee_tag/-/settings/access_tokens) with the permission
+`api`, `write_repository` with the role `Developer`, then create the variable
+`RELEASE_TOKEN` [here](https://gitlab.ensta.fr/toralba/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
 
 ## Docs
 
