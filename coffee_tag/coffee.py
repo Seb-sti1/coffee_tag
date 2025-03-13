@@ -1,29 +1,28 @@
 """  Main script of the coffee-tag app """
-
+import os.path
 #
 #  Imports
 #
 
-import pandas as pd
 import sqlite3 as sql
 from tkinter import ttk  # ttk for ListeCombo
 import tkinter as tk
 from PIL import Image, ImageTk
-import numpy as np
-from itertools import count, islice  # Islice for list iteration not starting at 0
+from itertools import count  # Islice for list iteration not starting at 0
 import threading  # Threads for non-blocking timer callbacks
 import time  # Timer and sleeps
 from enum import Enum
 from datetime import datetime as dt
 
-DEV_MODE = False
+from coffee_tag import media
+
+DEV_MODE = True
 VERBOSE = False
 COFFEE_PRICE = 0.25
 
 # Give access to GPIO and import pn532 to use NFC reader
 if not DEV_MODE:
-    import RPi.GPIO as GPIO
-    from pn532 import *
+    from coffee_tag.pn532 import *
 
 
 #
@@ -1114,7 +1113,7 @@ class ImageLabel(tk.Label):
             self.after(self.delay, self.next_frame)
 
 
-if __name__ == "__main__":
+def open_root_gui():
     root = tk.Tk()
     on_opening()
     # Set window dimensions
@@ -1157,7 +1156,7 @@ if __name__ == "__main__":
     lbl = ImageLabel(root, borderwidth=0, highlightthickness=0)
 
     lbl.pack()
-    lbl.load('/home/pi/Documents/coffee/media/cup.gif')
+    lbl.load(os.path.join(os.path.dirname(media.__file__), "cup.gif"))
 
     # Add a protocol handler to kill everything if main window is closed
     root.protocol("WM_DELETE_WINDOW", finder.stop)

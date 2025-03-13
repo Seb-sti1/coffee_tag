@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coffee_tag"
+version = "0.2.0"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+    "tk",
+    "Pillow",
+    "pandas",
+    "RPi.GPIO"
+]
+
+authors = [
+    { name = "Toralba Thibault", email = "thibault.toralba@ensta.fr" },
+    { name = "Clément Laroudie", email = "clement.laroudie@ensta.fr" },
+    { name = "Adrien Poire", email = "adrien.poire@ensta.fr" },
+    { name = "Sébastien Kerbourc'h", email = "sebastien.kerbourch@ensta.fr" },
+]
+
+maintainers = [
+    { name = "Adrien Poire", email = "adrien.poire@ensta.fr" }
+]
+
+[project.scripts]
+coffee_tag = "coffee_tag.__main__:main"

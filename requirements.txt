@@ -1,3 +1,4 @@
--r dev_requirements.txt
-# GPIO for Rasberry
+tk
+Pillow
+pandas
 RPi.GPIO
