@@ -25,10 +25,10 @@ for i in range(0, len(my_csv_data)) :
 	else:
 		debit=my_csv_data[i][5]
 	print(i,my_csv_data[i][0],my_csv_data[i][1],my_csv_data[i][2],my_csv_data[i][3],my_csv_data[i][4],credit,debit,sold)
-	cur.execute("INSERT INTO current VALUES (?,?,?,?,?,?,?,?,?)",(i,my_csv_data[i][0],my_csv_data[i][1],my_csv_data[i][2],my_csv_data[i][3],my_csv_data[i][4],credit,debit,sold))
+	cur.execute("INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?)",(i,my_csv_data[i][0],my_csv_data[i][1],my_csv_data[i][2],my_csv_data[i][3],my_csv_data[i][4],credit,debit,sold))
 	cur2.execute("INSERT INTO view VALUES (?,?,?,?,?)",(my_csv_data[i][0],my_csv_data[i][1],my_csv_data[i][2],my_csv_data[i][3],sold))
 	print(con.total_changes)
-cur.execute("SELECT * FROM current WHERE name = 'Caroline'")
+cur.execute("SELECT * FROM users WHERE name = 'Caroline'")
 rows=cur.fetchall()
 for row in rows:
 	print(row)
