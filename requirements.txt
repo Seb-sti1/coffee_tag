@@ -2,3 +2,6 @@ tk
 Pillow
 pandas
 RPi.GPIO
+quart
+quart-auth
+bcrypt

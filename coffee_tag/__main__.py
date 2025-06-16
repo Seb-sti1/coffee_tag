@@ -1,9 +1,11 @@
 import argparse
+import asyncio
 import logging
 
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
 from coffee_tag.rfid import RFIDReader
+from coffee_tag.website.app import Website
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +21,14 @@ def main():
 
     db = Database("coffee_test.db", args.read_only)
     rfid = RFIDReader(args.dev)
-    manager = CoffeeManager(db, rfid)
-    manager.stop()
+    website = Website(db)
+
+    async def asyncio_main():
+        CoffeeManager(db, rfid)
+        await website.app.run_task(host="0.0.0.0", port=8080)
+
+    asyncio.run(asyncio_main())
+    rfid.stop()
 
 
 if __name__ == "__main__":

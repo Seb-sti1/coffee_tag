@@ -1,3 +1,8 @@
 include coffee_tag/media/coffee_icon.png
 include coffee_tag/media/cup.gif
 include coffee_tag/media/cup2.gif
+include coffee_tag/website/templates/index.html
+include coffee_tag/website/templates/login.html
+include coffee_tag/website/templates/user.html
+include coffee_tag/website/templates/admin.html
+include coffee_tag/website/static/cup.gif

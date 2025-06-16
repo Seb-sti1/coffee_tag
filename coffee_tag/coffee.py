@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class CoffeeManager:
-
     def __init__(self, db: Database, rfid: RFIDReader):
         self.db = db
         self.rfid = rfid
@@ -27,14 +26,12 @@ class CoffeeManager:
         asyncio.set_event_loop(self.loop)
 
         self.loop.create_task(self.listen_to_card_reader())
+        self.loop.create_task(self.tk_loop())
 
-        self.root_gui.tk.after(10, self.poll)
-        self.root_gui.tk.mainloop()
-
-    def poll(self):
-        self.loop.call_soon(self.loop.stop)
-        self.loop.run_forever()
-        self.root_gui.tk.after(10, self.poll)
+    async def tk_loop(self):
+        while True:
+            self.root_gui.tk.update()
+            await asyncio.sleep(1 / 60)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:

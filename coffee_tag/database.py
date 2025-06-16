@@ -1,21 +1,25 @@
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import sqlite3
 from datetime import datetime as dt, timezone
 from typing import Callable, Optional, Tuple, Any
 
+import bcrypt
+from quart_auth import AuthUser
+
 logger = logging.getLogger(__name__)
 COFFEE_PRICE = 0.25
 
 
-class User:
+class User(AuthUser):
 
-    def __init__(self, db: Database, user_id: int,
-                 name: str, surname: str, nickname: str,
-                 cascad_username: str, initial_balance: float, passcode: str,
-                 permissions: str, banned: int, date_of_departure: str, mail: str,
-                 id_badge: str):
+    def __init__(self, db: Database, user_id: int, name: str, surname: str, nickname: str, cascad_username: str,
+                 initial_balance: float, passcode: str, permissions: str, banned: int, date_of_departure: str,
+                 mail: str, id_badge: str):
+        super().__init__(str(user_id))
         self.db = db
         self.user_id = user_id
         self.name = name
@@ -65,6 +69,7 @@ class User:
                                            LEFT JOIN (SELECT user_id, SUM(credit) AS paid
                                                       FROM repayement
                                                       WHERE user_id = :user
+                                                        AND in_balance <> 0
                                                       GROUP BY user_id) as r ON r.user_id = users.id
                                   WHERE users.id = :user
                                   """, {"user": self.user_id})[0]
@@ -121,15 +126,15 @@ class Purchase:
 class Repayment:
 
     def __init__(self, db: Database, repayment_id: int, user_id: int, date: str,
-                 credit: float, label: str, repayment_type: int, already_taken: int):
+                 credit: float, label: str, is_cash: int, in_balance: int):
         self.db = db
         self.repayment_id = repayment_id
         self.user_id = user_id
         self.date = date
         self.credit = credit
         self.label = label
-        self.repayment_type = repayment_type  # TODO what is this
-        self.already_taken = already_taken  # TODO what is this
+        self.is_cash = is_cash
+        self.in_balance = in_balance
 
     @staticmethod
     def create_table(db: Database):
@@ -137,13 +142,13 @@ class Repayment:
             db.execute("""
                        create table repayment
                        (
-                           id             INTEGER,
-                           user_id        INTEGER,
-                           date           TEXT,
-                           credit         REAL,
-                           label          TEXT,
-                           repayment_type INTEGER,
-                           already_taken  INTEGER,
+                           id         INTEGER,
+                           user_id    INTEGER,
+                           date       TEXT,
+                           credit     REAL,
+                           label      TEXT,
+                           is_cash    INTEGER,
+                           in_balance INTEGER,
                            FOREIGN KEY (user_id) REFERENCES users (id)
                        );
                        """)
@@ -203,14 +208,14 @@ class Database:
                                "(:user, DATETIME('now'), :coffee_bought, :price)",
                                {"user": user.user_id,
                                 "coffee_bought": coffee_bought,
-                                "price": COFFEE_PRICE})
+                                "price": COFFEE_PRICE * coffee_bought})
 
     def get_user_by_rfid(self, card: str):
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
                                  "permissions, banned, date_of_departure, mail,"
                                  "id_badge FROM users "
-                                 "WHERE id_badge LIKE :card;",
+                                 "WHERE id_badge <> '' AND id_badge LIKE :card;",
                                  {"card": card})
         return None if result is None else User(self, *result)
 
@@ -244,3 +249,117 @@ class Database:
                                  "WHERE mail = :mail",
                                  {"mail": mail})
         return None if result is None else User(self, *result)
+
+    def get_user_by_id(self, user_id) -> Optional[User]:
+        result = self.select_one("SELECT id, name, surname, nickname, "
+                                 "cascad_username, initial_balance, passcode,"
+                                 "permissions, banned, date_of_departure, mail,"
+                                 "id_badge FROM users "
+                                 "WHERE id = :user_id",
+                                 {"user_id": user_id})
+        return None if result is None else User(self, *result)
+
+    def get_total_number_of_coffees(self) -> Optional[int]:
+        result = self.select_one("SELECT sum(nb_coffee) FROM purchase;", {})
+        return None if result is None else result[0]
+
+    async def auth_user(self, mail: str, password: str) -> Optional[User]:
+        result = self.select_one("SELECT id, name, surname, nickname, "
+                                 "cascad_username, initial_balance, passcode,"
+                                 "permissions, banned, date_of_departure, mail,"
+                                 "id_badge FROM users "
+                                 "WHERE mail = :mail AND mail IS NOT NULL AND passcode IS NOT NULL",
+                                 {"mail": mail})
+        if result is None:
+            return None
+        u = User(self, *result)
+        return u if bcrypt.checkpw(password.encode(), u.passcode.encode()) else None
+
+    def get_users_balance(self) -> Optional[list]:
+        r = self.connector.execute("""
+                                   SELECT id,
+                                          name,
+                                          surname,
+                                          nickname,
+                                          cascad_username,
+                                          initial_balance,
+                                          passcode,
+                                          permissions,
+                                          banned <> 0,
+                                          date_of_departure,
+                                          mail,
+                                          id_badge,
+                                          IFNULL(bought, 0)                                               as 'purchased',
+                                          IFNULL(paid, 0)                                                 as 'paid',
+                                          ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "current balance"
+                                   FROM users
+                                            LEFT JOIN (SELECT user_id, SUM(price) AS bought
+                                                       FROM purchase
+                                                       GROUP BY user_id) as p ON p.user_id = users.id
+                                            LEFT JOIN (SELECT user_id, SUM(credit) AS paid
+                                                       FROM repayement
+                                                       WHERE in_balance <> 0
+                                                       GROUP BY user_id) as r ON r.user_id = users.id
+                                   GROUP BY users.id
+                                   """)
+        if r is None:
+            return []
+        return list(r)
+
+    def register_new_repayment(self, userid: int, date: dt, credit: float, label: str,
+                               is_cash: bool, in_balance: bool) -> bool:
+        return self.edit_query("INSERT INTO repayement (user_id, date, credit, label, is_cash,"
+                               "in_balance) VALUES"
+                               "(:userid, :date, :credit, :label, :re, :al)",
+                               {"userid": userid, "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                "credit": credit, "label": label,
+                                "re": int(is_cash), "al": int(in_balance)})
+
+    def get_repayments(self) -> Optional[list]:
+        r = self.connector.execute("""
+                                   SELECT repayement.id,
+                                          CONCAT(name, ' ', surname) as fullname,
+                                          date,
+                                          credit,
+                                          label,
+                                          is_cash,
+                                          in_balance
+                                   FROM repayement
+                                            JOIN users ON repayement.user_id = users.id;
+                                   """)
+        if r is None:
+            return []
+        return list(r)
+
+    def delete_repayment(self, repayment_id: int) -> bool:
+        return self.edit_query("DELETE FROM repayement "
+                               "WHERE id = :id",
+                               {"id": repayment_id})
+
+    def export(self) -> str:
+        logger.info(f"Creating a sql dump file")
+        exported_sql = "\n".join(self.connector.iterdump())
+        logger.info(f"Finish creating a sql dump file")
+        return exported_sql
+
+    def export_csv(self) -> str:
+        logger.info(f"Creating a csv dump file")
+        csv_file = io.StringIO()
+        writer = csv.writer(csv_file, delimiter=',',
+                            quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        r = self.get_users_balance()
+        writer.writerow(["id", "name", "surname", "nickname", "cascad_username",
+                         "initial_balance", "passcode", "permissions",
+                         "banned", "date_of_departure", "mail", "id_badge", "purchased",
+                         "paid", "current_balance"])
+        writer.writerows(r)
+        writer.writerows([[], [], []])
+        r = self.connector.execute("SELECT id, user_id, date, nb_coffee, price FROM purchase")
+        writer.writerow(["id", "user_id", "date", "nb_coffee", "price"])
+        writer.writerows(list(r))
+        writer.writerows([[], [], []])
+        r = self.connector.execute("SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayement")
+        writer.writerow(["id", "user_id", "date", "credit", "label", "is_cash", "in_balance"])
+        writer.writerows(list(r))
+        logger.info(f"Finish creating a csv dump file")
+        return csv_file.getvalue()

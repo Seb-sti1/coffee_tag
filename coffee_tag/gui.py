@@ -33,6 +33,7 @@ def setup_popup(main: MainGUI,
     return gui, future
 
 
+# TODO https://www.geeksforgeeks.org/autocmplete-combobox-in-python-tkinter/
 async def ManualEntryPopup(main: MainGUI):
     gui, future = setup_popup(main, "Manual identification", '280x140')
     lbl = tk.Label(gui, text="What is your name ?",
