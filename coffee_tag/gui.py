@@ -195,6 +195,8 @@ async def ThanksPopup(main: MainGUI, user):
                            font='Helvetica 12 bold italic', fg="white", bg='#754c24')
     closing_lbl.pack(side="top", fill='x', pady=10)
     for i in range(5, -1, -1):
+        if future.done():
+            return await future
         closing_lbl.config(text=f"Closing window in {i} seconds...")
         gui.update()
         await asyncio.sleep(1)
