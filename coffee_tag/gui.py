@@ -187,7 +187,8 @@ async def ThanksPopup(main: MainGUI, user):
     welcome_lbl.pack(side="top", pady=10, fill='x')
     txt_lbl = tk.Label(gui, text="Your balance is now", font='Helvetica 15', fg='#c9a589', bg='#754c24')
     txt_lbl.pack(side="top")
-    amount_lbl = tk.Label(gui, text=f"{-user.get_user_balance()} €", font='Helvetica 22 bold', fg="white", bg='#754c24')
+    amount_lbl = tk.Label(gui, text=f"{-user.get_user_balance()} €", font='Helvetica 22 bold', fg="white",
+                          bg='#754c24')
     amount_lbl.pack(side="top", pady=10, fill='x')
     # automatic close
     closing_lbl = tk.Label(gui, text=f"Closing window in 5 seconds...",
