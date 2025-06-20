@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
+    parser.add_argument('path', default="coffee.db", type=str, help='Path to the db')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--read-only', '-ro', action='store_true', help='Enable read only mode for the database')
@@ -19,7 +21,7 @@ def main():
 
     logging.basicConfig(level=logging.DEBUG)
 
-    db = Database("coffee_test.db", args.read_only)
+    db = Database(args.path, args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
 

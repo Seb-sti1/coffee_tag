@@ -11,7 +11,6 @@ import bcrypt
 from quart_auth import AuthUser
 
 logger = logging.getLogger(__name__)
-COFFEE_PRICE = 0.25
 
 
 class User(AuthUser):
@@ -158,9 +157,10 @@ class Repayment:
 
 class Database:
 
-    def __init__(self, path: str, read_only: bool):
+    def __init__(self, path: str, read_only: bool, coffee_price: float):
         self.connector = sqlite3.connect(path)
         self.read_only = read_only
+        self.coffee_price = coffee_price
 
     def select_one(self, query, option) -> Optional[Any]:
         def func(c: sqlite3.Cursor):
@@ -208,7 +208,7 @@ class Database:
                                "(:user, DATETIME('now'), :coffee_bought, :price)",
                                {"user": user.user_id,
                                 "coffee_bought": coffee_bought,
-                                "price": COFFEE_PRICE * coffee_bought})
+                                "price": self.coffee_price * coffee_bought})
 
     def get_user_by_rfid(self, card: str):
         result = self.select_one("SELECT id, name, surname, nickname, "
@@ -358,7 +358,8 @@ class Database:
         writer.writerow(["id", "user_id", "date", "nb_coffee", "price"])
         writer.writerows(list(r))
         writer.writerows([[], [], []])
-        r = self.connector.execute("SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayement")
+        r = self.connector.execute(
+            "SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayement")
         writer.writerow(["id", "user_id", "date", "credit", "label", "is_cash", "in_balance"])
         writer.writerows(list(r))
         logger.info(f"Finish creating a csv dump file")

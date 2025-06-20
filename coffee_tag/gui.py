@@ -12,7 +12,7 @@ from typing import Tuple, Optional
 from PIL import Image, ImageTk
 
 from coffee_tag import media
-from coffee_tag.database import User, COFFEE_PRICE
+from coffee_tag.database import User
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -262,7 +262,7 @@ async def AddNewUserPopup(main: MainGUI, rfid: RFIDReader,
 
 class MainGUI:
 
-    def __init__(self, manager):
+    def __init__(self, manager, coffee_price: float):
         self.opened_popup = []
         self.manager = manager
 
@@ -282,7 +282,7 @@ class MainGUI:
         txt_lbl1.pack(side="top", pady=10, fill='x')
 
         # Add coffee price
-        txt_lbl2 = tk.Label(self.tk, text=f"Badge for a coffee ({COFFEE_PRICE:.2f} €)",
+        txt_lbl2 = tk.Label(self.tk, text=f"Badge for a coffee ({coffee_price:.2f} €)",
                             font='Helvetica 16 bold', fg='#c9a589', bg='#754c24')
         txt_lbl2.pack(side="top", fill='x')
 

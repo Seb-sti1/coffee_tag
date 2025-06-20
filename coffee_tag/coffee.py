@@ -7,7 +7,7 @@ import logging
 import re
 from typing import Optional
 
-from coffee_tag.database import User, Database, COFFEE_PRICE
+from coffee_tag.database import User, Database
 from coffee_tag.gui import OneButtonPopup, ChooseUserPopup, UserNotFoundPopup, ManualEntryPopup, MainGUI, UserMenuPopup, \
     AskConfirmationPopup, ThanksPopup, AddNewUserPopup
 from coffee_tag.rfid import RFIDReader
@@ -19,7 +19,7 @@ class CoffeeManager:
     def __init__(self, db: Database, rfid: RFIDReader):
         self.db = db
         self.rfid = rfid
-        self.root_gui = MainGUI(self)
+        self.root_gui = MainGUI(self, self.db.coffee_price)
         self.rfid_can_open_menu = True
 
         self.loop = asyncio.get_event_loop()
@@ -116,7 +116,7 @@ class CoffeeManager:
                                                   f"Do you confirm buying {coffee_bought} coffee?")
             if validate is None or validate is False:
                 return None
-        logger.info(f"{user} bought {coffee_bought} coffees at {COFFEE_PRICE} €.")
+        logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
         if self.db.buy_coffees(user, coffee_bought):
             logger.info("This was saved in db.")
             await ThanksPopup(self.root_gui, user)
