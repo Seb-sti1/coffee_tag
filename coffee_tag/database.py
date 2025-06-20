@@ -141,7 +141,7 @@ class Repayment:
             db.execute("""
                        create table repayment
                        (
-                           id         INTEGER,
+                           id         INTEGER primary key,
                            user_id    INTEGER,
                            date       TEXT,
                            credit     REAL,
