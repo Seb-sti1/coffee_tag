@@ -66,7 +66,7 @@ class User(AuthUser):
                                                       WHERE user_id = :user
                                                       GROUP BY user_id) as p ON p.user_id = users.id
                                            LEFT JOIN (SELECT user_id, SUM(credit) AS paid
-                                                      FROM repayement
+                                                      FROM repayment
                                                       WHERE user_id = :user
                                                         AND in_balance <> 0
                                                       GROUP BY user_id) as r ON r.user_id = users.id
@@ -297,7 +297,7 @@ class Database:
                                                        FROM purchase
                                                        GROUP BY user_id) as p ON p.user_id = users.id
                                             LEFT JOIN (SELECT user_id, SUM(credit) AS paid
-                                                       FROM repayement
+                                                       FROM repayment
                                                        WHERE in_balance <> 0
                                                        GROUP BY user_id) as r ON r.user_id = users.id
                                    GROUP BY users.id
@@ -308,7 +308,7 @@ class Database:
 
     def register_new_repayment(self, userid: int, date: dt, credit: float, label: str,
                                is_cash: bool, in_balance: bool) -> bool:
-        return self.edit_query("INSERT INTO repayement (user_id, date, credit, label, is_cash,"
+        return self.edit_query("INSERT INTO repayment (user_id, date, credit, label, is_cash,"
                                "in_balance) VALUES"
                                "(:userid, :date, :credit, :label, :re, :al)",
                                {"userid": userid, "date": date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -317,22 +317,22 @@ class Database:
 
     def get_repayments(self) -> Optional[list]:
         r = self.connector.execute("""
-                                   SELECT repayement.id,
+                                   SELECT repayment.id,
                                           CONCAT(name, ' ', surname) as fullname,
                                           date,
                                           credit,
                                           label,
                                           is_cash,
                                           in_balance
-                                   FROM repayement
-                                            JOIN users ON repayement.user_id = users.id;
+                                   FROM repayment
+                                            JOIN users ON repayment.user_id = users.id;
                                    """)
         if r is None:
             return []
         return list(r)
 
     def delete_repayment(self, repayment_id: int) -> bool:
-        return self.edit_query("DELETE FROM repayement "
+        return self.edit_query("DELETE FROM repayment "
                                "WHERE id = :id",
                                {"id": repayment_id})
 
@@ -359,7 +359,7 @@ class Database:
         writer.writerows(list(r))
         writer.writerows([[], [], []])
         r = self.connector.execute(
-            "SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayement")
+            "SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayment")
         writer.writerow(["id", "user_id", "date", "credit", "label", "is_cash", "in_balance"])
         writer.writerows(list(r))
         logger.info(f"Finish creating a csv dump file")
