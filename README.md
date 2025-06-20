@@ -24,7 +24,7 @@ The package is then available in `dist/coffee_tag-*-py3-none-any.whl`
 
 ### Install python package
 
-Install linux dependencies `apt install python3-tk`. Then use the built package
+Install linux dependencies `apt install python3-tk python3-pillow libjpeg-dev`. Then use the built package
 `coffee_tag.whl`, and install it using `pip install ./coffee_tag.whl`, or
 with [pipx](https://github.com/pypa/pipx) using `pipx install ./coffee_tag.whl`.
 
