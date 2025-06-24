@@ -4,13 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coffee_tag"
-version = "0.4.3"
+version = "0.4.4"
 requires-python = ">=3.10"
 readme = "README.md"
 dependencies = [
     "tk",
     "Pillow",
-    "pandas",
     "RPi.GPIO",
     "quart",
     "quart-auth",
