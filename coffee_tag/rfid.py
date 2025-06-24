@@ -23,7 +23,7 @@ class RFIDReader:
 
         self.run = True
         self.future: Optional[Future] = None
-        self.timeout = 0.01
+        self.timeout = 10
         self.thread = threading.Thread(target=self.read_tag_thread)
         self.thread.start()
 
@@ -33,12 +33,12 @@ class RFIDReader:
                 card = input("card tag:")
             else:
                 try:
-                    card = str(self.pn532.read_passive_target(timeout=self.timeout))
+                    card = self.pn532.read_passive_target(timeout=self.timeout)
                 except Exception as e:
                     logger.exception(f"Error while reading tag {e}")
                     card = None
             if self.future is not None and not self.future.done() and card is not None:
-                self.future.set_result(card)
+                self.future.set_result(str(card))
 
     def get_rfid(self) -> Future[str]:
         if self.future is not None and not self.future.done():
