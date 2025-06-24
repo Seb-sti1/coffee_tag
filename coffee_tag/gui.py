@@ -151,7 +151,7 @@ async def UserMenuPopup(main: MainGUI, user: User):
 
     # A button to validate number of coffees to count
     def validate_input():
-        if entry.get().isdigit():
+        if entry.get().isdigit() and int(entry.get()) > 0:
             future.set_result(int(entry.get()))
             gui.destroy()
         else:
