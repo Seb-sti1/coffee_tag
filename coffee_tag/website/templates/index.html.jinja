@@ -17,16 +17,62 @@
     </style>
 </head>
 <body>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="m-5">
     <h1 class="text-center">☕ The U2IS Coffee Machine ☕</h1>
     <div class="d-flex flex-column justify-content-center align-items-center">
         <p class="fs-3 gap mt-2">We had <strong><span id="coffee-count">0</span></strong> coffees!</p>
-        <img style="{height: 20%}" src="{{ url_for('static', filename='cup.gif') }}" alt="coffee cup"/>
+        <div>
+            <canvas id="myChart" height="400" width="600"></canvas>
+        </div>
+        <img style="height: 200px" src="{{ url_for('static', filename='cup.gif') }}" alt="coffee cup"/>
     </div>
 </div>
+<script>
+    const labels = ["{{ last_coffee_totals|map(attribute=0)|join('", "') }}"];
+    const data = [{{ last_coffee_totals|map(attribute=1)|join(', ') }}];
+    const ctx = document.getElementById('myChart');
 
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '# of coffees',
+                data: data,
+                borderWidth: 1,
+                backgroundColor: "#5B3719"
+            }]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    grid: {
+                        display: false,
+                    },
+                    display: false,
+                    beginAtZero: true
+                },
+                x: {
+                    ticks: {
+                        color: "#c9a589",
+                    },
+                    grid: {
+                        display: false,
+                    },
+                }
+            }
+        }
+    });
+</script>
 <script>
     const target = parseInt("{{ total_coffees }}");
+
     const elem = document.getElementById("coffee-count");
     const duration = 1500; // ms
     const start = performance.now();

@@ -263,6 +263,15 @@ class Database:
         result = self.select_one("SELECT sum(nb_coffee) FROM purchase;", {})
         return None if result is None else result[0]
 
+    def get_last_ten_weeks_coffees(self) -> Optional[list[str, int]]:
+        result = self.connector.execute("""SELECT strftime('Week %W - %Y', date) as week,
+                                                  sum(nb_coffee)
+                                           FROM purchase
+                                           WHERE date >= DATE(DATE(), '-70 day')
+                                           GROUP BY week;""")
+        return None if result is None else list(result)
+
+
     async def auth_user(self, mail: str, password: str) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"

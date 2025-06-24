@@ -42,7 +42,10 @@ class Website:
 
     async def index(self):
         total_coffees = self.db.get_total_number_of_coffees()
-        return await render_template("index.html", total_coffees=total_coffees)
+        last_coffee_totals = self.db.get_last_ten_weeks_coffees()
+        return await render_template("index.html.jinja",
+                                     total_coffees=total_coffees,
+                                     last_coffee_totals=last_coffee_totals)
 
     async def login(self):
         if request.method == "POST":
