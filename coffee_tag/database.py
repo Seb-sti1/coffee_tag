@@ -327,7 +327,7 @@ class Database:
     def get_repayments(self) -> Optional[list]:
         r = self.connector.execute("""
                                    SELECT repayment.id,
-                                          CONCAT(name, ' ', surname) as fullname,
+                                          name || ' ' || surname as fullname,
                                           date,
                                           credit,
                                           label,
