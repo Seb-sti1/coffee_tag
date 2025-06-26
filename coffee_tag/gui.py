@@ -67,11 +67,15 @@ async def ChooseUserPopup(main: MainGUI, users: list[User]):
     found_lbl.pack(side="top", fill='x')
     txt_lbl = tk.Label(gui, text="Are you... ?", font='Helvetica 12 bold italic', fg='#c9a589', bg='#754c24')
     txt_lbl.pack(side="top", pady=10, fill='x')
+
+    def lambda_builder(u: User):
+        return lambda: [future.set_result(u), gui.destroy()]
+
     for i, user in enumerate(users):
         bt_lbl = tk.Button(gui, text=f"{user.name} {user.surname}",
                            font='Helvetica 12 bold', fg='#5b3719',
                            bg='#c9a589', height=1,
-                           width=18, command=lambda: [future.set_result(user), gui.destroy()])
+                           width=18, command=lambda_builder(user))
         bt_lbl.pack(side="top")
     add_bt_lbl = tk.Button(gui, text="Add me", font='Helvetica 12 bold', fg='#5b3719',
                            bg='#c9a589', height=1, width=10,
