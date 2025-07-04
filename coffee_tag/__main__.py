@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import logging
+import sys
+from logging.handlers import RotatingFileHandler
 
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
@@ -19,7 +21,13 @@ def main():
     parser.add_argument('--read-only', '-ro', action='store_true', help='Enable read only mode for the database')
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG)
+    fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+    rotating_handler = RotatingFileHandler("debug.log", maxBytes=10485760, backupCount=3)
+    rotating_handler.setFormatter(fmt)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(fmt)
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
+                        handlers=[rotating_handler, console_handler])
 
     db = Database(args.path, args.read_only, args.price)
     rfid = RFIDReader(args.dev)
