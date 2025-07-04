@@ -5,11 +5,26 @@ This readme mainly describes how to install and use this python package
 
 ## Production Setup
 
+### Initial configuration of the Raspberry PI
+
+When creating the image, select Raspberry PI 2 and choose the 32-bit desktop image.
+Also edit `/boot/firmware/config.txt` and change the following lines:
+```
+dtparam=i2c_arm=off
+dtparam=spi=off
+```
+
+Finally, to ensure the Raspberry PI 2 stays up to date (literally), add a cron task (with `crontab -e`):
+```cron
+0 1 * * * sudo date -s "$(wget --method=HEAD -qSO- --max-redirect=0 google.com 2>&1 | sed -n 's/^ *Date: *//p')"
+```
+
+
 ### Build this python package
 
 > [!tip]
 > The python package it automatically built when a branch is merged on main.
-> See all releases [here](https://gitlab.ensta.fr/toralba/coffee_tag/-/releases).
+> See all releases [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/releases).
 > See how to configure the CI [here](#gitlab-ci).
 
 To build the package, run the commands below
@@ -28,12 +43,17 @@ Install linux dependencies `apt install python3-tk python3-pillow libjpeg-dev`. 
 `coffee_tag.whl`, and install it using `pip install ./coffee_tag.whl`, or
 with [pipx](https://github.com/pypa/pipx) using `pipx install ./coffee_tag.whl`.
 
+> [!tip]
+> If this steps take lot of time, chances are there is dependency that is rebuilding on the Raspberry PI.
+> One way to find which one is to do `pip wheel -r requirements.txt` and find which dependencies are just download
+> and those that need to be recompiled.
+
 ### Launch Application
 
 If you have installed the package using pip, use `python3 -m coffee_tag`. If you used pipx, you can directly run
 `coffee_tag`.
 
-#### Alternative method (without python package)
+### Alternative method (without python package) (not recommended)
 
 If you don't want to build and install the python pacakge, you can install all the dependencies using pip:
 
@@ -54,14 +74,14 @@ python3 -m coffee_tag
 We encourage the use of environments, you can perform the following commands:
 
 ```bash
-apt install python3-tk # install the linux dependencies
+apt install python3-tk python3-pillow libjpeg-dev # install the linux dependencies
 python3 -m venv .venv # create a virtual env 
 source .venv/bin/activate # activate the virtual env (to do everytime)
 pip install -r requirements.txt # install dependencies
 ```
 
 > [!important]
-> Be sure to set the `DEV_MODE` variable to `True` in [coffee.py](coffee_tag/coffee.py)
+> Be sure to use the argument ` --dev ` variable to `True` in [coffee.py](coffee_tag/coffee.py)
 
 > [!tip]
 > If you have conda installed
@@ -71,18 +91,18 @@ pip install -r requirements.txt # install dependencies
 > pip install -r requirements.txt
 > ```
 
-### Gitlab CI
+## Gitlab CI
 
-#### Gitlab Runner
+### Gitlab Runner
 
 The DSI (IT service) doesn't provide any runners on the GitLab. I (Sébastien Kerbourc'h) added DaTA's one (computer
 science club).
 
-#### Automated release configuration
+### Automated release configuration
 
-Create a token [here](https://gitlab.ensta.fr/toralba/coffee_tag/-/settings/access_tokens) with the permission
+Create a token [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/access_tokens) with the permission
 `api`, `write_repository` with the role `Developer`, then create the variable
-`RELEASE_TOKEN` [here](https://gitlab.ensta.fr/toralba/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
+`RELEASE_TOKEN` [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
 
 ## Docs
 
