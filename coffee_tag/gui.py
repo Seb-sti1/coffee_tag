@@ -18,250 +18,250 @@ from coffee_tag.rfid import RFIDReader
 logger = logging.getLogger(__name__)
 
 
-def setup_popup(main: MainGUI,
-                title: str, size: str) -> Tuple[tk.Toplevel, Future]:
-    future = asyncio.get_event_loop().create_future()
-    gui = tk.Toplevel(main.tk)
-    gui.protocol("WM_DELETE_WINDOW", lambda: [future.set_result(None), gui.destroy()])
-    gui.transient(main.tk)
-    gui.grab_set()
-    gui.geometry(size)
-    gui.title(title)
-    gui['bg'] = '#754c24'
-    gui.resizable(height=False, width=False)
-    main.opened_popup.append(gui)
-    return gui, future
+class AbstractUI:
 
+    def __init__(self, main: MainGUI, title: str, w: int, h: int):
+        self.future = asyncio.get_event_loop().create_future()
+        self.main = main
+        self.gui = tk.Toplevel(main.tk)
+        self.gui.protocol("WM_DELETE_WINDOW", lambda: [self.future.set_result(None), self.gui.destroy()])
+        self.gui.transient(main.tk)
+        self.gui.grab_set()
+        self.gui.geometry(f"{w}x{h}")
+        self.gui.title(title)
+        self.gui['bg'] = '#754c24'
+        self.gui.resizable(height=False, width=False)
+        self.w = w
+        self.h = h
+        main.opened_popup.append(self)
 
-# TODO https://www.geeksforgeeks.org/autocmplete-combobox-in-python-tkinter/
-async def ManualEntryPopup(main: MainGUI):
-    gui, future = setup_popup(main, "Manual identification", '280x140')
-    lbl = tk.Label(gui, text="What is your name ?",
-                   font='Helvetica 14 bold italic', fg="white", bg='#754c24')
-    lbl.pack(side="top", pady=10, fill='x')
-    entry = tk.Entry(gui, font='Helvetica 14')
-    entry.focus_set()
-    entry.pack(side="top")
-    bt_label = tk.Button(gui, text="Find me !", font='Helvetica 12 bold', fg='#5b3719', bg='#c9a589',
-                         command=lambda: [future.set_result(entry.get()), gui.destroy()])
-    bt_label.pack(side="bottom", pady=10)
-    return await future
+    def is_opened(self) -> bool:
+        return self.gui.winfo_exists()
 
-
-async def OneButtonPopup(main: MainGUI,
-                         title: str, message: str, button_msg: str) -> Optional[bool]:
-    gui, future = setup_popup(main, title, '260x200')
-    msg_lbl = tk.Label(gui, text=message, wraplength=240, justify="center", font='Helvetica 12 bold italic',
-                       fg='white', bg='#754c24')
-    msg_lbl.pack(side="top", pady=10, fill='x')
-    bt_lbl = tk.Button(gui, text=button_msg, font='Helvetica 16 bold', fg='#5b3719', bg='#c9a589', height=2, width=4,
-                       command=lambda: [future.set_result(True), gui.destroy()])
-    bt_lbl.pack(side="top", pady=20)
-    return await future
-
-
-async def ChooseUserPopup(main: MainGUI, users: list[User]):
-    gui, future = setup_popup(main, "Choose", f"300x{210 + 40 * len(users)}+247+120")
-    found_lbl = tk.Label(gui, text=f"I found {len(users)} results",
-                         font='Helvetica 14 bold', fg='#c9a589', bg='#754c24')
-    found_lbl.pack(side="top", fill='x')
-    txt_lbl = tk.Label(gui, text="Are you... ?", font='Helvetica 12 bold italic', fg='#c9a589', bg='#754c24')
-    txt_lbl.pack(side="top", pady=10, fill='x')
-
-    def lambda_builder(u: User):
-        return lambda: [future.set_result(u), gui.destroy()]
-
-    for i, user in enumerate(users):
-        bt_lbl = tk.Button(gui, text=f"{user.name} {user.surname}",
-                           font='Helvetica 12 bold', fg='#5b3719',
-                           bg='#c9a589', height=1,
-                           width=18, command=lambda_builder(user))
-        bt_lbl.pack(side="top")
-    add_bt_lbl = tk.Button(gui, text="Add me", font='Helvetica 12 bold', fg='#5b3719',
-                           bg='#c9a589', height=1, width=10,
-                           command=lambda: [future.set_result("add_user"),
-                                            gui.destroy()])
-    add_bt_lbl.pack(side="top")
-    return await future
-
-
-async def UserNotFoundPopup(main: MainGUI, is_by_badge: bool):
-    gui, future = setup_popup(main, "Sorry", '270x230' if is_by_badge else '200x200')
-    sorry_lbl = tk.Label(gui, text="Sorry !", font='Helvetica 22 bold', fg="white", bg='#754c24')
-    sorry_lbl.pack(side="top", pady=10, fill='x')
-    txt_lbl = tk.Label(gui, text="I could not find you",
-                       font='Helvetica 12 bold italic', fg='#c9a589', bg='#754c24')
-    txt_lbl.pack(side="top", fill='x')
-    if is_by_badge:
-        exist_txt_lbl = tk.Label(gui, text="Former user with new badge ?",
-                                 font='Helvetica 12 bold italic', fg='white', bg='#754c24')
-        exist_txt_lbl.pack(side="top", pady=10, fill='x')
-        bis_bt_lbl = tk.Button(gui, text="Synchronize", font='Helvetica 12 bold',
-                               fg='#5b3719', bg='#c9a589', height=1, width=14,
-                               command=lambda: [future.set_result("sync_badge"), gui.destroy()])
-        bis_bt_lbl.pack(side="top")
-    else:
-        bis_bt_lbl = tk.Button(gui, text="Try again", font='Helvetica 12 bold',
-                               fg='#5b3719', bg='#c9a589', height=1, width=10,
-                               command=lambda: [future.set_result("try_again"), gui.destroy()])
-        bis_bt_lbl.pack(side="top", pady=10)
-    add_bt_lbl = tk.Button(gui, text="Add me", font='Helvetica 12 bold', fg='#5b3719',
-                           bg='#c9a589', height=1, width=10,
-                           command=lambda: [future.set_result("add_new_user"), gui.destroy()])
-    add_bt_lbl.pack(side="top")
-    return await future
-
-
-async def UserMenuPopup(main: MainGUI, user: User):
-    gui, future = setup_popup(main, "Your account", "420x370")
-    welcome_lbl = tk.Label(gui, text=f"Hello {user}!", font='Helvetica 22 bold', fg="white", bg='#754c24')
-    welcome_lbl.pack(side="top", pady=10, fill='x')
-    txt_lbl = tk.Label(gui, text="Your balance is currently",
-                       font='Helvetica 15', fg='#c9a589', bg='#754c24')
-    txt_lbl.pack(side="top")
-    amount_lbl = tk.Label(gui, text=f"{-user.get_user_balance()} €", font='Helvetica 22 bold', fg="white", bg='#754c24')
-    amount_lbl.pack(side="top", pady=10, fill='x')
-    last_coffee = user.get_last_coffee()
-    if last_coffee is not None:
-        info_time_lbl = tk.Label(gui,
-                                 text=f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
-                                 font='Helvetica 15', fg='#c9a589', bg='#754c24')
-        info_time_lbl.pack(side="top", fill='x')
-    coffee_lbl = tk.Label(gui, text="How many coffees will you take ?",
-                          font='Helvetica 15', fg='#c9a589', bg='#754c24')
-    coffee_lbl.pack(side="top")
-    # Create entry and buttons to set the amount of coffee
-    entry = tk.Entry(gui, width=3, font='Helvetica 15 bold')
-    entry.delete(0, tk.END)
-    entry.insert(0, "1")
-    entry.focus_set()
-    entry.place(x=193, y=227)
-
-    def update_entry(add: bool):
-        coffee_count = 1
-        if entry.get().isdigit():
-            coffee_count = int(entry.get())
-            coffee_count += 1 if add else -1
-            coffee_count = max(1, coffee_count)
-        entry.delete(0, tk.END)
-        entry.insert(0, str(coffee_count))
-
-    incr_bt_lbl = tk.Button(gui, text="►", font='Helvetica 25', fg='#5b3719', bg='#c9a589',
-                            height=1, width=1, command=lambda: update_entry(True))
-    incr_bt_lbl.place(x=255, y=215)
-    incr_bt_lbl = tk.Button(gui, text="◄", font='Helvetica 25', fg='#5b3719', bg='#c9a589',
-                            height=1, width=1, command=lambda: update_entry(False))
-    incr_bt_lbl.place(x=115, y=215)
-
-    # A button to validate number of coffees to count
-    def validate_input():
-        if entry.get().isdigit() and int(entry.get()) > 0:
-            future.set_result(int(entry.get()))
-            gui.destroy()
+    def add_label(self, text: str, **kwargs) -> tk.Label:
+        defaults = {"font": "Helvetica 14", "fg": "white", "bg": "#754c24",
+                    "justify": "center", "side": "top", "pady": 10, "fill": "x", "x": 0,
+                    "wraplength": self.w - 20, "text": text}
+        exclude_keys = ["x", "y", "side", "pady", "fill"]
+        kwargs = {**defaults, **kwargs}
+        lbl = tk.Label(self.gui, **{k: kwargs[k] for k in kwargs.keys() if k not in exclude_keys})
+        if "x" in kwargs and "y" in kwargs:
+            lbl.place(x=kwargs["x"], y=kwargs["y"])
         else:
-            entry.delete(0, tk.END)
-            entry.insert(0, str(1))
+            lbl.pack(side=kwargs["side"], pady=kwargs["pady"], fill=kwargs["fill"])
+        return lbl
 
-    bt_lbl = tk.Button(gui, text="OK", font='Helvetica 14 bold', fg='#5b3719', bg='#c9a589',
-                       height=2, width=2, command=validate_input)
-    bt_lbl.place(x=185, y=275)
-    return await future
+    def add_entry(self, **kwargs) -> tk.Entry:
+        font = kwargs["font"] if "font" in kwargs else "Helvetica 14"
+        side = kwargs["side"] if "side" in kwargs else "top"
+        width = kwargs["width"] if "width" in kwargs else None
+        text_var = tk.StringVar(value=kwargs["value"]) if "value" in kwargs else tk.StringVar()
 
+        if "on_text_change" in kwargs:
+            def on_text_change(*_):
+                kwargs["on_text_change"](text_var)
 
-async def AskConfirmationPopup(main: MainGUI,
-                               title: str,
-                               question: str):
-    gui, future = setup_popup(main, title, "220x220")
-    warning_lbl = tk.Label(gui, text=question, wraplength=220, justify="center", font='Helvetica 22 bold', fg="white",
-                           bg='#754c24')
-    warning_lbl.pack(side="top", pady=10, fill='x')
-    # Buttons
-    yes_bt_lbl = tk.Button(gui, text="Yes", font='Helvetica 12 bold', fg='#5b3719', bg='#c9a589', height=1,
-                           width=10, command=lambda: [future.set_result(True), gui.destroy()])
-    yes_bt_lbl.pack(side="top", pady=10)
-    oops_bt_lbl = tk.Button(gui, text="Oops", font='Helvetica 12 bold', fg='#5b3719', bg='#c9a589', height=1,
-                            width=10, command=lambda: [future.set_result(False), gui.destroy()])
-    oops_bt_lbl.pack(side="top")
-    return await future
+            text_var.trace_add("write", on_text_change)
+        entry = tk.Entry(self.gui, font=font, textvariable=text_var, width=width)
+        entry.focus_set()
+        if "x" in kwargs and "y" in kwargs:
+            entry.place(x=kwargs["x"], y=kwargs["y"])
+        else:
+            entry.pack(side=side)
+        return entry
 
-
-async def ThanksPopup(main: MainGUI, user):
-    gui, future = setup_popup(main, "Thank you!", "320x230")
-    welcome_lbl = tk.Label(gui, text=f"Thank you {user},", wraplength=280, justify="center",
-                           font='Helvetica 22 bold', fg="white", bg='#754c24')
-    welcome_lbl.pack(side="top", pady=10, fill='x')
-    txt_lbl = tk.Label(gui, text="Your balance is now", font='Helvetica 15', fg='#c9a589', bg='#754c24')
-    txt_lbl.pack(side="top")
-    amount_lbl = tk.Label(gui, text=f"{-user.get_user_balance()} €", font='Helvetica 22 bold', fg="white",
-                          bg='#754c24')
-    amount_lbl.pack(side="top", pady=10, fill='x')
-    # automatic close
-    closing_lbl = tk.Label(gui, text=f"Closing window in 5 seconds...",
-                           font='Helvetica 12 bold italic', fg="white", bg='#754c24')
-    closing_lbl.pack(side="top", fill='x', pady=10)
-    for i in range(5, -1, -1):
-        if future.done():
-            return await future
-        closing_lbl.config(text=f"Closing window in {i} seconds...")
-        gui.update()
-        await asyncio.sleep(1)
-    future.set_result(None)
-    gui.destroy()
-    return await future
+    def add_button(self, text: str, callback: Callable, **kwargs) -> tk.Button:
+        font = kwargs["font"] if "font" in kwargs else "Helvetica 14"
+        fg = kwargs["fg"] if "fg" in kwargs else "#5b3719"
+        bg = kwargs["bg"] if "bg" in kwargs else "#c9a589"
+        height = kwargs["height"] if "height" in kwargs else 3
+        width = kwargs["width"] if "width" in kwargs else 15
+        side = kwargs["side"] if "side" in kwargs else "bottom"
+        pady = kwargs["pady"] if "pady" in kwargs else 10
+        btn = tk.Button(self.gui, text=text, font=font, fg=fg, bg=bg, command=callback,
+                        height=height, width=width)
+        if "x" in kwargs and "y" in kwargs:
+            btn.place(x=kwargs["x"], y=kwargs["y"])
+        else:
+            btn.pack(side=side, pady=pady)
+        return btn
 
 
-async def AddNewUserPopup(main: MainGUI, rfid: RFIDReader,
-                          name: str, surname: str, nickname: str, mail: str, badge: str):
-    gui, future = setup_popup(main, "Add user", "650x350")
+class ManualEntry(AbstractUI):
 
-    txt_lbl = tk.Label(gui, text="Enter your data", font='Helvetica 16 bold', fg='#c9a589', bg='#754c24')
-    txt_lbl.pack(side="top", pady=10, fill='x')
-    # Name
-    name_lbl = tk.Label(gui, text="Name", font='Helvetica 12 bold italic', fg="white", bg='#754c24')
-    name_lbl.place(x=40, y=50)
-    name_entry = tk.Entry(gui, textvariable=tk.StringVar(value=name), width=20, font='Helvetica 12')
-    name_entry.focus_set()
-    name_entry.place(x=40, y=80)
-    # Surname
-    surname_lbl = tk.Label(gui, text="Surname", font='Helvetica 12 bold italic', fg="white", bg='#754c24')
-    surname_lbl.place(x=40, y=110)
-    surname_entry = tk.Entry(gui, textvariable=tk.StringVar(value=surname), width=20, font='Helvetica 12')
-    surname_entry.place(x=40, y=140)
-    # Nickname
-    nickname_lbl = tk.Label(gui, text="Nickname (optional)", font='Helvetica 12 bold italic', fg="white", bg='#754c24')
-    nickname_lbl.place(x=40, y=170)
-    nickname_entry = tk.Entry(gui, textvariable=tk.StringVar(value=nickname), width=20, font='Helvetica 12')
-    nickname_entry.place(x=40, y=200)
-    # Mail
-    mail_lbl = tk.Label(gui, text="E-mail address", font='Helvetica 12 bold italic', fg="white", bg='#754c24')
-    mail_lbl.place(x=250, y=50)
-    mail_entry = tk.Entry(gui, textvariable=tk.StringVar(value=mail), width=35, font='Helvetica 12')
-    mail_entry.place(x=250, y=80)
-    # Badge
-    badge_txt_lbl = tk.Label(gui, text="Swipe your ENSTA badge if you have one to synchronize it with your profile",
-                             wraplength=320, font='Helvetica 12 bold italic', fg='#c9a589', bg='#754c24')
-    badge_txt_lbl.place(x=250, y=140)
-    # Create a dynamic label displaying current badge code
-    badge_lbl = tk.Label(gui, text=badge, width=35, font='Helvetica 12 bold', fg="white", bg='#754c24', borderwidth=1,
-                         highlightthickness=1)
-    badge_lbl.place(x=250, y=200)
-    card_future = [rfid.get_rfid()]  # use array to shit and have a kind of pointer
+    def __init__(self, main: MainGUI, search_user: Callable[[str], list[User]]):
+        super().__init__(main, "Manual identification", 650, 400)
+        self.grid_size = (200, 60)  # shift in x and y
+        self.grid_counts = (3, 5)  # number of columns and rows
+        self.search_user = search_user
+        self.add_label("What is your name ?", font="Helvetica 14 bold italic")
+        self.entry = self.add_entry(on_text_change=self.on_text_change)
+        self.add_button("Create new user", self.btn_callback, x=475, y=25, width=14, height=2)
+        self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg="#c9a589")
+        self.choices: list[tk.Button] = []
 
-    def read_card_callback(f: Future[str]):
-        if not future.done():  # check if the windows is still open
-            badge_lbl.config(text=f.result())
-            card_future[0] = rfid.get_rfid()
-            card_future[0].add_done_callback(read_card_callback)
+    def on_text_change(self, text_var: tk.StringVar):
+        for b in self.choices:
+            b.place_forget()
+        self.choices = []
+        self.gui.update()
+        if len(text_var.get()) == 0:
+            if self.label is None:
+                self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg="#c9a589")
+                return
+        elif self.label is not None:
+            self.label.pack_forget()
+            self.label = None
 
-    card_future[0].add_done_callback(read_card_callback)
-    # Submit button
-    add_bt_lbl = tk.Button(gui, text="OK", font='Helvetica 16 bold', fg='#5b3719', bg='#c9a589', height=2, width=4,
-                           command=lambda: [future.set_result((name_entry.get(), surname_entry.get(),
-                                                               nickname_entry.get(), mail_entry.get(),
-                                                               badge_lbl.cget("text"))),
-                                            gui.destroy()])
-    add_bt_lbl.place(x=290, y=250)
-    return await future
+        def wrapper_select_user(user: User):
+            def select_user():
+                self.future.set_result(user)
+                self.gui.destroy()
+
+            return select_user
+
+        for idx, u in zip(range(self.grid_counts[0] * self.grid_counts[1]), self.search_user(text_var.get())):
+            x, y = (35 + self.grid_size[0] * (idx // self.grid_counts[1]),
+                    85 + self.grid_size[1] * (idx % self.grid_counts[1]))
+
+            self.choices.append(self.add_button(f"{u}", wrapper_select_user(u), width=15, height=2, x=x, y=y))
+
+    def btn_callback(self):
+        self.future.set_result("add_user")
+        self.gui.destroy()
+
+    def get_future(self) -> Future[Optional[User | str]]:
+        return self.future
+
+
+class GeneralUI(AbstractUI):
+
+    def __init__(self, main: MainGUI,
+                 title: str,
+                 w: int, h: int,
+                 sub_text: Optional[str] = None,
+                 main_text: Optional[str] = None,
+                 button_one: Optional[str] = None,
+                 button_two: Optional[str] = None,
+                 should_close_in_5: bool = False):
+        super().__init__(main, title, w, h)
+        self.add_label(title, font='Helvetica 22 bold')
+        if sub_text:
+            self.add_label(sub_text, fg="#c9a589", font='Helvetica 12 bold italic', pady=None)
+        if main_text:
+            self.add_label(main_text, font='Helvetica 16 bold')
+        if button_one:
+            self.add_button(button_one, self.btn_one_callback, side="top", font='Helvetica 12 bold')
+        if button_two:
+            self.add_button(button_two, self.btn_two_callback, side="top", font='Helvetica 12 bold')
+        if should_close_in_5:
+            self.closing_lbl = self.add_label("Closing window in 5 seconds...",
+                                              font='Helvetica 12 bold italic',
+                                              fg="#c9a589")
+
+    def btn_one_callback(self):
+        self.future.set_result(True)
+        self.gui.destroy()
+
+    def btn_two_callback(self):
+        self.future.set_result(False)
+        self.gui.destroy()
+
+    async def get_future_with_autoclosing(self) -> Future[Optional[bool]]:
+        for i in range(5, -1, -1):
+            if self.future.done():
+                break
+            self.closing_lbl.config(text=f"Closing window in {i} seconds...")
+            self.gui.update()
+            await asyncio.sleep(1)
+        self.future.set_result(None)
+        self.gui.destroy()
+        return self.get_future()
+
+    def get_future(self) -> Future[Optional[bool]]:
+        return self.future
+
+
+class UserMenu(AbstractUI):
+    def __init__(self, main: MainGUI, user: User):
+        super().__init__(main, "Your account", 420, 370)
+        self.add_label(f"Hello {user}!", font='Helvetica 22 bold')
+        self.add_label("Your balance is currently", font='Helvetica 15', fg='#c9a589',
+                       pady=None, fill=None)
+        self.add_label(f"{-user.get_user_balance()} €", font='Helvetica 22 bold')
+        last_coffee = user.get_last_coffee()
+        if last_coffee is not None:
+            self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
+                           font='Helvetica 15', fg='#c9a589', pady=None)
+        self.add_label("How many coffees will you take ?", font='Helvetica 15', fg='#c9a589', pady=None, fill=None)
+        self.entry = self.add_entry(width=3, font='Helvetica 15 bold', x=193, y=227)
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, "1")
+        self.add_button("►", lambda: self.update_entry(True), font='Helvetica 25', height=1, width=1, x=255, y=215)
+        self.add_button("◄", lambda: self.update_entry(False), font='Helvetica 25', height=1, width=1, x=115, y=215)
+        self.add_button("OK", self.validate_entry, font='Helvetica 14 bold', height=2, width=2, x=185, y=275)
+
+    def get_current_entry_value(self) -> Optional[int]:
+        if self.entry.get().isdigit() and int(self.entry.get()) > 0:
+            return int(self.entry.get())
+        return None
+
+    def validate_entry(self):
+        current = self.get_current_entry_value()
+        if current is None:
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, str(1))
+        else:
+            self.future.set_result(current)
+            self.gui.destroy()
+
+    def update_entry(self, add: bool):
+        current = self.get_current_entry_value()
+        if current is None:
+            current = 1
+        else:
+            current += 1 if add else -1
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, str(current))
+
+    def get_future(self) -> Future[Optional[int]]:
+        return self.future
+
+
+class AddNewUser(AbstractUI):
+    def __init__(self, main: MainGUI, rfid: RFIDReader,
+                 name: str, surname: str, nickname: str, mail: str, badge: str):
+        super().__init__(main, "Add user", 650, 350)
+        self.rfid = rfid
+        self.entries = []
+        self.add_label("Enter your data", font='Helvetica 16 bold', fg='#c9a589')
+        self.add_label("Name", font='Helvetica 12 bold italic', x=40, y=50)
+        self.entries.append(self.add_entry(value=name, width=20, font='Helvetica 12', x=40, y=80))
+        self.add_label("Surname", font='Helvetica 12 bold italic', x=40, y=110)
+        self.entries.append(self.add_entry(value=surname, width=20, font='Helvetica 12', x=40, y=140))
+        self.add_label("Nickname (optional)", font='Helvetica 12 bold italic', x=40, y=170)
+        self.entries.append(self.add_entry(value=nickname, width=20, font='Helvetica 12', x=40, y=200))
+        self.add_label("E-mail address", font='Helvetica 12 bold italic', x=250, y=50)
+        self.entries.append(self.add_entry(value=mail, width=35, font='Helvetica 12', x=250, y=80))
+        self.add_label("Swipe your ENSTA badge or a RFID tag", font='Helvetica 12 bold italic', x=250, y=110)
+        self.badge_lbl = self.add_label(badge, width=35, font='Helvetica 12', borderwidth=1, highlightthickness=1,
+                                        x=250, y=140)
+        self.card_future = rfid.get_rfid()
+        self.card_future.add_done_callback(self.read_card_callback)
+        self.add_button("OK", self.submit_callback, font='Helvetica 16 bold', height=2, width=4, x=290, y=250)
+
+    def read_card_callback(self, f: Future[str]):
+        if not self.future.done():  # check if the windows is still open
+            self.badge_lbl.config(text=f.result())
+            self.card_future = self.rfid.get_rfid()
+            self.card_future.add_done_callback(self.read_card_callback)
+
+    def submit_callback(self):
+        self.future.set_result((*[e.get() for e in self.entries], self.badge_lbl.cget("text")))
+        self.gui.destroy()
+
+    def get_future(self) -> Future[Optional[Tuple]]:
+        return self.future
 
 
 class MainGUI:
@@ -358,18 +358,33 @@ async def show_gui(path: str, price: float):
     asyncio.set_event_loop(loop)
     loop.create_task(tk_loop())
 
-    loop.create_task(ManualEntryPopup(gui))
-    loop.create_task(ChooseUserPopup(gui, users))
+    async def wrapper(entity, **args):
+        return await entity(**args).get_future()
 
-    loop.create_task(OneButtonPopup(gui, "This is the title",
-                                    "This is the message", "This is the button"))
-    loop.create_task(UserNotFoundPopup(gui, True))
-    loop.create_task(UserNotFoundPopup(gui, False))
+    loop.create_task(wrapper(ManualEntry, main=gui, search_user=db.search_by_name))
+    loop.create_task(wrapper(GeneralUI, main=gui, title="This is the title",
+                             w=260, h=200,
+                             top_text="This is the message", button_one="This is the button"))
+    loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
+                             w=200, h=250,
+                             sub_text="I could not find you",
+                             button_one="Try again",
+                             button_two="Add me"))
+    loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
+                             w=350, h=290,
+                             sub_text="I could not find you",
+                             main_text="Former user with new badge?",
+                             button_one="Synchronize",
+                             button_two="Add me"))
+    loop.create_task(wrapper(GeneralUI, main=gui, title=f"Thank you {users[0]}!",
+                             w=320, h=230,
+                             sub_text="Your balance is now",
+                             main_text=f"{-users[0].get_user_balance()} €",
+                             should_close_in_5=True))
+    loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
+    loop.create_task(wrapper(AddNewUser, main=gui, rfid=rfid, name="", surname="", nickname="", mail="", badge=""))
 
-    loop.create_task(AskConfirmationPopup(gui, "This is the title", "This is the question"))
-    loop.create_task(ThanksPopup(gui, users[0]))
+    async def trigger_update():
+        gui.tk.update()
 
-    loop.create_task(UserMenuPopup(gui, users[0]))
-
-    loop.create_task(AddNewUserPopup(gui, rfid, "", "", "", "", ""))
-    loop.create_task(asyncio.sleep(99999999999999))
+    loop.create_task(trigger_update())

@@ -8,8 +8,7 @@ import re
 from typing import Optional
 
 from coffee_tag.database import User, Database
-from coffee_tag.gui import OneButtonPopup, ChooseUserPopup, UserNotFoundPopup, ManualEntryPopup, MainGUI, UserMenuPopup, \
-    AskConfirmationPopup, ThanksPopup, AddNewUserPopup
+from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, AddNewUser
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -39,11 +38,11 @@ class CoffeeManager:
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
-            while any(map(lambda w: w and w.winfo_exists(), self.root_gui.opened_popup)):
+            while any(map(lambda w: w and w.is_opened(), self.root_gui.opened_popup)):
                 await asyncio.sleep(1)
-            self.root_gui.opened_popup = list(filter(lambda w: w and w.winfo_exists(), self.root_gui.opened_popup))
+            self.root_gui.opened_popup = list(filter(lambda w: w and w.is_opened(), self.root_gui.opened_popup))
             card = await self.rfid.get_rfid()
-            if card is None or any(map(lambda w: w and w.winfo_exists(), self.root_gui.opened_popup)):
+            if card is None or any(map(lambda w: w and w.is_opened(), self.root_gui.opened_popup)):
                 logger.info(f"GUI already opened ignoring tag {card}...")
                 continue
             else:
@@ -54,54 +53,32 @@ class CoffeeManager:
         user = self.db.get_user_by_rfid(card)
         if user is None:
             logger.info(f"No user account with badge {card}.")
-            action = await UserNotFoundPopup(self.root_gui, True)
-            if action == "sync_badge":
+            should_sync = await GeneralUI(self.root_gui, "Sorry!", 350, 290,
+                                          "I could not find you", "Former user with new badge?",
+                                          "Synchronize", "Add me").get_future()
+            if should_sync:
                 user = await self.get_user_by_manual_search()
                 if user is not None:
                     self.db.sync_badge(user, card)
-                    await OneButtonPopup(self.root_gui, "Welcome back!",
-                                         "Your badge has been successfully linked to your account",
-                                         "Ok")
-            elif action == "try_again":
-                logger.error(f"Returned try_again action in get_user_by_rfid_and_open_account: this is not possible")
-                self.loop.create_task(self.manual_search_and_open_account())
-            elif action == "add_new_user":
+                    await GeneralUI(self.root_gui, "Welcome back!",
+                                    260, 200,
+                                    main_text="Your badge has been successfully linked to your account",
+                                    button_one="Ok").get_future()
+            elif should_sync is False:
                 self.loop.create_task(self.add_new_user())
         else:
             logger.info(f"Opening {user.name} {user.surname} account.")
             self.loop.create_task(self.open_user_account(user))
 
     async def get_user_by_manual_search(self) -> Optional[User]:
-        users = None
-        while users is None:
-            user_input = await ManualEntryPopup(self.root_gui)
-            if user_input is None:
-                return None
-            elif user_input == "":
-                await OneButtonPopup(self.root_gui,
-                                     title="Missing name",
-                                     message="Well...\nYou must provide at least your name, surname or nickname",
-                                     button_msg="Ok")
-            else:
-                logger.info(f"Searching for users by name '{user_input}'")
-                users = self.db.search_by_name(user_input)
-
-        if len(users) == 0:
-            action = await UserNotFoundPopup(self.root_gui, False)
-            if action == "sync_badge":
-                logger.error(f"Returned syn_badge action in get_user_by_manual_search: this is not possible")
-            elif action == "try_again":
-                return await self.get_user_by_manual_search()
-            elif action == "add_new_user":
-                self.loop.create_task(self.add_new_user())
-        else:
-            logger.info(f"Found {len(users)}: {', '.join([str(u) for u in users])}")
-            user = await ChooseUserPopup(self.root_gui, users)
+        user = await ManualEntry(self.root_gui, self.db.search_by_name).get_future()
+        if user is None:
+            return None
+        if type(user) == str:
             if user == "add_user":
                 self.loop.create_task(self.add_new_user())
-            else:
-                return user
-        return None
+            return None
+        return user
 
     async def manual_search_and_open_account(self) -> None:
         user = await self.get_user_by_manual_search()
@@ -112,18 +89,22 @@ class CoffeeManager:
         return None
 
     async def open_user_account(self, user: User) -> None:
-        coffee_bought = await UserMenuPopup(self.root_gui, user)
+        coffee_bought = await UserMenu(self.root_gui, user).get_future()
         if coffee_bought is None:
             return None
         if coffee_bought > 9:
-            validate = await AskConfirmationPopup(self.root_gui, "Wow, are you sure?",
-                                                  f"Do you confirm buying {coffee_bought} coffee?")
+            validate = await GeneralUI(self.root_gui, "Wow, are you sure?",
+                                       260, 250,
+                                       main_text=f"Do you confirm buying {coffee_bought} coffee?",
+                                       button_one="Yes", button_two="Oops").get_future()
             if validate is None or validate is False:
                 return None
         logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
         if self.db.buy_coffees(user, coffee_bought):
             logger.info("This was saved in db.")
-            await ThanksPopup(self.root_gui, user)
+            await GeneralUI(self.root_gui, f"Thank you {user}!", 320, 230, "Your balance is now",
+                            f"{-user.get_user_balance()} €",
+                            should_close_in_5=True).get_future_with_autoclosing()
         else:
             logger.error("Couldn't save in db!")
         return None
@@ -132,35 +113,40 @@ class CoffeeManager:
         valid = False
         name, surname, nickname, mail, badge = "", "", "", "", ""
         while not valid:
-            user_info = await AddNewUserPopup(self.root_gui, self.rfid, name, surname, nickname, mail, badge)
+            user_info = await AddNewUser(self.root_gui, self.rfid, name, surname, nickname, mail, badge).get_future()
             if user_info is None:
                 return None
             name, surname, nickname, mail, badge = user_info
             if name == "" or surname == "" or mail == "":
-                await OneButtonPopup(self.root_gui, "Fill all the required field.",
-                                     "You must provide at least your name, surname and mail.",
-                                     "Ok")
+                await GeneralUI(self.root_gui, "Fill all the required field.",
+                                320, 250,
+                                main_text="You must provide at least your name, surname and mail.",
+                                button_one="Ok").get_future()
             elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', mail):
-                await OneButtonPopup(self.root_gui, "Your mail is not valid.",
-                                     "Please provide a valid mail.",
-                                     "Ok")
+                await GeneralUI(self.root_gui, "Your mail is not valid.",
+                                320, 250,
+                                main_text="Please provide a valid mail.",
+                                button_one="Ok").get_future()
             elif not self.db.check_duplicate(name, surname, mail, badge):
-                await OneButtonPopup(self.root_gui, "Account already exists.",
-                                     "An account with this name and surname or mail or badge id already exists.",
-                                     "Ok")
+                await GeneralUI(self.root_gui, "Account already exists.",
+                                320, 250,
+                                main_text="An account with this name and surname or mail or badge id already exists.",
+                                button_one="Ok").get_future()
             else:
                 valid = True
         logger.info(f"Creating profile '{name}' '{surname}' '{nickname}' '{mail}' '{badge}'")
         self.db.register_new_user(name, surname, nickname, mail, badge)
         user = self.db.get_user_by_mail(mail)
         if user is not None:
-            await OneButtonPopup(self.root_gui, f"Welcome {str(user)}!",
-                                 "Your profile is now created!",
-                                 "Ok")
+            await GeneralUI(self.root_gui, f"Welcome {str(user)}!",
+                            320, 250,
+                            main_text="Your profile is now created!",
+                            button_one="Ok").get_future()
         else:
-            await OneButtonPopup(self.root_gui, f"Oops...",
-                                 "An unexpected error occurred while creating your profile!",
-                                 "Ok")
+            await GeneralUI(self.root_gui, "Oops...",
+                            320, 250,
+                            main_text="An unexpected error occurred while creating your profile!",
+                            button_one="Ok").get_future()
         return None
 
     def stop(self):
