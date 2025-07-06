@@ -19,7 +19,8 @@ class CoffeeManager:
     def __init__(self, db: Database, rfid: RFIDReader):
         self.db = db
         self.rfid = rfid
-        self.root_gui = MainGUI(self, self.db.coffee_price)
+        self.root_gui = MainGUI(self.__main_gui_callback__,
+                                self.db.coffee_price)
         self.rfid_can_open_menu = True
 
         self.loop = asyncio.get_event_loop()
@@ -27,6 +28,9 @@ class CoffeeManager:
 
         self.loop.create_task(self.listen_to_card_reader())
         self.loop.create_task(self.tk_loop())
+
+    def __main_gui_callback__(self):
+        self.loop.create_task(self.manual_search_and_open_account())
 
     async def tk_loop(self):
         while True:

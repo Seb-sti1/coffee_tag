@@ -7,7 +7,7 @@ import tkinter as tk
 from asyncio import Future
 from datetime import datetime as dt, timezone
 from itertools import count  # Islice for list iteration not starting at 0
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Callable
 
 from PIL import Image, ImageTk
 
@@ -266,10 +266,8 @@ async def AddNewUserPopup(main: MainGUI, rfid: RFIDReader,
 
 class MainGUI:
 
-    def __init__(self, manager, coffee_price: float):
+    def __init__(self, callback: Callable[[], None], coffee_price: float):
         self.opened_popup = []
-        self.manager = manager
-
         self.tk = tk.Tk()
         self.tk.geometry('800x480')
         self.tk.title('My wonderful coffee app')
@@ -293,8 +291,7 @@ class MainGUI:
         # Button label to manually check identity
         bt_lbl = tk.Button(self.tk, text="Can't read my badge ?", font='Helvetica 15 bold', fg='#5b3719',
                            bg='#c9a589', height=2, width=24,
-                           command=lambda: self.manager.loop.create_task(
-                               self.manager.manual_search_and_open_account()))
+                           command=callback)
         bt_lbl.pack(side="bottom", pady=20)
 
         # Add cup gif, To hide border, set borderwidth and highlightthickness to 0
