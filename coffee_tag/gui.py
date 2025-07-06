@@ -12,7 +12,7 @@ from typing import Tuple, Optional, Callable
 from PIL import Image, ImageTk
 
 from coffee_tag import media
-from coffee_tag.database import User
+from coffee_tag.database import User, Database
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -341,3 +341,35 @@ class ImageLabel(tk.Label):
             self.loc %= len(self.frames)
             self.config(image=self.frames[self.loc])
             self.after(self.delay, self.next_frame)
+
+
+async def show_gui(path: str, price: float):
+    rfid = RFIDReader(True)
+    db = Database(path, True, price)
+    users = db.search_by_name("ale")
+    gui = MainGUI(lambda: None, 0.25)
+
+    async def tk_loop():
+        while True:
+            gui.tk.update()
+            await asyncio.sleep(1 / 60)
+
+    loop = asyncio.get_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(tk_loop())
+
+    loop.create_task(ManualEntryPopup(gui))
+    loop.create_task(ChooseUserPopup(gui, users))
+
+    loop.create_task(OneButtonPopup(gui, "This is the title",
+                                    "This is the message", "This is the button"))
+    loop.create_task(UserNotFoundPopup(gui, True))
+    loop.create_task(UserNotFoundPopup(gui, False))
+
+    loop.create_task(AskConfirmationPopup(gui, "This is the title", "This is the question"))
+    loop.create_task(ThanksPopup(gui, users[0]))
+
+    loop.create_task(UserMenuPopup(gui, users[0]))
+
+    loop.create_task(AddNewUserPopup(gui, rfid, "", "", "", "", ""))
+    loop.create_task(asyncio.sleep(99999999999999))
