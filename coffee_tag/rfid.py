@@ -40,7 +40,7 @@ class RFIDReader:
             if self.future is not None and not self.future.done() and card is not None:
                 self.future.set_result(str(card))
 
-    def get_rfid(self) -> Future[str]:
+    def get_rfid(self) -> Future[Optional[str]]:
         if self.future is not None and not self.future.done():
             self.future.set_result(None)
         self.future = asyncio.get_event_loop().create_future()

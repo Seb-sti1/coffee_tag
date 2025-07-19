@@ -42,7 +42,9 @@ class CoffeeManager:
                 await asyncio.sleep(1)
             self.root_gui.opened_popup = list(filter(lambda w: w and w.is_opened(), self.root_gui.opened_popup))
             card = await self.rfid.get_rfid()
-            if card is None or any(map(lambda w: w and w.is_opened(), self.root_gui.opened_popup)):
+            if card is None:
+                continue
+            if any(map(lambda w: w and w.is_opened(), self.root_gui.opened_popup)):
                 logger.info(f"GUI already opened ignoring tag {card}...")
                 continue
             else:
