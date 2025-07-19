@@ -224,12 +224,14 @@ class Database:
                                "WHERE id = :user_id;",
                                {"card": card, "user_id": user.user_id})
 
-    def check_duplicate(self, name: str, surname: str, mail: str, badge: str):
+    def check_duplicate(self, name: str, surname: str, mail: str, badge: Optional[str]):
         """
         Returns if any user has the same (name, surname) or mail or badge
         """
-        r = self.select_one("SELECT id FROM users "
-                            "WHERE (name = :name AND surname = :surname) OR  mail = :mail OR id_badge = :badge",
+        r = self.select_one(f"SELECT id FROM users "
+                            "WHERE (name = :name AND surname = :surname) "
+                            "OR  mail = :mail "
+                            "OR (id_badge = :badge AND id_badge <> '')",
                             {"name": name, "surname": surname, "mail": mail, "badge": badge})
         return r is None
 
