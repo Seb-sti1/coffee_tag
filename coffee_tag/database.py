@@ -265,7 +265,7 @@ class Database:
         result = self.select_one("SELECT sum(nb_coffee) FROM purchase;", {})
         return None if result is None else result[0]
 
-    def get_last_ten_weeks_coffees(self) -> Optional[list[str, int]]:
+    def get_last_ten_weeks_coffees(self) -> Optional[list[Tuple[str, int]]]:
         result = self.connector.execute("""SELECT strftime('Week %W - %Y', date) as week,
                                                   sum(nb_coffee)
                                            FROM purchase
