@@ -8,7 +8,7 @@ import re
 from typing import Optional
 
 from coffee_tag.database import User, Database
-from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, AddNewUser
+from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, AddNewUser, AdminStatus
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,13 @@ class CoffeeManager:
         return None
 
     async def open_user_account(self, user: User) -> None:
+        admin_status = None
+        if user.permissions == "owner":
+            admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
+        if admin_status is not None:
+            admin_status.close()
+            await admin_status.get_future()
         if coffee_bought is None:
             return None
         if coffee_bought > 9:

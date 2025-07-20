@@ -12,7 +12,7 @@ from typing import Tuple, Optional, Callable
 from PIL import Image, ImageTk
 
 from coffee_tag import media
-from coffee_tag.database import User, Database
+from coffee_tag.database import User, Database, Purchase
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -20,14 +20,17 @@ logger = logging.getLogger(__name__)
 
 class AbstractUI:
 
-    def __init__(self, main: MainGUI, title: str, w: int, h: int):
+    def __init__(self, main: MainGUI, title: str, w: int, h: int,
+                 x: int = None, y: int = None):
         self.future = asyncio.get_event_loop().create_future()
         self.main = main
         self.gui = tk.Toplevel(main.tk)
         self.gui.protocol("WM_DELETE_WINDOW", lambda: [self.future.set_result(None), self.gui.destroy()])
         self.gui.transient(main.tk)
         self.gui.grab_set()
-        self.gui.geometry(f"{w}x{h}")
+        self.x = (main.tk.winfo_width() - w) // 2 if x is None else x
+        self.y = (main.tk.winfo_height() - h) // 2 if y is None else y
+        self.gui.geometry(f"{w}x{h}+{self.x}+{self.y}")
         self.gui.title(title)
         self.gui['bg'] = '#754c24'
         self.gui.resizable(height=False, width=False)
@@ -261,6 +264,25 @@ class AddNewUser(AbstractUI):
         self.gui.destroy()
 
     def get_future(self) -> Future[Optional[Tuple]]:
+        return self.future
+
+
+class AdminStatus(AbstractUI):
+    def __init__(self, main: MainGUI, last_coffees: list[Tuple[User, Purchase]]):
+        super().__init__(main, "Admin status", 220, 480, 0, 0)
+        for last_coffee in last_coffees:
+            name = str(last_coffee[0])
+            if len(name) > 19:
+                name = name[:18] + "..."
+            self.add_label(f"{name} {last_coffee[1].date.strftime("%d %H:%M")}"
+                           f" {last_coffee[1].nb_coffee}",
+                           font="Helvetica 10", pady=0, justify='left')
+
+    def close(self):
+        self.future.set_result(None)
+        self.gui.destroy()
+
+    def get_future(self) -> Future[None]:
         return self.future
 
 

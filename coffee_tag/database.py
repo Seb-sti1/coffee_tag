@@ -347,6 +347,18 @@ class Database:
                                "WHERE id = :id",
                                {"id": repayment_id})
 
+    def get_last_coffees(self) -> list[Tuple[User, Purchase]]:
+        r = self.connector.execute("""
+                                   SELECT *
+                                   FROM users
+                                            JOIN purchase p on users.id = p.user_id
+                                   ORDER BY date DESC
+                                   LIMIT 26;
+                                   """)
+        if r is None:
+            return []
+        return [(User(self, *row[:12]), Purchase(self, *row[12:])) for row in r]
+
     def export(self) -> str:
         logger.info(f"Creating a sql dump file")
         exported_sql = "\n".join(self.connector.iterdump())
