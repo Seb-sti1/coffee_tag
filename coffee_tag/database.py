@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class User(AuthUser):
 
     def __init__(self, db: Database, user_id: int, name: str, surname: str, nickname: str, cascad_username: str,
-                 initial_balance: float, passcode: str, permissions: str, banned: int, date_of_departure: str,
+                 initial_balance: float, passcode: str, permissions: str, status: str, date_of_departure: str,
                  mail: str, id_badge: str):
         super().__init__(str(user_id))
         self.db = db
@@ -28,7 +28,7 @@ class User(AuthUser):
         self.initial_balance = initial_balance
         self.passcode = passcode
         self.permissions = permissions
-        self.banned = banned != 0
+        self.status = status
         self.date_of_departure = date_of_departure,
         self.mail = mail
         self.id_badge = id_badge
@@ -195,7 +195,7 @@ class Database:
     def search_by_name(self, name) -> list[User]:
         result = self.connector.execute("SELECT id, name, surname, nickname, "
                                         "cascad_username, initial_balance, passcode,"
-                                        "permissions, banned, date_of_departure, mail,"
+                                        "permissions, status, date_of_departure, mail,"
                                         "id_badge FROM users "
                                         "WHERE name LIKE :name "
                                         "OR surname LIKE :name "
@@ -213,7 +213,7 @@ class Database:
     def get_user_by_rfid(self, card: str):
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
-                                 "permissions, banned, date_of_departure, mail,"
+                                 "permissions, status, date_of_departure, mail,"
                                  "id_badge FROM users "
                                  "WHERE id_badge <> '' AND id_badge LIKE :card;",
                                  {"card": card})
@@ -238,15 +238,15 @@ class Database:
     def register_new_user(self, name: str, surname: str, nickname: str, mail: str, badge: str):
         return self.edit_query("INSERT INTO users (name, surname, nickname, "
                                "cascad_username, initial_balance, passcode, permissions,"
-                               "banned, date_of_departure, mail, id_badge) VALUES"
-                               "(:name, :surname, :nickname, null, 0, null, 'user', 0,"
+                               "status, date_of_departure, mail, id_badge) VALUES"
+                               "(:name, :surname, :nickname, null, 0, null, 'user', 'active',"
                                "null, :mail, :badge)",
                                {"name": name, "surname": surname, "nickname": nickname, "mail": mail, "badge": badge})
 
     def get_user_by_mail(self, mail: str) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
-                                 "permissions, banned, date_of_departure, mail,"
+                                 "permissions, status, date_of_departure, mail,"
                                  "id_badge FROM users "
                                  "WHERE mail = :mail",
                                  {"mail": mail})
@@ -255,7 +255,7 @@ class Database:
     def get_user_by_id(self, user_id) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
-                                 "permissions, banned, date_of_departure, mail,"
+                                 "permissions, status, date_of_departure, mail,"
                                  "id_badge FROM users "
                                  "WHERE id = :user_id",
                                  {"user_id": user_id})
@@ -277,7 +277,7 @@ class Database:
     async def auth_user(self, mail: str, password: str) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
-                                 "permissions, banned, date_of_departure, mail,"
+                                 "permissions, status, date_of_departure, mail,"
                                  "id_badge FROM users "
                                  "WHERE mail = :mail AND mail IS NOT NULL AND passcode IS NOT NULL",
                                  {"mail": mail})
@@ -296,7 +296,7 @@ class Database:
                                           initial_balance,
                                           passcode,
                                           permissions,
-                                          banned <> 0,
+                                          status,
                                           date_of_departure,
                                           mail,
                                           id_badge,
@@ -361,7 +361,7 @@ class Database:
         r = self.get_users_balance()
         writer.writerow(["id", "name", "surname", "nickname", "cascad_username",
                          "initial_balance", "passcode", "permissions",
-                         "banned", "date_of_departure", "mail", "id_badge", "purchased",
+                         "status", "date_of_departure", "mail", "id_badge", "purchased",
                          "paid", "current_balance"])
         writer.writerows(r)
         writer.writerows([[], [], []])
