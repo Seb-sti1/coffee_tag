@@ -14,7 +14,8 @@ coffee_tag build:
     - python -m build
   artifacts:
     paths:
-      - dist/coffee_tag-*-py3-none-any.whl
+      - dist/*.whl
+      - dist/*.tar.gz
 
 coffee_tag release:
   stage: release
@@ -26,8 +27,19 @@ coffee_tag release:
   dependencies:
     - coffee_tag build
   script:
-    - ls dist/coffee_tag-*-py3-none-any.whl
     - export VERSION=$(grep -m 1 version pyproject.toml | tr -s ' ' | tr -d '"' | tr -d "'" | cut -d' ' -f3)
     - glab auth login --hostname gitlab.ensta.fr --token $RELEASE_TOKEN
     - glab release create "$VERSION" --name "Release $VERSION" --notes "Automated release" --ref $CI_COMMIT_SHA --repo https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag ./dist/coffee_tag-*-py3-none-any.whl
   
+coffee_tag publish:
+  stage: release
+  before_script:
+    - python3.10 -m venv .venv
+    - source .venv/bin/activate
+    - pip install twine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  dependencies:
+    - coffee_tag build
+  script:
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
