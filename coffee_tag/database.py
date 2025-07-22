@@ -3,9 +3,10 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import re
 import sqlite3
 from datetime import datetime as dt, timezone
-from typing import Callable, Optional, Tuple, Any
+from typing import Callable, Optional, Tuple, Any, Union, Literal
 
 import bcrypt
 from quart_auth import AuthUser
@@ -15,9 +16,11 @@ logger = logging.getLogger(__name__)
 
 class User(AuthUser):
 
-    def __init__(self, db: Database, user_id: int, name: str, surname: str, nickname: str, cascad_username: str,
-                 initial_balance: float, passcode: str, permissions: str, status: str, date_of_departure: str,
-                 mail: str, id_badge: str):
+    def __init__(self, db: Database, user_id: int, name: str, surname: str,
+                 nickname: Optional[str], cascad_username: Optional[str],
+                 initial_balance: float, passcode: Optional[str], permissions: str, status: str,
+                 date_of_departure: Optional[str],
+                 mail: str, id_badge: Optional[str]):
         super().__init__(str(user_id))
         self.db = db
         self.user_id = user_id
@@ -29,7 +32,8 @@ class User(AuthUser):
         self.passcode = passcode
         self.permissions = permissions
         self.status = status
-        self.date_of_departure = date_of_departure,
+        self.date_of_departure = (dt.strptime(date_of_departure, "%Y-%m-%d %H:%M:%S")
+                                  .replace(tzinfo=timezone.utc)) if date_of_departure is not None else None
         self.mail = mail
         self.id_badge = id_badge
 
@@ -91,6 +95,58 @@ class User(AuthUser):
 
     def __repr__(self):
         return str(self)
+
+    def is_valid(self) -> Union[True, Literal['missing_field', 'mail_format', 'duplicate']]:
+        if self.name == "" or self.surname == "" or self.mail == "" \
+                or self.passcode is None or self.date_of_departure is None:
+            return "missing_field"
+        elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.mail):
+            return "mail_format"
+        elif self.db.check_duplicate(self.name, self.surname, self.mail, self.id_badge, self.user_id):
+            return "duplicate"
+        return True
+
+    def register(self) -> bool:
+        if self.is_valid() is not True:
+            return False
+
+        if not self.db.edit_query("INSERT INTO users (name, surname, nickname, "
+                                  "cascad_username, initial_balance, passcode, permissions,"
+                                  "status, date_of_departure, mail, id_badge) VALUES"
+                                  "(:name, :surname, :nickname, :cascad, :initial_balance, :passcode,"
+                                  ":permissions, :status, :date_of_departure, :mail, :badge)",
+                                  {"name": self.name, "surname": self.surname, "nickname": self.nickname,
+                                   "cascad": self.cascad_username, "initial_balance": self.initial_balance,
+                                   "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
+                                   "date_of_departure": self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
+                                   "mail": self.mail, "badge": self.id_badge}):
+            return False
+
+        user = self.db.get_user_by_mail(self.mail)
+        if user is None:
+            return False
+        self.user_id = user.user_id
+        return True
+
+    def update(self) -> bool:
+        if self.is_valid() is not True:
+            return False
+
+        if not self.db.edit_query("UPDATE users SET "
+                                  "name=:name, surname=:surname, nickname=:nickname, "
+                                  "cascad_username=:cascad, initial_balance=:initial_balance, "
+                                  "passcode=:passcode, permissions=:permissions,"
+                                  "status=:status, date_of_departure=:date_of_departure,"
+                                  "mail=:mail, id_badge=:badge "
+                                  "WHERE id=:user_id",
+                                  {"user_id": self.user_id,
+                                   "name": self.name, "surname": self.surname, "nickname": self.nickname,
+                                   "cascad": self.cascad_username, "initial_balance": self.initial_balance,
+                                   "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
+                                   "date_of_departure": self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
+                                   "mail": self.mail, "badge": self.id_badge}):
+            return False
+        return True
 
 
 class Purchase:
@@ -215,7 +271,7 @@ class Database:
                                  "cascad_username, initial_balance, passcode,"
                                  "permissions, status, date_of_departure, mail,"
                                  "id_badge FROM users "
-                                 "WHERE id_badge <> '' AND id_badge LIKE :card;",
+                                 "WHERE id_badge IS NOT NULL AND id_badge LIKE :card;",
                                  {"card": card})
         return None if result is None else User(self, *result)
 
@@ -224,24 +280,19 @@ class Database:
                                "WHERE id = :user_id;",
                                {"card": card, "user_id": user.user_id})
 
-    def check_duplicate(self, name: str, surname: str, mail: str, badge: Optional[str]):
+    def check_duplicate(self, name: str, surname: str, mail: str, badge: Optional[str],
+                        user_id_to_ignore: Optional[int] = None) -> bool:
         """
         Returns if any user has the same (name, surname) or mail or badge
         """
         r = self.select_one(f"SELECT id FROM users "
-                            "WHERE (name = :name AND surname = :surname) "
+                            "WHERE ((name = :name AND surname = :surname) "
                             "OR  mail = :mail "
-                            "OR (id_badge = :badge AND id_badge <> '')",
-                            {"name": name, "surname": surname, "mail": mail, "badge": badge})
-        return r is None
-
-    def register_new_user(self, name: str, surname: str, nickname: str, mail: str, badge: str):
-        return self.edit_query("INSERT INTO users (name, surname, nickname, "
-                               "cascad_username, initial_balance, passcode, permissions,"
-                               "status, date_of_departure, mail, id_badge) VALUES"
-                               "(:name, :surname, :nickname, null, 0, null, 'user', 'active',"
-                               "null, :mail, :badge)",
-                               {"name": name, "surname": surname, "nickname": nickname, "mail": mail, "badge": badge})
+                            "OR (id_badge = :badge AND id_badge IS NOT NULL)) "
+                            "AND id <> :user_id",
+                            {"name": name, "surname": surname, "mail": mail, "badge": badge,
+                             "user_id": user_id_to_ignore})
+        return r is not None
 
     def get_user_by_mail(self, mail: str) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "
@@ -272,7 +323,6 @@ class Database:
                                            WHERE date >= DATE(DATE(), '-70 day')
                                            GROUP BY week;""")
         return None if result is None else list(result)
-
 
     async def auth_user(self, mail: str, password: str) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "

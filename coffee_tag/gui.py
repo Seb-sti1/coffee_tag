@@ -9,6 +9,7 @@ from datetime import datetime as dt, timezone
 from itertools import count  # Islice for list iteration not starting at 0
 from typing import Tuple, Optional, Callable
 
+import bcrypt
 from PIL import Image, ImageTk
 
 from coffee_tag import media
@@ -65,8 +66,28 @@ class AbstractUI:
                 kwargs["on_text_change"](text_var)
 
             text_var.trace_add("write", on_text_change)
+
         entry = tk.Entry(self.gui, font=font, textvariable=text_var, width=width)
-        entry.focus_set()
+
+        if "suggestion" in kwargs and ("value" not in kwargs or kwargs["value"] is None or kwargs["value"] == ""):
+            def handle_focus_in(_):
+                if entry.cget("fg") == 'grey':
+                    entry.delete(0, tk.END)
+                    entry.config(fg='black')
+
+            def handle_focus_out(_):
+                if entry.get() == '':
+                    entry.delete(0, tk.END)
+                    entry.config(fg='grey')
+                    entry.insert(0, kwargs["suggestion"])
+
+            entry.delete(0, tk.END)
+            entry.config(fg='grey')
+            entry.insert(0, kwargs["suggestion"])
+            entry.bind("<FocusIn>", handle_focus_in)
+            entry.bind("<FocusOut>", handle_focus_out)
+        if "focus" in kwargs and kwargs["focus"]:
+            entry.focus_set()
         if "x" in kwargs and "y" in kwargs:
             entry.place(x=kwargs["x"], y=kwargs["y"])
         else:
@@ -177,7 +198,8 @@ class GeneralUI(AbstractUI):
             self.closing_lbl.config(text=f"Closing window in {i} seconds...")
             self.gui.update()
             await asyncio.sleep(1)
-        self.future.set_result(None)
+        if not self.future.done():
+            self.future.set_result(None)
         self.gui.destroy()
         return self.get_future()
 
@@ -231,27 +253,46 @@ class UserMenu(AbstractUI):
         return self.future
 
 
-class AddNewUser(AbstractUI):
-    def __init__(self, main: MainGUI, rfid: RFIDReader,
-                 name: str, surname: str, nickname: str, mail: str, badge: str):
-        super().__init__(main, "Add user", 650, 350)
+class UserProperties(AbstractUI):
+    def __init__(self, main: MainGUI, rfid: RFIDReader, is_creation: bool,
+                 user: User):
+        super().__init__(main, "Add user" if is_creation else "Update user", 650, 350)
         self.rfid = rfid
+        self.user = user
         self.entries = []
-        self.add_label("Enter your data", font='Helvetica 16 bold', fg='#c9a589')
-        self.add_label("Name", font='Helvetica 12 bold italic', x=40, y=50)
-        self.entries.append(self.add_entry(value=name, width=20, font='Helvetica 12', x=40, y=80))
-        self.add_label("Surname", font='Helvetica 12 bold italic', x=40, y=110)
-        self.entries.append(self.add_entry(value=surname, width=20, font='Helvetica 12', x=40, y=140))
-        self.add_label("Nickname (optional)", font='Helvetica 12 bold italic', x=40, y=170)
-        self.entries.append(self.add_entry(value=nickname, width=20, font='Helvetica 12', x=40, y=200))
-        self.add_label("E-mail address", font='Helvetica 12 bold italic', x=250, y=50)
-        self.entries.append(self.add_entry(value=mail, width=35, font='Helvetica 12', x=250, y=80))
-        self.add_label("Swipe your ENSTA badge or a RFID tag", font='Helvetica 12 bold italic', x=250, y=110)
-        self.badge_lbl = self.add_label(badge, width=35, font='Helvetica 12', borderwidth=1, highlightthickness=1,
-                                        x=250, y=140)
+        self.add_label("Enter your data" if is_creation else "Please update your data", font='Helvetica 16 bold',
+                       fg='#c9a589')
+        # === First column
+        self.add_label("Name*", font='Helvetica 12 bold italic', x=40, y=50)
+        self.entries.append(self.add_entry(value=user.name, width=20, font='Helvetica 12', focus=True, x=40, y=70))
+        self.add_label("Surname*", font='Helvetica 12 bold italic', x=40, y=100)
+        self.entries.append(self.add_entry(value=user.surname, width=20, font='Helvetica 12', x=40, y=120))
+        self.add_label("Nickname", font='Helvetica 12 bold italic', x=40, y=150)
+        self.entries.append(self.add_entry(value=user.nickname, width=20, font='Helvetica 12', x=40, y=170))
+        self.add_label("Cascad username", font='Helvetica 12 bold italic', x=40, y=200)
+        self.entries.append(self.add_entry(value=user.cascad_username, width=20, font='Helvetica 12', x=40, y=220))
+        # === Second column
+        self.add_label("E-mail address*", font='Helvetica 12 bold italic', x=250, y=50)
+        self.entries.append(self.add_entry(value=user.mail, width=35, font='Helvetica 12', x=250, y=70))
+        self.add_label("Passcode" + ("*" if user.passcode is None else ""), font='Helvetica 12 bold italic', x=250,
+                       y=100)
+        if user.passcode is None:
+            self.entries.append(self.add_entry(width=20, font='Helvetica 12', x=250, y=120))
+        else:
+            self.entries.append(self.add_entry(width=20, font='Helvetica 12', suggestion="Already created",
+                                               x=250, y=120))
+        self.add_label("Date of departure* (Permanent: put far in the future)", font='Helvetica 12 bold italic',
+                       x=250, y=150)
+        date_str = user.date_of_departure.strftime("%Y/%m/%d") if user.date_of_departure is not None else None
+        self.entries.append(self.add_entry(value=date_str, width=20, font='Helvetica 12',
+                                           suggestion="YYYY/MM/DD", x=250, y=170))
+        self.add_label("Swipe your ENSTA badge or a RFID tag", font='Helvetica 12 bold italic', x=250, y=200)
+        self.badge_lbl = self.add_label(user.id_badge, width=35, font='Helvetica 12',
+                                        borderwidth=1, highlightthickness=1, x=250, y=220)
         self.card_future = rfid.get_rfid()
         self.card_future.add_done_callback(self.read_card_callback)
-        self.add_button("OK", self.submit_callback, font='Helvetica 16 bold', height=2, width=4, x=290, y=250)
+        self.add_label("Required fields are marked with an *", font='Helvetica 10 italic', fg='#c9a589', x=220, y=255)
+        self.add_button("OK", self.submit_callback, font='Helvetica 16 bold', height=2, width=4, x=290, y=280)
 
     def read_card_callback(self, f: Future[str]):
         if not self.future.done():  # check if the windows is still open
@@ -260,10 +301,26 @@ class AddNewUser(AbstractUI):
             self.card_future.add_done_callback(self.read_card_callback)
 
     def submit_callback(self):
-        self.future.set_result((*[e.get() for e in self.entries], self.badge_lbl.cget("text")))
+        self.user.name = self.entries[0].get()
+        self.user.surname = self.entries[1].get()
+        self.user.nickname = self.entries[2].get() if len(self.entries[2].get()) > 0 else None
+        self.user.cascad_username = self.entries[3].get() if len(self.entries[3].get()) > 0 else None
+        self.user.mail = self.entries[4].get()
+        if self.user.passcode is None or self.entries[5].cget("fg") == 'black':
+            passcode = self.entries[5].get()
+            self.user.passcode = bcrypt.hashpw(self.entries[5].get().encode(),
+                                               bcrypt.gensalt()) if len(passcode) >= 4 else None
+        self.user.date_of_departure = None
+        try:
+            self.user.date_of_departure = (dt.strptime(self.entries[6].get(), "%Y/%m/%d")
+                                           .replace(tzinfo=timezone.utc))
+        except:
+            pass
+        self.user.id_badge = self.badge_lbl.cget("text") if len(self.badge_lbl.cget("text")) > 0 else None
+        self.future.set_result(self.user)
         self.gui.destroy()
 
-    def get_future(self) -> Future[Optional[Tuple]]:
+    def get_future(self) -> Future[Optional[User]]:
         return self.future
 
 
@@ -404,7 +461,7 @@ async def show_gui(path: str, price: float):
                              main_text=f"{-users[0].get_user_balance()} €",
                              should_close_in_5=True))
     loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
-    loop.create_task(wrapper(AddNewUser, main=gui, rfid=rfid, name="", surname="", nickname="", mail="", badge=""))
+    loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, name="", surname="", nickname="", mail="", badge=""))
 
     async def trigger_update():
         gui.tk.update()

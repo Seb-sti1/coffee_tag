@@ -4,11 +4,10 @@ It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
 import logging
-import re
 from typing import Optional
 
 from coffee_tag.database import User, Database
-from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, AddNewUser, AdminStatus
+from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,7 @@ class CoffeeManager:
                                     main_text="Your badge has been successfully linked to your account",
                                     button_one="Ok").get_future()
             elif should_sync is False:
-                self.loop.create_task(self.add_new_user())
+                self.loop.create_task(self.add_or_update_user())
         else:
             logger.info(f"Opening {user.name} {user.surname} account.")
             self.loop.create_task(self.open_user_account(user))
@@ -78,7 +77,7 @@ class CoffeeManager:
             return None
         if type(user) == str:
             if user == "add_user":
-                self.loop.create_task(self.add_new_user())
+                self.loop.create_task(self.add_or_update_user())
             return None
         return user
 
@@ -91,6 +90,14 @@ class CoffeeManager:
         return None
 
     async def open_user_account(self, user: User) -> None:
+        if user.is_valid() is not True:
+            was_updated = await self.add_or_update_user(user)
+            if was_updated is False or was_updated is None:
+                await GeneralUI(self.root_gui, "Please update your profile.",
+                                320, 250,
+                                main_text="To access your account please update your profile.",
+                                button_one="Ok").get_future()
+                logger.warning(f"{user} avoided updating its profile.")
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
@@ -117,45 +124,50 @@ class CoffeeManager:
             logger.error("Couldn't save in db!")
         return None
 
-    async def add_new_user(self) -> None:
+    async def add_or_update_user(self, current_user: Optional[User] = None) -> Optional[bool]:
         valid = False
-        name, surname, nickname, mail, badge = "", "", "", "", ""
-        while not valid:
-            user_info = await AddNewUser(self.root_gui, self.rfid, name, surname, nickname, mail, badge).get_future()
-            if user_info is None:
-                return None
-            name, surname, nickname, mail, badge = user_info
-            if name == "" or surname == "" or mail == "":
+        if current_user is None:
+            tmp_user = User(self.db, -1, "", "", None, None, 0,
+                            None, "user", "active", None, "", None)
+        else:
+            tmp_user = current_user
+
+        while valid is not True:
+            tmp_user = await UserProperties(self.root_gui, self.rfid, current_user is None, tmp_user).get_future()
+            if tmp_user is None:
+                return False
+            valid = tmp_user.is_valid()
+            if valid == "missing_field":
                 await GeneralUI(self.root_gui, "Fill all the required field.",
                                 320, 250,
-                                main_text="You must provide at least your name, surname and mail.",
+                                main_text="You must provide at least your name, surname, mail, passcode"
+                                          " and date of departure.",
                                 button_one="Ok").get_future()
-            elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', mail):
+            elif valid == "mail_format":
                 await GeneralUI(self.root_gui, "Your mail is not valid.",
                                 320, 250,
                                 main_text="Please provide a valid mail.",
                                 button_one="Ok").get_future()
-            elif not self.db.check_duplicate(name, surname, mail, badge):
+            elif valid == "duplicate":
                 await GeneralUI(self.root_gui, "Account already exists.",
                                 320, 250,
                                 main_text="An account with this name and surname or mail or badge id already exists.",
                                 button_one="Ok").get_future()
-            else:
-                valid = True
-        logger.info(f"Creating profile '{name}' '{surname}' '{nickname}' '{mail}' '{badge}'")
-        self.db.register_new_user(name, surname, nickname, mail, badge)
-        user = self.db.get_user_by_mail(mail)
-        if user is not None:
-            await GeneralUI(self.root_gui, f"Welcome {str(user)}!",
+        if (current_user is None and tmp_user.register()) or (current_user is not None and tmp_user.update()):
+            logger.info(f"Creating profile '{tmp_user}'" if current_user is None else f"Updating profile '{tmp_user}'")
+            await GeneralUI(self.root_gui, f"Welcome {str(tmp_user)}!",
                             320, 250,
-                            main_text="Your profile is now created!",
+                            main_text="Your profile is now created!" if current_user is None \
+                                else "Your profile was updated!",
                             button_one="Ok").get_future()
+            return True
         else:
+            logger.warning(f"Error while creating profile '{tmp_user}'")
             await GeneralUI(self.root_gui, "Oops...",
                             320, 250,
                             main_text="An unexpected error occurred while creating your profile!",
                             button_one="Ok").get_future()
-        return None
+            return False
 
     def stop(self):
         self.rfid.stop()
