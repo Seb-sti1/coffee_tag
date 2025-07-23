@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog="coffee_tag")
     parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
     parser.add_argument('path', default="coffee.db", type=str, help='Path to the db')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
