@@ -274,7 +274,7 @@ class AdminStatus(AbstractUI):
             name = str(last_coffee[0])
             if len(name) > 19:
                 name = name[:18] + "..."
-            self.add_label(f"{name} {last_coffee[1].date.strftime("%d %H:%M")}"
+            self.add_label(f"{name} {last_coffee[1].date.strftime('%d %H:%M')}"
                            f" {last_coffee[1].nb_coffee}",
                            font="Helvetica 10", pady=0, justify='left')
 
