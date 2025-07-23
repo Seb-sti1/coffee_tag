@@ -99,7 +99,7 @@ class ManualEntry(AbstractUI):
         self.search_user = search_user
         self.add_label("What is your name ?", font="Helvetica 14 bold italic")
         self.entry = self.add_entry(on_text_change=self.on_text_change)
-        self.add_button("Create new user", self.btn_callback, x=475, y=25, width=14, height=2)
+        self.add_button("Create new user", self.btn_callback, x=455, y=25, width=14, height=2)
         self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg="#c9a589")
         self.choices: list[tk.Button] = []
 
