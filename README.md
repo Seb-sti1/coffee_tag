@@ -3,75 +3,75 @@
 This readme mainly describes how to install and use this python package
 [on the raspberry](#production-setup) and [how to develop it](#development-setup).
 
+> [!important]
+> It is possible to use other technics to install/dev/use this package (e.g. conda)
+> but the officially supported ones are `pipx` in production and virtual environment in development.
+
+[[_TOC_]]
+
+## Usage
+
+In production, the app can be launched with the `coffee_tag` cli. When in dev, you need to do `python -m coffee_tag`.
+
+The nominal command is `coffee_tag COFFEE_PRICE PATH_TO_DB`.
+Additional arguments and flags are described with the `-h` argument.
+
+> [!note]
+> In production, it is recommended to use an absolute path for the database to avoid any error.
+
 ## Production Setup
 
-### Initial configuration of the Raspberry PI
+### Initial configuration of the Raspberry PI (do once)
 
 When creating the image, select Raspberry PI 2 and choose the 32-bit desktop image.
 Also edit `/boot/firmware/config.txt` and change the following lines:
+
 ```
 dtparam=i2c_arm=off
 dtparam=spi=off
 ```
 
 Finally, to ensure the Raspberry PI 2 stays up to date (literally), add a cron task (with `crontab -e`):
+
 ```cron
 0 1 * * * sudo date -s "$(wget --method=HEAD -qSO- --max-redirect=0 google.com 2>&1 | sed -n 's/^ *Date: *//p')"
 ```
 
+> [!note]
+> This is currently required as the IT blocks NTP requests.
 
-### Build this python package
+To be able to download the app, add the relevant pypi index in `pip.conf`:
 
-> [!tip]
-> The python package it automatically built when a branch is merged on main.
-> See all releases [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/releases).
-> See how to configure the CI [here](#gitlab-ci).
-
-To build the package, run the commands below
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install build
+```ini
+[global]
+extra-index-url =
+    https://www.piwheels.org/simple
+    https://__token__:[token]@gitlab.ensta.fr/api/v4/groups/3178/-/packages/pypi/simple
 ```
 
-The package is then available in `dist/coffee_tag-*-py3-none-any.whl`
+> [!note]
+> The token needs to be created [here](https://gitlab.ensta.fr/groups/u2is-coffee-team/-/settings/access_tokens)
+> with read_api scope and developer role.
 
-### Install python package
+Install the dependencies with
 
-Install linux dependencies `apt install python3-tk python3-pillow libjpeg-dev`. Then use the built package
-`coffee_tag.whl`, and install it using `pip install ./coffee_tag.whl`, or
-with [pipx](https://github.com/pypa/pipx) using `pipx install ./coffee_tag.whl`.
-
-> [!tip]
-> If this steps take lot of time, chances are there is dependency that is rebuilding on the Raspberry PI.
-> One way to find which one is to do `pip wheel -r requirements.txt` and find which dependencies are just download
-> and those that need to be recompiled.
-
-### Launch Application
-
-If you have installed the package using pip, use `python3 -m coffee_tag`. If you used pipx, you can directly run
-`coffee_tag`.
-
-### Alternative method (without python package) (not recommended)
-
-If you don't want to build and install the python pacakge, you can install all the dependencies using pip:
-
-```bash
-python3 -m venv .venv # create a virtual env 
-source .venv/bin/activate # activate the virtual env (to do everytime)
-pip install -r requirements.txt # install dependencies
+```shell
+apt install -y python3-tk python3-pillow libjpeg-dev
 ```
 
-And then launch the app from the root folder:
+Then install [pipx](https://github.com/pypa/pipx) with the official tutorial.
+Finally, install this app with `pipx install coffee-tag`.
 
-```bash
-python3 -m coffee_tag
-```
+That's it, the setup is ready to be used. See [Usage](#usage) to use it!
+
+### Upgrade the app (for every new version)
+
+First, close the app and make a copy of the database. Then `pipx upgrade coffee-tag` and
+finally restart the app.
 
 ## Development Setup
 
-We encourage the use of environments, you can perform the following commands:
+To create a virtual environment, perform the following commands:
 
 ```bash
 apt install python3-tk python3-pillow libjpeg-dev # install the linux dependencies
@@ -80,31 +80,9 @@ source .venv/bin/activate # activate the virtual env (to do everytime)
 pip install -r requirements.txt # install dependencies
 ```
 
-> [!important]
-> Be sure to use the argument ` --dev ` variable to `True` in [coffee.py](coffee_tag/coffee.py)
+While developing, be sure to use the argument `--dev` to prevent the app from trying to connect to the rfid reader.
 
-> [!tip]
-> If you have conda installed
-> ```bash
-> conda create -n coffee && conda activate coffee
-> conda install pip
-> pip install -r requirements.txt
-> ```
-
-## Gitlab CI
-
-### Gitlab Runner
-
-The DSI (IT service) doesn't provide any runners on the GitLab. I (Sébastien Kerbourc'h) added DaTA's one (computer
-science club).
-
-### Automated release configuration
-
-Create a token [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/access_tokens) with the permission
-`api`, `write_repository` with the role `Developer`, then create the variable
-`RELEASE_TOKEN` [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
-
-## Docs
+### Docs
 
 - Test RFID reader
     - 13.56
@@ -112,3 +90,22 @@ Create a token [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/sett
     - Doc [here](https://www.raspberrypi.com/news/read-rfid-and-nfc-tokens-with-raspberry-pi-hackspace-37/)
       or [here](https://www.waveshare.com/wiki/PN532_NFC_HAT#Features)
     - 125 kHz [reader](https://www.gotronic.fr/art-lecteur-rfid-grove-125-khz-113020002-19038.html)
+
+### Gitlab CI
+
+The python package is automatically built when a branch is merged on main, a release
+is created [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/releases), and it is published
+to the GitLab pypi index to be available for download.
+
+The pipeline first builds the package with the build module, then with GitLab API and the twine module
+publishes the release and the package.
+Please refer to [.gitlab-ci.yml](.gitlab-ci.yml) for the exact details of the pipeline.
+
+> [!note]
+> The DSI (IT service) doesn't provide any runners on the GitLab. The
+> [U2IS Runner](https://u2is.ovh/en/tech/tools/gitlab-runner) was added to the group.
+
+> [!tip]
+> To allow releases creation, create a token [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/access_tokens) with the permission
+> `api`, `write_repository` with the role `Developer`, then create the variable
+> `RELEASE_TOKEN` [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
