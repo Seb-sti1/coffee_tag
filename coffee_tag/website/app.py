@@ -19,7 +19,8 @@ class Website:
         self.app = Quart(__name__)
         self.app.secret_key = os.urandom(24)
 
-        self.auth_manager = QuartAuth(self.app)
+        # cookie_secure=False allow authentication to work on non local ips
+        self.auth_manager = QuartAuth(self.app, cookie_secure=False)
 
         self.app.add_url_rule("/", view_func=self.index)
         self.app.add_url_rule("/login", view_func=self.login, methods=["GET", "POST"])
