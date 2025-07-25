@@ -164,16 +164,19 @@ class GeneralUI(AbstractUI):
                  title: str,
                  w: int, h: int,
                  sub_text: Optional[str] = None,
+                 sub_after_main: Optional[bool] = False,
                  main_text: Optional[str] = None,
                  button_one: Optional[str] = None,
                  button_two: Optional[str] = None,
                  should_close_in_5: bool = False):
         super().__init__(main, title, w, h)
         self.add_label(title, font='Helvetica 22 bold')
-        if sub_text:
+        if sub_text and not sub_after_main:
             self.add_label(sub_text, fg="#c9a589", font='Helvetica 12 bold italic', pady=None)
         if main_text:
             self.add_label(main_text, font='Helvetica 16 bold')
+        if sub_text and sub_after_main:
+            self.add_label(sub_text, fg="#c9a589", font='Helvetica 12 bold italic', pady=None)
         if button_one:
             self.add_button(button_one, self.btn_one_callback, side="top", font='Helvetica 12 bold')
         if button_two:
@@ -324,6 +327,31 @@ class UserProperties(AbstractUI):
         return self.future
 
 
+class AskPassword(AbstractUI):
+    def __init__(self, main: MainGUI, rfid: RFIDReader, user: User):
+        super().__init__(main, "Login", 320, 250)
+        self.rfid = rfid
+        self.add_label(f"Hello {user}!", font='Helvetica 22 bold')
+        self.add_label("Please enter your password", font='Helvetica 15', fg='#c9a589', pady=None, fill=None)
+        self.password = self.add_entry(width=20, font='Helvetica 12', focus=True)
+        self.card_future = rfid.get_rfid()
+        self.card_future.add_done_callback(self.read_card_callback)
+        self.add_button("OK", self.submit_callback, font='Helvetica 16 bold')
+
+    def read_card_callback(self, f: Future[str]):
+        if not self.future.done():  # check if the windows is still open height=2, width=4
+            self.future.set_result((False, f.result()))
+            self.gui.destroy()
+
+    def submit_callback(self):
+        password = self.password.get()
+        self.future.set_result((True, password))
+        self.gui.destroy()
+
+    def get_future(self) -> Future[Optional[Tuple[bool, str]]]:
+        return self.future
+
+
 class AdminStatus(AbstractUI):
     def __init__(self, main: MainGUI, last_coffees: list[Tuple[User, Purchase]]):
         super().__init__(main, "Admin status", 220, 480, 0, 0)
@@ -441,9 +469,6 @@ async def show_gui(path: str, price: float):
         return await entity(**args).get_future()
 
     loop.create_task(wrapper(ManualEntry, main=gui, search_user=db.search_by_name))
-    loop.create_task(wrapper(GeneralUI, main=gui, title="This is the title",
-                             w=260, h=200,
-                             top_text="This is the message", button_one="This is the button"))
     loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
                              w=200, h=250,
                              sub_text="I could not find you",
@@ -461,7 +486,7 @@ async def show_gui(path: str, price: float):
                              main_text=f"{-users[0].get_user_balance()} €",
                              should_close_in_5=True))
     loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
-    loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, name="", surname="", nickname="", mail="", badge=""))
+    loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
 
     async def trigger_update():
         gui.tk.update()

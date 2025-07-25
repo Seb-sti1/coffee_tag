@@ -4,19 +4,21 @@ It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
 import logging
+from argparse import Namespace
 from typing import Optional
 
 from coffee_tag.database import User, Database
-from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus
+from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
 
 
 class CoffeeManager:
-    def __init__(self, db: Database, rfid: RFIDReader):
+    def __init__(self, db: Database, rfid: RFIDReader, args: Namespace):
         self.db = db
         self.rfid = rfid
+        self.args = args
         self.root_gui = MainGUI(self.__main_gui_callback__,
                                 self.db.coffee_price)
         self.rfid_can_open_menu = True
@@ -55,8 +57,8 @@ class CoffeeManager:
         if user is None:
             logger.info(f"No user account with badge {card}.")
             should_sync = await GeneralUI(self.root_gui, "Sorry!", 350, 290,
-                                          "I could not find you", "Former user with new badge?",
-                                          "Synchronize", "Add me").get_future()
+                                          "I could not find you", main_text="Former user with new badge?",
+                                          button_one="Synchronize", button_two="Add me").get_future()
             if should_sync:
                 user = await self.get_user_by_manual_search()
                 if user is not None:
@@ -69,7 +71,7 @@ class CoffeeManager:
                 self.loop.create_task(self.add_or_update_user())
         else:
             logger.info(f"Opening {user.name} {user.surname} account.")
-            self.loop.create_task(self.open_user_account(user))
+            self.loop.create_task(self.open_user_account(user, True))
 
     async def get_user_by_manual_search(self) -> Optional[User]:
         user = await ManualEntry(self.root_gui, self.db.search_by_name).get_future()
@@ -89,7 +91,8 @@ class CoffeeManager:
         self.loop.create_task(self.open_user_account(user))
         return None
 
-    async def open_user_account(self, user: User) -> None:
+    async def open_user_account(self, user: User, is_authenticated: bool = False) -> None:
+        # before anything else ask missing infos
         if user.is_valid() is not True:
             was_updated = await self.add_or_update_user(user)
             if was_updated is False or was_updated is None:
@@ -98,15 +101,52 @@ class CoffeeManager:
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
                 logger.warning(f"{user} avoided updating its profile.")
+        # verify account status
+        if user.status == "banned":
+            await GeneralUI(self.root_gui, "Your account is deactivated.",
+                            320, 250,
+                            main_text="Your account has been blocked indefinitely.",
+                            sub_text="Please contact us at cafe.u2is@gmail.com.",
+                            sub_after_main=True,
+                            button_one="Ok").get_future()
+            return None
+        if user.status == "shadow_banned":
+            await GeneralUI(self.root_gui, "Oops...",
+                            320, 250,
+                            main_text="An unexpected error occurred while opening your profile!",
+                            sub_text="If it is continues, please contact us at cafe.u2is@gmail.com.",
+                            sub_after_main=True,
+                            button_one="Ok").get_future()
+            return None
+        # verify access rights
+        if not is_authenticated and not self.args.no_authentication:
+            result = await AskPassword(self.root_gui, self.rfid, user).get_future()
+            if result is None:
+                return None
+            is_password, login = result
+            if not user.is_authorized(is_password, login):
+                logger.warning(f"Someone failed to authenticate as {user}"
+                               f"with a {'password' if is_password else 'badge'}.")
+                await GeneralUI(self.root_gui, "Wrong password!",
+                                320, 250,
+                                main_text="The provided password is not correct!",
+                                sub_text="Please contact an admin if you're having trouble login in.",
+                                sub_after_main=True,
+                                button_one="Ok").get_future()
+                return None
+            logger.info(f"Someone authenticate as {user} with a {'password' if is_password else 'badge'}.")
+        # show admin ui for admin
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
+        # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
         if admin_status is not None:
             admin_status.close()
             await admin_status.get_future()
         if coffee_bought is None:
             return None
+        # double check when high count
         if coffee_bought > 9:
             validate = await GeneralUI(self.root_gui, "Wow, are you sure?",
                                        260, 250,
@@ -118,7 +158,7 @@ class CoffeeManager:
         if self.db.buy_coffees(user, coffee_bought):
             logger.info("This was saved in db.")
             await GeneralUI(self.root_gui, f"Thank you {user}!", 320, 230, "Your balance is now",
-                            f"{-user.get_user_balance()} €",
+                            main_text=f"{-user.get_user_balance()} €",
                             should_close_in_5=True).get_future_with_autoclosing()
         else:
             logger.error("Couldn't save in db!")

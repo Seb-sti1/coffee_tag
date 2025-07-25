@@ -148,6 +148,17 @@ class User(AuthUser):
             return False
         return True
 
+    def is_authorized(self, is_password: bool, login: str) -> bool:
+        if is_password:
+            if self.passcode is not None:
+                return bcrypt.checkpw(login.encode(), self.passcode.encode())
+            return False
+        else:
+            u = self.db.get_user_by_rfid(login)
+            if u is not None:
+                return self.user_id == u.user_id or u.permissions == "owner"
+        return False
+
 
 class Purchase:
 
