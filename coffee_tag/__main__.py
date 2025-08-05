@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import logging
+import os
+import subprocess
 import sys
 from logging.handlers import RotatingFileHandler
 
@@ -23,7 +25,34 @@ def main():
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
     parser.add_argument('--no-authentication', '-a', action='store_true',
                         help='Should the authentication be deactivated')
+    parser.add_argument('--install-service', action='store_true',
+                        help='If the service should be installed and enable')
+    parser.add_argument('--uninstall-service', action='store_true',
+                        help='If the service should be uninstalled')
     args = parser.parse_args()
+
+    if (args.install_service or args.uninstall_service) and os.geteuid() != 0:
+        logging.fatal("You need to run this as root to (un)install the service.")
+        exit(1)
+
+    if args.install_service:
+        if not os.path.exists("/etc/systemd/system/coffee-tag.service"):
+            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.service"),
+                       "/etc/systemd/system/coffee-tag.service")
+        subprocess.run(["systemctl", "daemon-reload"], check=True)
+        subprocess.run(["systemctl", "enable", "coffee-tag.service"], check=True)
+        subprocess.run(["systemctl", "start", "coffee-tag.service"], check=True)
+        logging.info("Service was installed, the app should start soon.")
+        exit(0)
+
+    if args.uninstall_service:
+        subprocess.run(["systemctl", "stop", "coffee-tag.service"], check=True)
+        subprocess.run(["systemctl", "disable", "coffee-tag.service"], check=True)
+        if os.path.exists("/etc/systemd/system/coffee-tag.service"):
+            os.remove("/etc/systemd/system/coffee-tag.service")
+        subprocess.run(["systemctl", "daemon-reload"], check=True)
+        logging.info("Service was uninstalled.")
+        exit(0)
 
     if args.debug_gui:
         asyncio.run(show_gui(args.path, args.price))
