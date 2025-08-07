@@ -36,21 +36,21 @@ def main():
         exit(1)
 
     if args.install_service:
-        if not os.path.exists("/etc/systemd/system/coffee-tag.service"):
+        if not os.path.exists("/home/pi/.config/systemd/user/coffee-tag.service"):
             os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.service"),
-                       "/etc/systemd/system/coffee-tag.service")
-        subprocess.run(["systemctl", "daemon-reload"], check=True)
-        subprocess.run(["systemctl", "enable", "coffee-tag.service"], check=True)
-        subprocess.run(["systemctl", "start", "coffee-tag.service"], check=True)
+                       "/home/pi/.config/systemd/user/coffee-tag.service")
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+        subprocess.run(["systemctl", "--user", "enable", "coffee-tag.service"], check=True)
+        subprocess.run(["systemctl", "--user", "start", "coffee-tag.service"], check=True)
         logging.info("Service was installed, the app should start soon.")
         exit(0)
 
     if args.uninstall_service:
-        subprocess.run(["systemctl", "stop", "coffee-tag.service"], check=True)
-        subprocess.run(["systemctl", "disable", "coffee-tag.service"], check=True)
-        if os.path.exists("/etc/systemd/system/coffee-tag.service"):
-            os.remove("/etc/systemd/system/coffee-tag.service")
-        subprocess.run(["systemctl", "daemon-reload"], check=True)
+        subprocess.run(["systemctl", "--user", "stop", "coffee-tag.service"], check=True)
+        subprocess.run(["systemctl", "--user", "disable", "coffee-tag.service"], check=True)
+        if os.path.exists("/home/pi/.config/systemd/user/coffee-tag.service"):
+            os.remove("/home/pi/.config/systemd/user/coffee-tag.service")
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
         logging.info("Service was uninstalled.")
         exit(0)
 
