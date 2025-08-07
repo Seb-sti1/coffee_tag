@@ -277,7 +277,7 @@ class UserProperties(AbstractUI):
         # === Second column
         self.add_label("E-mail address*", font='Helvetica 12 bold italic', x=250, y=50)
         self.entries.append(self.add_entry(value=user.mail, width=35, font='Helvetica 12', x=250, y=70))
-        self.add_label("Passcode" + ("*" if user.passcode is None else ""), font='Helvetica 12 bold italic', x=250,
+        self.add_label("Password" + ("*" if user.passcode is None else ""), font='Helvetica 12 bold italic', x=250,
                        y=100)
         if user.passcode is None:
             self.entries.append(self.add_entry(width=20, font='Helvetica 12', x=250, y=120))
