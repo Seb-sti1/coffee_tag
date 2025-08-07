@@ -119,7 +119,7 @@ class ManualEntry(AbstractUI):
         self.grid_counts = (3, 5)  # number of columns and rows
         self.search_user = search_user
         self.add_label("What is your name ?", font="Helvetica 14 bold italic")
-        self.entry = self.add_entry(on_text_change=self.on_text_change)
+        self.entry = self.add_entry(on_text_change=self.on_text_change, focus=True)
         self.add_button("Create new user", self.btn_callback, x=455, y=25, width=14, height=2)
         self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg="#c9a589")
         self.choices: list[tk.Button] = []
@@ -312,7 +312,7 @@ class UserProperties(AbstractUI):
         if self.user.passcode is None or self.entries[5].cget("fg") == 'black':
             passcode = self.entries[5].get()
             self.user.passcode = bcrypt.hashpw(self.entries[5].get().encode(),
-                                               bcrypt.gensalt()) if len(passcode) >= 4 else None
+                                               bcrypt.gensalt()).decode() if len(passcode) >= 4 else None
         self.user.date_of_departure = None
         try:
             self.user.date_of_departure = (dt.strptime(self.entries[6].get(), "%Y/%m/%d")
