@@ -5,7 +5,7 @@ import io
 import logging
 import re
 import sqlite3
-from datetime import datetime as dt, timezone
+from datetime import datetime as dt, timezone, datetime
 from typing import Callable, Optional, Tuple, Any, Union, Literal
 
 import bcrypt
@@ -22,20 +22,21 @@ class User(AuthUser):
                  date_of_departure: Optional[str],
                  mail: str, id_badge: Optional[str]):
         super().__init__(str(user_id))
-        self.db = db
-        self.user_id = user_id
-        self.name = name
-        self.surname = surname
-        self.nickname = nickname
-        self.cascad_username = cascad_username
-        self.initial_balance = initial_balance
-        self.passcode = passcode
-        self.permissions = permissions
-        self.status = status
-        self.date_of_departure = (dt.strptime(date_of_departure, "%Y-%m-%d %H:%M:%S")
-                                  .replace(tzinfo=timezone.utc)) if date_of_departure is not None else None
-        self.mail = mail
-        self.id_badge = id_badge
+        self.db: Database = db
+        self.user_id: int = user_id
+        self.name: str = name
+        self.surname: str = surname
+        self.nickname: Optional[str] = nickname
+        self.cascad_username: Optional[str] = cascad_username
+        self.initial_balance: Optional[float] = initial_balance
+        self.passcode: Optional[str] = passcode
+        self.permissions: str = permissions
+        self.status: str = status
+        self.date_of_departure: Optional[datetime] = (dt.strptime(date_of_departure, "%Y-%m-%d %H:%M:%S")
+        .replace(
+            tzinfo=timezone.utc)) if date_of_departure is not None else None
+        self.mail: str = mail
+        self.id_badge: Optional[str] = id_badge
 
     @staticmethod
     def create_table(db: Database):
@@ -164,12 +165,12 @@ class Purchase:
 
     def __init__(self, db: Database, purchase_id: int, user_id: int, date: str,
                  nb_coffee: int, price: float):
-        self.db = db
-        self.purchase_id = purchase_id
-        self.user_id = user_id
-        self.date = dt.strptime(date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        self.nb_coffee = nb_coffee
-        self.price = price
+        self.db: Database = db
+        self.purchase_id: int = purchase_id
+        self.user_id: int = user_id
+        self.date: datetime = dt.strptime(date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        self.nb_coffee: int = nb_coffee
+        self.price: float = price
 
     @staticmethod
     def create_table(db: Database):
@@ -193,14 +194,14 @@ class Repayment:
 
     def __init__(self, db: Database, repayment_id: int, user_id: int, date: str,
                  credit: float, label: str, is_cash: int, in_balance: int):
-        self.db = db
-        self.repayment_id = repayment_id
-        self.user_id = user_id
-        self.date = date
-        self.credit = credit
-        self.label = label
-        self.is_cash = is_cash
-        self.in_balance = in_balance
+        self.db: Database = db
+        self.repayment_id: int = repayment_id
+        self.user_id: int = user_id
+        self.date: str = date
+        self.credit: float = credit
+        self.label: str = label
+        self.is_cash: int = is_cash
+        self.in_balance: int = in_balance
 
     @staticmethod
     def create_table(db: Database):
