@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
@@ -18,55 +19,55 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(prog="coffee_tag")
     parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
-    parser.add_argument('path', default="coffee.db", type=str, help='Path to the db')
+    parser.add_argument('path', default="coffee.db", type=Path, help='Path to the db')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--debug-gui', action='store_true', help='Show all configured windows')
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
     parser.add_argument('--no-authentication', '-a', action='store_true',
                         help='Should the authentication be deactivated')
-    parser.add_argument('--install-service', action='store_true',
-                        help='If the service should be installed and enable')
-    parser.add_argument('--uninstall-service', action='store_true',
-                        help='If the service should be uninstalled')
+    parser.add_argument('--install-autoboot', action='store_true',
+                        help='To ensure the app starts at boot')
+    parser.add_argument('--uninstall-autoboot', action='store_true',
+                        help='To disable autoboot')
     args = parser.parse_args()
+    path = Path(args.path).expanduser()
+    user_home = Path("~/").expanduser()
 
-    if (args.install_service or args.uninstall_service) and os.geteuid() != 0:
-        logging.fatal("You need to run this as root to (un)install the service.")
-        exit(1)
-
-    if args.install_service:
-        if not os.path.exists("/home/pi/.config/systemd/user/coffee-tag.service"):
-            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.service"),
-                       "/home/pi/.config/systemd/user/coffee-tag.service")
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
-        subprocess.run(["systemctl", "--user", "enable", "coffee-tag.service"], check=True)
-        subprocess.run(["systemctl", "--user", "start", "coffee-tag.service"], check=True)
-        logging.info("Service was installed, the app should start soon.")
+    if args.install_autoboot:
+        if not os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
+            os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
+            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.desktop"),
+                       f"{user_home}/.local/share/applications/coffee-tag.desktop")
+        if not os.path.exists(f"{user_home}/.config/autostart/coffee-tag.desktop"):
+            os.makedirs(f"{user_home}/.config/autostart/", exist_ok=True)
+            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.desktop"),
+                       f"{user_home}/.config/autostart/coffee-tag.desktop")
+        subprocess.run(["gtk-launch", "coffee-tag"])
+        logging.info("Desktop file was installed, the app should start at boot.")
         exit(0)
 
-    if args.uninstall_service:
-        subprocess.run(["systemctl", "--user", "stop", "coffee-tag.service"], check=True)
-        subprocess.run(["systemctl", "--user", "disable", "coffee-tag.service"], check=True)
-        if os.path.exists("/home/pi/.config/systemd/user/coffee-tag.service"):
-            os.remove("/home/pi/.config/systemd/user/coffee-tag.service")
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
-        logging.info("Service was uninstalled.")
+    if args.uninstall_autoboot:
+        if os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
+            os.remove(f"{user_home}/.local/share/applications/coffee-tag.desktop")
+        if os.path.exists(f"{user_home}/.config/autostart/coffee-tag.desktop"):
+            os.remove(f"{user_home}/.config/autostart/coffee-tag.desktop")
+        logging.info("Desktop file was uninstalled.")
         exit(0)
 
     if args.debug_gui:
-        asyncio.run(show_gui(args.path, args.price))
+        asyncio.run(show_gui(str(path), args.price))
         exit(0)
 
     fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
-    rotating_handler = RotatingFileHandler("debug.log", maxBytes=10485760, backupCount=3)
+    rotating_handler = RotatingFileHandler(path.parent / "debug.log", maxBytes=10485760, backupCount=3)
     rotating_handler.setFormatter(fmt)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(fmt)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         handlers=[rotating_handler, console_handler])
 
-    db = Database(args.path, args.read_only, args.price)
+    db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
 

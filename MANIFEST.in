@@ -1,4 +1,4 @@
-include coffee_tag/coffee-tag.service
+include coffee_tag/coffee-tag.desktop
 include coffee_tag/media/coffee_icon.png
 include coffee_tag/media/cup.gif
 include coffee_tag/media/cup2.gif

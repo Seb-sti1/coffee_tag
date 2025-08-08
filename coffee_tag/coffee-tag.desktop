@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Coffee Tag
+Exec=/home/pi/.local/bin/coffee_tag --no-authentication 0.25 /home/pi/coffee/coffee.db
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
