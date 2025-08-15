@@ -1,23 +1,49 @@
-image: python:3.10.15-alpine3.20
+image: python:3.11-alpine
 
 stages:
+#  - test
   - build
   - release
 
-coffee_tag build:
+#test:
+#  stage: test
+#  coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
+#  script:
+#    - pip install -r requirements.txt
+#    - pip install -e .
+#    - coverage run -m pytest --junitxml=junit.xml tests/
+#    - coverage report
+#    - coverage xml
+#  artifacts:
+#    reports:
+#      junit: junit.xml
+#      coverage_report:
+#        coverage_format: cobertura
+#        path: coverage.xml
+#    paths:
+#      - coverage.xml
+
+build:
   stage: build
   before_script:
-    - python3.10 -m venv .venv
+    - python -m venv .venv
     - source .venv/bin/activate
     - pip install build
   script:
     - python -m build
+#  dependencies:
+#    - test
   artifacts:
     paths:
       - dist/*.whl
       - dist/*.tar.gz
 
-coffee_tag release:
+# For this to work RELEASE_TOKEN needs to be defined
+# Create a token at ${CI_PROJECT_URL}/-/settings/access_tokens with
+#  - the permission api and write_repository,
+#  - the role Developer,
+# then create the variable RELEASE_TOKEN on ${CI_PROJECT_URL}/-/settings/ci_cd#js-cicd-variables-settings.
+release:
   stage: release
   image:
     name: gitlab/glab:latest
@@ -25,21 +51,37 @@ coffee_tag release:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   dependencies:
-    - coffee_tag build
+    - build
   script:
     - export VERSION=$(grep -m 1 version pyproject.toml | tr -s ' ' | tr -d '"' | tr -d "'" | cut -d' ' -f3)
-    - glab auth login --hostname gitlab.ensta.fr --token $RELEASE_TOKEN
-    - glab release create "$VERSION" --name "Release $VERSION" --notes "Automated release" --ref $CI_COMMIT_SHA --repo https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag ./dist/coffee_tag-*-py3-none-any.whl
-  
-coffee_tag publish:
+    - glab auth login --hostname ${CI_SERVER_HOST} --token $RELEASE_TOKEN
+    - glab release create "$VERSION" --name "Release $VERSION" --notes "Automated release" --ref $CI_COMMIT_SHA --repo ${CI_PROJECT_URL} ./dist/*.whl
+
+
+publish gitlab:
   stage: release
   before_script:
-    - python3.10 -m venv .venv
+    - python -m venv .venv
     - source .venv/bin/activate
     - pip install twine
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   dependencies:
-    - coffee_tag build
+    - build
   script:
     - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+
+# For this to work get a pypi token from https://pypi.org/manage/account/token/ with permissions for the project
+# then create the variable PYPI_TOKEN on ${CI_PROJECT_URL}/-/settings/ci_cd#js-cicd-variables-settings.
+#publish pypi:
+#  stage: release
+#  before_script:
+#    - python3.10 -m venv .venv
+#    - source .venv/bin/activate
+#    - pip install twine
+#  rules:
+#    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#  dependencies:
+#    - build
+#  script:
+#    - TWINE_PASSWORD=${PYPI_TOKEN} TWINE_USERNAME=__token__ python3 -m twine upload --repository pypi dist/*
