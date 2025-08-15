@@ -256,7 +256,7 @@ class Database:
                 self.connector.commit()
             return True, c
         except self.connector.Error as e:
-            logger.error(f"An error occurred will writing to the db:", e)  # TODO check this
+            logger.error(f"An error occurred will writing to the db: {e}")  # TODO check this
             self.connector.rollback()
         return False, c
 
