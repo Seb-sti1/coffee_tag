@@ -3,30 +3,38 @@ In this file is implemented the logic of the app.
 It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
+import datetime
 import logging
 from argparse import Namespace
-from typing import Optional
+from typing import Optional, Union
+
+from juracoffeemachine import CoffeeMaker, JuraCommand
 
 from coffee_tag.database import User, Database
-from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword
+from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword, \
+    BrewCoffee
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
 
 
 class CoffeeManager:
-    def __init__(self, db: Database, rfid: RFIDReader, args: Namespace):
+    def __init__(self, db: Database, rfid: RFIDReader, machin: CoffeeMaker, args: Namespace):
         self.db = db
         self.rfid = rfid
+        self.machin = machin
         self.args = args
         self.root_gui = MainGUI(self.__main_gui_callback__,
                                 self.db.coffee_price)
         self.rfid_can_open_menu = True
+        self.next_ping_to_machine: Optional[Union[JuraCommand.HZ, JuraCommand.CS]] = JuraCommand.HZ
+        self.statistics_were_log: bool = False
 
         self.loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self.loop)
 
         self.loop.create_task(self.listen_to_card_reader())
+        self.loop.create_task(self.monitor_machine())
         self.loop.create_task(self.tk_loop())
 
     def __main_gui_callback__(self):
@@ -36,6 +44,26 @@ class CoffeeManager:
         while True:
             self.root_gui.tk.update()
             await asyncio.sleep(1 / 60)
+
+    async def monitor_machine(self) -> None:
+        while self.rfid.run:
+            date = datetime.datetime.now()
+            if 7 <= date.hour <= 20:
+                self.statistics_were_log = False # reset for next night
+                if self.next_ping_to_machine == JuraCommand.HZ:
+                    msg = self.machin.connection.get_and_parse_message(JuraCommand.HZ)
+                    self.next_ping_to_machine = JuraCommand.CS
+                    logger.debug(f"{msg.raw}: {msg}")
+                elif self.next_ping_to_machine == JuraCommand.CS:
+                    msg = self.machin.connection.get_and_parse_message(JuraCommand.CS)
+                    self.next_ping_to_machine = JuraCommand.HZ
+                    logger.debug(f"{msg.raw}: {msg}")
+                await asyncio.sleep(60)
+            else:
+                if date.hour == 0 and not self.statistics_were_log:
+                    self.statistics_were_log = True
+                    self.machin.connection.log_statistics()
+                await asyncio.sleep(20*60)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
@@ -139,6 +167,17 @@ class CoffeeManager:
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
+        if user.user_id == 100:
+            self.next_ping_to_machine = False
+            (coffee_bean, water_volume,
+             wait_before_coffee, duration_to_water,
+             action_cooldown) = await BrewCoffee(self.root_gui).get_future()
+            logger.warning(f"Sending command c {coffee_bean}, w {water_volume},"
+                           f" wait c {wait_before_coffee}, dur2w {duration_to_water}, cd {action_cooldown}")
+            self.machin.brew_coffee(coffee_bean, water_volume,
+                                    wait_before_coffee, duration_to_water, action_cooldown)
+            await asyncio.sleep(10)  # TODO check timing
+            self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
         if admin_status is not None:

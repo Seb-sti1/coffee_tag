@@ -7,6 +7,8 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from juracoffeemachine import CoffeeMaker
+
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
 from coffee_tag.gui import show_gui
@@ -70,9 +72,10 @@ def main():
     db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
+    machin = CoffeeMaker.create_from_uart(args.port)
 
     async def asyncio_main():
-        CoffeeManager(db, rfid, args)
+        CoffeeManager(db, rfid, machin, args)
         await website.app.run_task(host="0.0.0.0", port=8080)
 
     asyncio.run(asyncio_main())

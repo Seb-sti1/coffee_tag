@@ -6,3 +6,4 @@ quart-auth
 bcrypt
 spidev
 pyserial
+juracoffeemachine
