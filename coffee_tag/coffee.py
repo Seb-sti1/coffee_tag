@@ -49,21 +49,27 @@ class CoffeeManager:
         while self.rfid.run:
             date = datetime.datetime.now()
             if 7 <= date.hour <= 20:
-                self.statistics_were_log = False # reset for next night
+                self.statistics_were_log = False  # reset for next night
                 if self.next_ping_to_machine == JuraCommand.HZ:
                     msg = self.machin.connection.get_and_parse_message(JuraCommand.HZ)
+                    if msg is not None:
+                        logger.debug(f"{msg.raw}: {msg}")
+                    else:
+                        logger.warning("No message returned for HZ")
                     self.next_ping_to_machine = JuraCommand.CS
-                    logger.debug(f"{msg.raw}: {msg}")
                 elif self.next_ping_to_machine == JuraCommand.CS:
                     msg = self.machin.connection.get_and_parse_message(JuraCommand.CS)
+                    if msg is not None:
+                        logger.debug(f"{msg.raw}: {msg}")
+                    else:
+                        logger.warning("No message returned for CS")
                     self.next_ping_to_machine = JuraCommand.HZ
-                    logger.debug(f"{msg.raw}: {msg}")
                 await asyncio.sleep(60)
             else:
                 if date.hour == 0 and not self.statistics_were_log:
                     self.statistics_were_log = True
                     self.machin.connection.log_statistics()
-                await asyncio.sleep(20*60)
+                await asyncio.sleep(20 * 60)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
@@ -169,14 +175,16 @@ class CoffeeManager:
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         if user.user_id == 100:
             self.next_ping_to_machine = False
-            (coffee_bean, water_volume,
-             wait_before_coffee, duration_to_water,
-             action_cooldown) = await BrewCoffee(self.root_gui).get_future()
-            logger.warning(f"Sending command c {coffee_bean}, w {water_volume},"
-                           f" wait c {wait_before_coffee}, dur2w {duration_to_water}, cd {action_cooldown}")
-            self.machin.brew_coffee(coffee_bean, water_volume,
-                                    wait_before_coffee, duration_to_water, action_cooldown)
-            await asyncio.sleep(10)  # TODO check timing
+            param = await BrewCoffee(self.root_gui).get_future()
+            if param is not None:
+                (coffee_bean, water_volume,
+                 wait_before_coffee, duration_to_water,
+                 action_cooldown) = param
+                logger.warning(f"Sending command c {coffee_bean}, w {water_volume},"
+                               f" wait c {wait_before_coffee}, dur2w {duration_to_water}, cd {action_cooldown}")
+                self.machin.brew_coffee(CoffeeMaker.CoffeeType.COFFEE, coffee_bean, water_volume,
+                                        wait_before_coffee, duration_to_water, action_cooldown)
+                await asyncio.sleep(10)  # TODO check timing
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()

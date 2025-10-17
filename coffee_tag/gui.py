@@ -348,7 +348,7 @@ class BrewCoffee(AbstractUI):
                                 float(self.action_cooldown.get())))
         self.gui.destroy()
 
-    def get_future(self) -> Future[Optional[Tuple[bool, str]]]:
+    def get_future(self) -> Future[Optional[Tuple[int, int, float, float, float]]]:
         return self.future
 
 
