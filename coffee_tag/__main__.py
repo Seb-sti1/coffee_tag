@@ -22,7 +22,7 @@ def main():
     parser = argparse.ArgumentParser(prog="coffee_tag")
     parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
     parser.add_argument('path', default="coffee.db", type=Path, help='Path to the db')
-    parser.add_argument('tty', default="/dev/ttyUSB0", type=Path,
+    parser.add_argument('tty', default="/dev/ttyUSB0", type=str,
                         help='Path to the tty of the machin\'s uart')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
@@ -74,7 +74,7 @@ def main():
     db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
-    machin = CoffeeMaker.create_from_uart(args.tty)
+    machin = CoffeeMaker.create_from_uart(args.tty)  # FIXME only works when the machin in turned on
 
     async def asyncio_main():
         CoffeeManager(db, rfid, machin, args)

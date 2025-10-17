@@ -34,7 +34,7 @@ class CoffeeManager:
         asyncio.set_event_loop(self.loop)
 
         self.loop.create_task(self.listen_to_card_reader())
-        self.loop.create_task(self.monitor_machine())
+        # self.loop.create_task(self.monitor_machine()) # FIXME use try catch when sending stuff to the machin
         self.loop.create_task(self.tk_loop())
 
     def __main_gui_callback__(self):
