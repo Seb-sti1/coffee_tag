@@ -328,8 +328,9 @@ class UserProperties(AbstractUI):
 
 
 class BrewCoffee(AbstractUI):
-    def __init__(self, main: MainGUI):
-        super().__init__(main, "Brew a coffee", 320, 350)
+    def __init__(self, main: MainGUI, status: str):
+        super().__init__(main, "Brew a coffee", 320, 370)
+        self.add_label(status, font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
         self.add_label("coffee_bean [0,7] 3 1", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
         self.coffee_bean = self.add_entry(width=20, font='Helvetica 12', focus=True)
         self.add_label("water_volume [80,150] 100 5", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)

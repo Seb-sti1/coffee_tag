@@ -74,10 +74,9 @@ def main():
     db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
-    machin = CoffeeMaker.create_from_uart(args.tty)  # FIXME only works when the machin in turned on
 
     async def asyncio_main():
-        CoffeeManager(db, rfid, machin, args)
+        CoffeeManager(db, rfid, args)
         await website.app.run_task(host="0.0.0.0", port=8080)
 
     asyncio.run(asyncio_main())
