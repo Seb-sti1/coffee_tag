@@ -102,7 +102,7 @@ class CoffeeManager:
             should_sync = await GeneralUI(self.root_gui, "Sorry!", 350, 290,
                                           "I could not find you", main_text="Former user with new badge?",
                                           button_one="Synchronize", button_two="Add me").get_future()
-            if should_sync:
+            if should_sync:  # TODO security vulnerability
                 user = await self.get_user_by_manual_search()
                 if user is not None:
                     self.db.sync_badge(user, card)
@@ -187,17 +187,16 @@ class CoffeeManager:
             self.unsure_coffee_maker_connexion()
             param = await BrewCoffee(self.root_gui, "uart is None" if self.coffee_maker is None else "uart ok").get_future()
             if param is not None:
-                (coffee_bean, water_volume,
-                 wait_before_coffee, duration_to_water,
-                 action_cooldown) = param
-                logger.warning(f"Sending command c {coffee_bean}, w {water_volume},"
-                               f" wait c {wait_before_coffee}, dur2w {duration_to_water}, cd {action_cooldown}")
-                self.coffee_maker.brew_coffee(CoffeeMaker.CoffeeType.COFFEE, coffee_bean, water_volume,
-                                              wait_before_coffee, duration_to_water, action_cooldown)
+                (coffee_bean, water_volume, _, _, _) = param
+                logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
+                self.coffee_maker.brew_coffee(coffee_bean, water_volume)
                 await asyncio.sleep(10)  # TODO check timing
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
+        if user.user_id == 100:
+            logger.info("Resetting param to actual default")
+            self.coffee_maker.reset_coffee_param()
         if admin_status is not None:
             admin_status.close()
             await admin_status.get_future()
