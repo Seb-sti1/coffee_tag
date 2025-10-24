@@ -335,21 +335,14 @@ class BrewCoffee(AbstractUI):
         self.coffee_bean = self.add_entry(width=20, font='Helvetica 12', focus=True)
         self.add_label("water_volume [80,150] 100 5", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
         self.water_volume = self.add_entry(width=20, font='Helvetica 12', focus=True)
-        self.add_label("wait_before_coffee 0.6", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
-        self.wait_before_coffee = self.add_entry(width=20, font='Helvetica 12', focus=True)
-        self.add_label("duration_to_water 6", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
-        self.duration_to_water = self.add_entry(width=20, font='Helvetica 12', focus=True)
-        self.add_label("action_cooldown 0.1", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
         self.action_cooldown = self.add_entry(width=20, font='Helvetica 12', focus=True)
         self.add_button("OK", self.submit_callback, font='Helvetica 16 bold')
 
     def submit_callback(self):
-        self.future.set_result((int(self.coffee_bean.get()), int(self.water_volume.get()),
-                                float(self.wait_before_coffee.get()), float(self.duration_to_water.get()),
-                                float(self.action_cooldown.get())))
+        self.future.set_result((int(self.coffee_bean.get()), int(self.water_volume.get())))
         self.gui.destroy()
 
-    def get_future(self) -> Future[Optional[Tuple[int, int, float, float, float]]]:
+    def get_future(self) -> Future[Optional[Tuple[int, int]]]:
         return self.future
 
 
