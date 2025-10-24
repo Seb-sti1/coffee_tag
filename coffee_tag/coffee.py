@@ -53,7 +53,7 @@ class CoffeeManager:
                 logger.error(f"Error occurred while connecting to coffee maker: {e}")
 
     async def monitor_machine(self) -> None:
-        while self.rfid.run:
+        while self.rfid.run and not self.args.no_monitor:
             date = datetime.datetime.now()
             if 7 <= date.hour <= 20:
                 self.unsure_coffee_maker_connexion()
