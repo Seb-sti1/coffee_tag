@@ -5,6 +5,7 @@ It triggers the display of GUI and reactive depending on the user inputs.
 import asyncio
 import datetime
 import logging
+import time
 from argparse import Namespace
 from typing import Optional, Union
 
@@ -22,8 +23,8 @@ class CoffeeManager:
     def __init__(self, db: Database, rfid: RFIDReader, args: Namespace):
         self.db = db
         self.rfid = rfid
-        self.coffee_maker: Optional[CoffeeMaker] = None
         self.args = args
+        self.coffee_maker: CoffeeMaker = CoffeeMaker.create_from_uart(self.args.tty)
         self.root_gui = MainGUI(self.__main_gui_callback__,
                                 self.db.coffee_price)
         self.rfid_can_open_menu = True
@@ -45,40 +46,31 @@ class CoffeeManager:
             self.root_gui.tk.update()
             await asyncio.sleep(1 / 60)
 
-    def unsure_coffee_maker_connexion(self):
-        if self.coffee_maker is None:
-            try:
-                self.coffee_maker = CoffeeMaker.create_from_uart(self.args.tty)
-            except Exception as e:
-                logger.error(f"Error occurred while connecting to coffee maker: {e}")
-
     async def monitor_machine(self) -> None:
         while self.rfid.run and not self.args.no_monitor:
             date = datetime.datetime.now()
             if 7 <= date.hour <= 20:
-                self.unsure_coffee_maker_connexion()
                 self.statistics_were_log = False  # reset for next night
                 if self.coffee_maker is not None and self.next_ping_to_machine == JuraCommand.HZ:
-                    msg = self.coffee_maker.connection.get_and_parse_message(JuraCommand.HZ)
+                    msg = self.coffee_maker.ping(JuraCommand.HZ)
                     if msg is not None:
                         logger.debug(f"{msg.raw}: {msg}")
                     else:
                         logger.warning("No message returned for HZ")
                     self.next_ping_to_machine = JuraCommand.CS
                 elif self.coffee_maker is not None and self.next_ping_to_machine == JuraCommand.CS:
-                    msg = self.coffee_maker.connection.get_and_parse_message(JuraCommand.CS)
+                    msg = self.coffee_maker.ping(JuraCommand.CS)
                     if msg is not None:
                         logger.debug(f"{msg.raw}: {msg}")
                     else:
                         logger.warning("No message returned for CS")
                     self.next_ping_to_machine = JuraCommand.HZ
                 await asyncio.sleep(60)
-            else:
-                self.unsure_coffee_maker_connexion()
-                if self.coffee_maker is not None and date.hour == 0 and not self.statistics_were_log:
-                    self.statistics_were_log = True
-                    self.coffee_maker.connection.log_statistics()
-                await asyncio.sleep(20 * 60)
+            # else: # TODO fix is in driver
+            #     if self.coffee_maker is not None and date.hour == 0 and not self.statistics_were_log:
+            #         self.statistics_were_log = True
+            #         self.coffee_maker.log_statistics()
+            #     await asyncio.sleep(20 * 60)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
@@ -184,8 +176,8 @@ class CoffeeManager:
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         if user.user_id == 100:
             self.next_ping_to_machine = False
-            self.unsure_coffee_maker_connexion()
-            param = await BrewCoffee(self.root_gui, "uart is None" if self.coffee_maker is None else "uart ok").get_future()
+            param = await BrewCoffee(self.root_gui, f"uart is {self.coffee_maker.status[0] - time.time()},"
+                                                    f"{self.coffee_maker.status[1]}").get_future()
             if param is not None:
                 coffee_bean, water_volume = param
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
