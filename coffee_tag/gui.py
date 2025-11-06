@@ -334,8 +334,7 @@ class BrewCoffee(AbstractUI):
         self.add_label("coffee_bean [0,7] 3 1", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
         self.coffee_bean = self.add_entry(width=20, font='Helvetica 12', focus=True)
         self.add_label("water_volume [80,150] 100 5", font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
-        self.water_volume = self.add_entry(width=20, font='Helvetica 12', focus=True)
-        self.action_cooldown = self.add_entry(width=20, font='Helvetica 12', focus=True)
+        self.water_volume = self.add_entry(width=20, font='Helvetica 12')
         self.add_button("OK", self.submit_callback, font='Helvetica 16 bold')
 
     def submit_callback(self):
