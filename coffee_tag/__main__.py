@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--debug-gui', action='store_true', help='Show all configured windows')
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
-    parser.add_argument('--no-monitor', '-r', action='store_true', help='Don\'t monitor jura machine.')
+    parser.add_argument('--no-monitor', action='store_true', help='Don\'t monitor jura machine.')
     parser.add_argument('--no-authentication', '-a', action='store_true',
                         help='Should the authentication be deactivated')
     parser.add_argument('--install-autoboot', action='store_true',
