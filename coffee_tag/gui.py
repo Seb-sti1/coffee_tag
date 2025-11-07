@@ -565,7 +565,6 @@ async def show_gui(path: str, price: float):
 
     loop = asyncio.get_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(tk_loop())
 
     async def wrapper(entity, **args):
         return await entity(**args).get_future()
@@ -590,7 +589,4 @@ async def show_gui(path: str, price: float):
     loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
     loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
 
-    async def trigger_update():
-        gui.tk.update()
-
-    loop.create_task(trigger_update())
+    loop.create_task(tk_loop())
