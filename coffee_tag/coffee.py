@@ -176,8 +176,9 @@ class CoffeeManager:
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         if user.user_id == 100:
             self.next_ping_to_machine = False
-            param = await BrewCoffee(self.root_gui, f"uart is {self.coffee_maker.status[0] - time.time()},"
-                                                    f"{self.coffee_maker.status[1]}").get_future()
+            param = await BrewCoffee(self.root_gui,
+                                     f"Last contact {time.time() - self.coffee_maker.status[0]}s ago."
+                                     f" {self.coffee_maker.status[1]}.").get_future()
             if param is not None:
                 coffee_bean, water_volume = param
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
