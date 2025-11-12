@@ -169,7 +169,7 @@ class CoffeeManager:
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
-        if user.user_id == 100:
+        if user.user_id in [100]:
             self.next_ping_to_machine = False
             param = await BrewCoffee(self.root_gui,
                                      f"Last contact {time.time() - self.coffee_maker.__status__[0]}s ago."
@@ -179,12 +179,10 @@ class CoffeeManager:
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
                 self.coffee_maker.brew_coffee(coffee_bean, water_volume)
                 await asyncio.sleep(10)  # TODO check timing
+                logger.info(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
-        if user.user_id == 100:
-            # todo move this after brew_coffee
-            logger.info(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
         if admin_status is not None:
             admin_status.close()
             await admin_status.get_future()
