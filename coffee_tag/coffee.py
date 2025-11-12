@@ -51,26 +51,21 @@ class CoffeeManager:
             date = datetime.datetime.now()
             if 7 <= date.hour <= 20:
                 self.statistics_were_log = False  # reset for next night
-                if self.coffee_maker is not None and self.next_ping_to_machine == JuraCommand.HZ:
-                    msg = self.coffee_maker.ping(JuraCommand.HZ)
+                if self.next_ping_to_machine != False:
+                    msg = self.coffee_maker.ping(self.next_ping_to_machine)
                     if msg is not None:
                         logger.debug(f"{msg.raw}: {msg}")
                     else:
-                        logger.warning("No message returned for HZ")
-                    self.next_ping_to_machine = JuraCommand.CS
-                elif self.coffee_maker is not None and self.next_ping_to_machine == JuraCommand.CS:
-                    msg = self.coffee_maker.ping(JuraCommand.CS)
-                    if msg is not None:
-                        logger.debug(f"{msg.raw}: {msg}")
-                    else:
-                        logger.warning("No message returned for CS")
-                    self.next_ping_to_machine = JuraCommand.HZ
+                        logger.warning(f"No message returned for {self.next_ping_to_machine}")
+                    self.next_ping_to_machine = JuraCommand.CS if self.next_ping_to_machine == JuraCommand.HZ else JuraCommand.HZ
                 await asyncio.sleep(60)
-            # else: # TODO fix is in driver
-            #     if self.coffee_maker is not None and date.hour == 0 and not self.statistics_were_log:
-            #         self.statistics_were_log = True
-            #         self.coffee_maker.log_statistics()
-            #     await asyncio.sleep(20 * 60)
+            else:
+                if date.hour == 0 and not self.statistics_were_log:
+                    self.statistics_were_log = True
+                    stat = self.coffee_maker.get_totals_statistics()
+                    if stat is not None:
+                        logger.info(f"Stats are {', '.join(map(str, stat))}. Total {sum(stat)}")
+                await asyncio.sleep(20 * 60)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
@@ -177,8 +172,8 @@ class CoffeeManager:
         if user.user_id == 100:
             self.next_ping_to_machine = False
             param = await BrewCoffee(self.root_gui,
-                                     f"Last contact {time.time() - self.coffee_maker.status[0]}s ago."
-                                     f" {self.coffee_maker.status[1]}.").get_future()
+                                     f"Last contact {time.time() - self.coffee_maker.__status__[0]}s ago."
+                                     f" {self.coffee_maker.__status__[1]}.").get_future()
             if param is not None:
                 coffee_bean, water_volume = param
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
@@ -188,6 +183,7 @@ class CoffeeManager:
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
         if user.user_id == 100:
+            # todo move this after brew_coffee
             logger.info(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
         if admin_status is not None:
             admin_status.close()
