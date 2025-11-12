@@ -335,7 +335,7 @@ class UserProperties(AbstractUI):
 
 class BrewCoffee(AbstractUI):
     def __init__(self, main: MainGUI, status: str, with_arrows: bool=False):
-        super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60, 370)
+        super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60, 400)
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                       "coffee_icon.png")).resize((50, 50)))
         self.coffee_icon_gray = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
@@ -377,7 +377,7 @@ class BrewCoffee(AbstractUI):
                                         command=lambda v: self.change_water_volume(int(v)),
                                         bg="#754c24", fg="#c9a589", troughcolor="#c9a589",
                                         tickinterval=15, showvalue=False,
-                                        length=8 * 60, width=30,
+                                        length=8 * 60, width=50, sliderlength=50,
                                         bd=0, highlightthickness=0,
                                         orient=HORIZONTAL)
         self.water_volume_scale.place(x=60, y=y)
@@ -387,7 +387,7 @@ class BrewCoffee(AbstractUI):
             self.add_button("►", self.wrapper_left_right(True, False),
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 10, y=y)
 
-        self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold')
+        self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=3)
 
     def change_coffee_bean(self, coffee: int):
         logger.debug(f"User changed coffee to {coffee}")
@@ -588,5 +588,6 @@ async def show_gui(path: str, price: float):
                              should_close_in_5=True))
     loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
     loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
+    loop.create_task(wrapper(BrewCoffee, main=gui, status="status"))
 
     loop.create_task(tk_loop())
