@@ -334,7 +334,7 @@ class UserProperties(AbstractUI):
 
 
 class BrewCoffee(AbstractUI):
-    def __init__(self, main: MainGUI, status: str, with_arrows: bool=False):
+    def __init__(self, main: MainGUI, status: str, with_arrows: bool = False):
         super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60, 400)
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                       "coffee_icon.png")).resize((50, 50)))
@@ -426,6 +426,22 @@ class BrewCoffee(AbstractUI):
         self.gui.destroy()
 
     def get_future(self) -> Future[Optional[Tuple[int, int]]]:
+        return self.future
+
+
+class BrewProgress(AbstractUI):
+    def __init__(self, main: MainGUI, water_volume: int):
+        super().__init__(main, "Brewing...", 320, 250)
+        self.water_volume = water_volume
+        self.add_label("Please wait while you're coffee is brewing!")
+        self.progress_label = self.add_label("")
+
+    def progress_cb(self, measure: float):
+        self.progress_label.config(text=f"{measure:.0f} / {self.water_volume} mL")
+
+    def get_future(self) -> Future[Optional[True]]:
+        self.future.set_result(True)
+        self.gui.destroy()
         return self.future
 
 

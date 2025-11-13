@@ -13,7 +13,7 @@ from juracoffeemachine import CoffeeMaker, JuraCommand
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword, \
-    BrewCoffee
+    BrewCoffee, BrewProgress
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -171,15 +171,18 @@ class CoffeeManager:
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         if user.user_id in [100]:
             self.next_ping_to_machine = False
+            logger.warning(f"========== new coffee ============")
+            logger.warning(f"{self.coffee_maker.__status__[1]}")
             param = await BrewCoffee(self.root_gui,
                                      f"Last contact {time.time() - self.coffee_maker.__status__[0]}s ago."
                                      f" {self.coffee_maker.__status__[1]}.").get_future()
             if param is not None:
                 coffee_bean, water_volume = param
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
-                self.coffee_maker.brew_coffee(coffee_bean, water_volume)
-                await asyncio.sleep(10)  # TODO check timing
-                logger.info(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
+                progress_gui = BrewProgress(self.root_gui, water_volume)
+                self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
+                logger.warning(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
+                await progress_gui.get_future()
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
