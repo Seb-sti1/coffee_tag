@@ -61,7 +61,7 @@ def main():
         exit(0)
 
     if args.debug_gui:
-        asyncio.run(show_gui(str(path), args.price))
+        show_gui(str(path), args.price)
         exit(0)
 
     fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')

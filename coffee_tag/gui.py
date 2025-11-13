@@ -552,42 +552,42 @@ class ImageLabel(tk.Label):
             self.after(self.delay, self.next_frame)
 
 
-async def show_gui(path: str, price: float):
+def show_gui(path: str, price: float):
     rfid = RFIDReader(True)
     db = Database(path, True, price)
     users = db.search_by_name("ale")
     gui = MainGUI(lambda: None, 0.25)
 
+    async def wrapper(entity, **args):
+        return await entity(**args).get_future()
+
     async def tk_loop():
+        loop = asyncio.get_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.create_task(wrapper(ManualEntry, main=gui, search_user=db.search_by_name))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
+                                 w=200, h=250,
+                                 sub_text="I could not find you",
+                                 button_one="Try again",
+                                 button_two="Add me"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
+                                 w=350, h=290,
+                                 sub_text="I could not find you",
+                                 main_text="Former user with new badge?",
+                                 button_one="Synchronize",
+                                 button_two="Add me"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title=f"Thank you {users[0]}!",
+                                 w=320, h=230,
+                                 sub_text="Your balance is now",
+                                 main_text=f"{-users[0].get_user_balance()} €",
+                                 should_close_in_5=True))
+        loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
+        loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
+        loop.create_task(wrapper(BrewCoffee, main=gui, status="status"))
+
         while True:
             gui.tk.update()
             await asyncio.sleep(1 / 60)
 
-    loop = asyncio.get_event_loop()
-    asyncio.set_event_loop(loop)
-
-    async def wrapper(entity, **args):
-        return await entity(**args).get_future()
-
-    loop.create_task(wrapper(ManualEntry, main=gui, search_user=db.search_by_name))
-    loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
-                             w=200, h=250,
-                             sub_text="I could not find you",
-                             button_one="Try again",
-                             button_two="Add me"))
-    loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
-                             w=350, h=290,
-                             sub_text="I could not find you",
-                             main_text="Former user with new badge?",
-                             button_one="Synchronize",
-                             button_two="Add me"))
-    loop.create_task(wrapper(GeneralUI, main=gui, title=f"Thank you {users[0]}!",
-                             w=320, h=230,
-                             sub_text="Your balance is now",
-                             main_text=f"{-users[0].get_user_balance()} €",
-                             should_close_in_5=True))
-    loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
-    loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
-    loop.create_task(wrapper(BrewCoffee, main=gui, status="status"))
-
-    loop.create_task(tk_loop())
+    asyncio.run(tk_loop())
