@@ -174,7 +174,7 @@ class CoffeeManager:
             logger.warning(f"========== new coffee ============")
             logger.warning(f"{self.coffee_maker.__status__[1]}")
             param = await BrewCoffee(self.root_gui,
-                                     f"Last contact {time.time() - self.coffee_maker.__status__[0]}s ago."
+                                     f"Last contact {time.time() - self.coffee_maker.__status__[0]:.1f}s ago."
                                      f" {self.coffee_maker.__status__[1]}.").get_future()
             if param is not None:
                 coffee_bean, water_volume = param
