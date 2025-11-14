@@ -169,7 +169,7 @@ class CoffeeManager:
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
-        if user.user_id in [100]:
+        if user.user_id in [100] + self.args.beta:
             self.next_ping_to_machine = False
             logger.warning(f"========== new coffee ============")
             logger.warning(f"{self.coffee_maker.__status__[1]}")

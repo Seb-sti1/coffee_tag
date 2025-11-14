@@ -35,6 +35,8 @@ def main():
                         help='To ensure the app starts at boot')
     parser.add_argument('--uninstall-autoboot', action='store_true',
                         help='To disable autoboot')
+    parser.add_argument('--beta', '-b', action="append", type=int,
+                        help="List of account that are beta testers")
     args = parser.parse_args()
     path = Path(args.path).expanduser()
     user_home = Path("~/").expanduser()
