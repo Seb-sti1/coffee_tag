@@ -439,9 +439,11 @@ class BrewProgress(AbstractUI):
     def progress_cb(self, measure: float):
         self.progress_label.config(text=f"{measure:.0f} / {self.water_volume} mL")
 
-    def get_future(self) -> Future[Optional[True]]:
+    def close(self):
         self.future.set_result(True)
         self.gui.destroy()
+
+    def get_future(self) -> Future[Optional[True]]:
         return self.future
 
 

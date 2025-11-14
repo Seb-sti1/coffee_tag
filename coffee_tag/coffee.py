@@ -180,9 +180,14 @@ class CoffeeManager:
                 coffee_bean, water_volume = param
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
                 progress_gui = BrewProgress(self.root_gui, water_volume)
-                self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
-                logger.warning(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
+
+                async def _task():
+                    self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
+                    progress_gui.close()
+
+                self.loop.create_task(_task())
                 await progress_gui.get_future()
+                logger.warning(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
