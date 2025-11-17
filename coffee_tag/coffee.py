@@ -52,7 +52,7 @@ class CoffeeManager:
             if 7 <= date.hour <= 20:
                 self.statistics_were_log = False  # reset for next night
                 if self.next_ping_to_machine != False:
-                    msg = self.coffee_maker.ping(self.next_ping_to_machine)
+                    msg = await self.coffee_maker.ping(self.next_ping_to_machine)
                     if msg is not None:
                         logger.debug(f"{msg.raw}: {msg}")
                     else:
@@ -62,7 +62,7 @@ class CoffeeManager:
             else:
                 if date.hour == 0 and not self.statistics_were_log:
                     self.statistics_were_log = True
-                    stat = self.coffee_maker.get_totals_statistics()
+                    stat = await self.coffee_maker.get_totals_statistics()
                     if stat is not None:
                         logger.info(f"Stats are {', '.join(map(str, stat))}. Total {sum(stat)}")
                 await asyncio.sleep(20 * 60)
@@ -180,14 +180,9 @@ class CoffeeManager:
                 coffee_bean, water_volume = param
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
                 progress_gui = BrewProgress(self.root_gui, water_volume)
-
-                async def _task():
-                    self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
-                    progress_gui.close()
-
-                self.loop.create_task(_task())
+                await self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
                 await progress_gui.get_future()
-                logger.warning(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
+                logger.warning(f"Resetting param to actual default: {await self.coffee_maker.reset_coffee_param()}")
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
