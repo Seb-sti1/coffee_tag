@@ -394,9 +394,6 @@ class BrewCoffee(AbstractUI):
         self.coffee_bean = max(CoffeeMaker.coffee_bean_param[0],
                                min(CoffeeMaker.coffee_bean_param[2],
                                    coffee)) // CoffeeMaker.coffee_bean_param[3] * CoffeeMaker.coffee_bean_param[3]
-        if self.coffee_bean != coffee:
-            logger.error(f"self.coffee_bean (={self.coffee_bean}) != coffee (={coffee}) !!!")
-
         for i in range(8):
             img = self.coffee_icon if i <= self.coffee_bean else self.coffee_icon_gray
             self.coffee_bean_btns[i].config(image=img)
@@ -406,8 +403,6 @@ class BrewCoffee(AbstractUI):
         self.water_volume = max(CoffeeMaker.water_volume_param[0],
                                 min(CoffeeMaker.water_volume_param[2],
                                     volume)) // CoffeeMaker.water_volume_param[3] * CoffeeMaker.water_volume_param[3]
-        if self.water_volume != volume:
-            logger.error(f"self.water_volume (={self.water_volume}) != volume (={volume}) !!!")
         self.water_volume_scale.set(self.water_volume)
         self.water_volume_label.config(text=f"Water volume: {self.water_volume} mL")
 

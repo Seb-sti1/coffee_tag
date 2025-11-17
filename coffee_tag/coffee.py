@@ -53,9 +53,7 @@ class CoffeeManager:
                 self.statistics_were_log = False  # reset for next night
                 if self.next_ping_to_machine != False:
                     msg = await self.coffee_maker.ping(self.next_ping_to_machine)
-                    if msg is not None:
-                        logger.debug(f"{msg.raw}: {msg}")
-                    else:
+                    if msg is None:
                         logger.warning(f"No message returned for {self.next_ping_to_machine}")
                     self.next_ping_to_machine = JuraCommand.CS if self.next_ping_to_machine == JuraCommand.HZ else JuraCommand.HZ
                 await asyncio.sleep(60)
@@ -181,6 +179,7 @@ class CoffeeManager:
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
                 progress_gui = BrewProgress(self.root_gui, water_volume)
                 await self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
+                progress_gui.close()
                 await progress_gui.get_future()
                 logger.warning(f"Resetting param to actual default: {await self.coffee_maker.reset_coffee_param()}")
             self.next_ping_to_machine = JuraCommand.HZ
