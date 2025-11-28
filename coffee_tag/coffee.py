@@ -52,7 +52,7 @@ class CoffeeManager:
             if 7 <= date.hour <= 20:
                 self.statistics_were_log = False  # reset for next night
                 if self.next_ping_to_machine != False:
-                    msg = await self.coffee_maker.ping(self.next_ping_to_machine)
+                    msg = self.coffee_maker.ping(self.next_ping_to_machine)
                     if msg is None:
                         logger.warning(f"No message returned for {self.next_ping_to_machine}")
                     self.next_ping_to_machine = JuraCommand.CS if self.next_ping_to_machine == JuraCommand.HZ else JuraCommand.HZ
@@ -60,7 +60,7 @@ class CoffeeManager:
             else:
                 if date.hour == 0 and not self.statistics_were_log:
                     self.statistics_were_log = True
-                    stat = await self.coffee_maker.get_totals_statistics()
+                    stat = self.coffee_maker.get_totals_statistics()
                     if stat is not None:
                         logger.info(f"Stats are {', '.join(map(str, stat))}. Total {sum(stat)}")
                 await asyncio.sleep(20 * 60)
@@ -170,18 +170,23 @@ class CoffeeManager:
         if user.user_id in [100] + self.args.beta:
             self.next_ping_to_machine = False
             logger.warning(f"========== new coffee ============")
-            logger.warning(f"{self.coffee_maker.__status__[1]}")
-            param = await BrewCoffee(self.root_gui,
-                                     f"Last contact {time.time() - self.coffee_maker.__status__[0]:.1f}s ago."
-                                     f" {self.coffee_maker.__status__[1]}.").get_future()
-            if param is not None:
-                coffee_bean, water_volume = param
-                logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
-                progress_gui = BrewProgress(self.root_gui, water_volume)
-                await self.coffee_maker.brew_coffee(coffee_bean, water_volume, progress_gui.progress_cb)
-                progress_gui.close()
-                await progress_gui.get_future()
-                logger.warning(f"Resetting param to actual default: {await self.coffee_maker.reset_coffee_param()}")
+            logger.warning(f"{self.coffee_maker.get_last_status()[1]}")
+            connected = self.coffee_maker.test_connection()
+            logger.warning(f"{connected}")
+            logger.warning(f"{self.coffee_maker.get_last_status()[1]}")
+            if connected:
+                param = await BrewCoffee(self.root_gui,
+                                         f"Last contact "
+                                         f"{time.time() - self.coffee_maker.get_last_status()[0]:.1f}s ago."
+                                         f" {self.coffee_maker.get_last_status()[1]}.").get_future()
+                if param is not None:
+                    coffee_bean, water_volume = param
+                    logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
+                    progress_gui = BrewProgress(self.root_gui, 100)
+                    self.coffee_maker.brew_coffee(coffee_bean, water_volume, lambda v: logger.warning(f"volume is {v}"))
+                    progress_gui.close()
+                    await progress_gui.get_future()
+                    logger.warning(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
