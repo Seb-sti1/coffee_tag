@@ -16,7 +16,7 @@ dependencies = [
     "bcrypt",
     "spidev",
     "pyserial",
-    "juracoffeemachine >= 0.10.2"
+    "juracoffeemachine >= 0.10.3"
 ]
 
 authors = [

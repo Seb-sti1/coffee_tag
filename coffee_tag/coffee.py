@@ -42,7 +42,7 @@ class CoffeeManager:
         self.loop.create_task(self.manual_search_and_open_account())
 
     async def tk_loop(self):
-        while True:
+        while self.rfid.run:
             self.root_gui.tk.update()
             await asyncio.sleep(1 / 60)
 
