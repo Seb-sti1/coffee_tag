@@ -20,7 +20,8 @@ class User(AuthUser):
                  nickname: Optional[str], cascad_username: Optional[str],
                  initial_balance: float, passcode: Optional[str], permissions: str, status: str,
                  date_of_departure: Optional[str],
-                 mail: str, id_badge: Optional[str]):
+                 mail: str, id_badge: Optional[str],
+                 beans_q: int, water_v: int):
         super().__init__(str(user_id))
         self.db: Database = db
         self.user_id: int = user_id
@@ -37,6 +38,8 @@ class User(AuthUser):
             tzinfo=timezone.utc)) if date_of_departure is not None else None
         self.mail: str = mail
         self.id_badge: Optional[str] = id_badge
+        self.beans_q: int = beans_q
+        self.water_v: int = water_v
 
     @staticmethod
     def create_table(db: Database):
@@ -49,13 +52,15 @@ class User(AuthUser):
                            surname           TEXT,
                            nickname          TEXT,
                            cascad_username   TEXT,
-                           initial_balance   real default 0,
+                           initial_balance   real    default 0,
                            passcode          TEXT,
                            permissions       TEXT,
                            banned            INTEGER,
                            date_of_departure TEXT,
                            mail              TEXT,
                            id_badge          TEXT,
+                           beans_q           INTEGER default 3,
+                           water_v           INTEGER default 100,
                            CHECK (permissions IN ('user', 'maintainer', 'owner'))
                        );
                        """)
@@ -113,14 +118,16 @@ class User(AuthUser):
 
         if not self.db.edit_query("INSERT INTO users (name, surname, nickname, "
                                   "cascad_username, initial_balance, passcode, permissions,"
-                                  "status, date_of_departure, mail, id_badge) VALUES"
-                                  "(:name, :surname, :nickname, :cascad, :initial_balance, :passcode,"
-                                  ":permissions, :status, :date_of_departure, :mail, :badge)",
+                                  "status, date_of_departure, mail, id_badge,"
+                                  "beans_q, water_v) VALUES (:name, :surname, :nickname, :cascad,"
+                                  ":initial_balance, :passcode, :permissions, :status, :date_of_departure,"
+                                  ":mail, :badge, :beans_q, :water_v)",
                                   {"name": self.name, "surname": self.surname, "nickname": self.nickname,
                                    "cascad": self.cascad_username, "initial_balance": self.initial_balance,
                                    "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
                                    "date_of_departure": self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
-                                   "mail": self.mail, "badge": self.id_badge}):
+                                   "mail": self.mail, "badge": self.id_badge,
+                                   "beans_q": self.beans_q, "water_v": self.water_v}):
             return False
 
         user = self.db.get_user_by_mail(self.mail)
@@ -138,14 +145,15 @@ class User(AuthUser):
                                   "cascad_username=:cascad, initial_balance=:initial_balance, "
                                   "passcode=:passcode, permissions=:permissions,"
                                   "status=:status, date_of_departure=:date_of_departure,"
-                                  "mail=:mail, id_badge=:badge "
+                                  "mail=:mail, id_badge=:badge, beans_q=:beans_q, water_v=:water_v "
                                   "WHERE id=:user_id",
                                   {"user_id": self.user_id,
                                    "name": self.name, "surname": self.surname, "nickname": self.nickname,
                                    "cascad": self.cascad_username, "initial_balance": self.initial_balance,
                                    "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
                                    "date_of_departure": self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
-                                   "mail": self.mail, "badge": self.id_badge}):
+                                   "mail": self.mail, "badge": self.id_badge,
+                                   "beans_q": self.beans_q, "water_v": self.water_v}):
             return False
         return True
 
@@ -264,7 +272,7 @@ class Database:
         result = self.connector.execute("SELECT id, name, surname, nickname, "
                                         "cascad_username, initial_balance, passcode,"
                                         "permissions, status, date_of_departure, mail,"
-                                        "id_badge FROM users "
+                                        "id_badge, beans_q, water_v FROM users "
                                         "WHERE name LIKE :name "
                                         "OR surname LIKE :name "
                                         "OR nickname LIKE :name;",
@@ -282,7 +290,7 @@ class Database:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
                                  "permissions, status, date_of_departure, mail,"
-                                 "id_badge FROM users "
+                                 "id_badge, beans_q, water_v FROM users "
                                  "WHERE id_badge IS NOT NULL AND id_badge LIKE :card;",
                                  {"card": card})
         return None if result is None else User(self, *result)
@@ -310,7 +318,7 @@ class Database:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
                                  "permissions, status, date_of_departure, mail,"
-                                 "id_badge FROM users "
+                                 "id_badge, beans_q, water_v FROM users "
                                  "WHERE mail = :mail",
                                  {"mail": mail})
         return None if result is None else User(self, *result)
@@ -319,7 +327,7 @@ class Database:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
                                  "permissions, status, date_of_departure, mail,"
-                                 "id_badge FROM users "
+                                 "id_badge, beans_q, water_v FROM users "
                                  "WHERE id = :user_id",
                                  {"user_id": user_id})
         return None if result is None else User(self, *result)
@@ -340,7 +348,7 @@ class Database:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
                                  "permissions, status, date_of_departure, mail,"
-                                 "id_badge FROM users "
+                                 "id_badge, beans_q, water_v FROM users "
                                  "WHERE mail = :mail AND mail IS NOT NULL AND passcode IS NOT NULL",
                                  {"mail": mail})
         if result is None:
@@ -362,6 +370,8 @@ class Database:
                                           date_of_departure,
                                           mail,
                                           id_badge,
+                                          beans_q,
+                                          water_v,
                                           IFNULL(bought, 0)                                               as 'purchased',
                                           IFNULL(paid, 0)                                                 as 'paid',
                                           ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "current balance"
@@ -419,7 +429,7 @@ class Database:
                                    """)
         if r is None:
             return []
-        return [(User(self, *row[:12]), Purchase(self, *row[12:])) for row in r]
+        return [(User(self, *row[:14]), Purchase(self, *row[14:])) for row in r]
 
     def export(self) -> str:
         logger.info(f"Creating a sql dump file")

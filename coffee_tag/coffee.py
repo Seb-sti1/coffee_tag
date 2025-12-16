@@ -183,9 +183,13 @@ class CoffeeManager:
             delta = str(dt.datetime.now() - self.coffee_maker.get_last_status().last_maker_status_change).split('.')[0]
             param = await BrewCoffee(self.root_gui,
                                      f"Last contact {delta} ago."
-                                     f" {self.coffee_maker.get_last_status().maker_status}.").get_future()
+                                     f" {self.coffee_maker.get_last_status().maker_status}.",
+                                     user.beans_q, user.water_v).get_future()
             if param is not None:
                 coffee_bean, water_volume = param
+                user.beans_q, user.water_v = coffee_bean, water_volume
+                if not user.update():
+                    logger.error(f"Could not save new coffee params.")
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
                 progress_gui = BrewProgress(self.root_gui, 100)
                 self.coffee_maker.brew_coffee(coffee_bean, water_volume, lambda _: None)
@@ -226,7 +230,7 @@ class CoffeeManager:
         valid = False
         if current_user is None:
             tmp_user = User(self.db, -1, "", "", None, None, 0,
-                            None, "user", "active", None, "", None)
+                            None, "user", "active", None, "", None, 3, 100)
         else:
             tmp_user = current_user
 

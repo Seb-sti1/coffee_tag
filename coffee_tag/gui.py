@@ -334,7 +334,9 @@ class UserProperties(AbstractUI):
 
 
 class BrewCoffee(AbstractUI):
-    def __init__(self, main: MainGUI, status: str, with_arrows: bool = False):
+    def __init__(self, main: MainGUI, status: str,
+                 beans_q: int, water_v: int,
+                 with_arrows: bool = False):
         super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60, 400)
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                       "coffee_icon.png")).resize((50, 50)))
@@ -348,7 +350,7 @@ class BrewCoffee(AbstractUI):
         y = 70
         self.add_label("Coffee quantity:", font='Helvetica 12', pady=None, fill=None, x=45, y=y)
         y += 30
-        self.coffee_bean = 3
+        self.coffee_bean = beans_q
         self.coffee_bean_btns: list[Button] = []
 
         def _coffee_cb(idx):
@@ -368,7 +370,7 @@ class BrewCoffee(AbstractUI):
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 10, y=y)
         y += 60 + 20
         # ==== WATER VOLUME
-        self.water_volume = 100
+        self.water_volume = water_v
         self.water_volume_label = self.add_label(f"Water volume: {self.water_volume} mL", font='Helvetica 12',
                                                  pady=None, fill=None, x=45, y=y)
         y += 30
