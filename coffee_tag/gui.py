@@ -12,7 +12,7 @@ from typing import Tuple, Optional, Callable
 
 import bcrypt
 from PIL import Image, ImageTk
-from juracoffeemachine.coffee_machine import CoffeeMaker
+from juracoffeemachine.coffee_machine import CoffeeMaker, MakerStatus
 
 from coffee_tag import media
 from coffee_tag.database import User, Database, Purchase
@@ -430,9 +430,14 @@ class BrewProgress(AbstractUI):
         self.water_volume = water_volume
         self.add_label("Please wait while you're coffee is brewing!")
         self.progress_label = self.add_label("")
+        self.water_vol = 0
 
-    def progress_cb(self, measure: float):
-        self.progress_label.config(text=f"{measure:.0f} / {self.water_volume} mL")
+    async def update(self, coffee_maker: CoffeeMaker):
+        while coffee_maker.get_last_status().maker_status == MakerStatus.BREWING:
+            self.water_vol = max(self.water_vol, coffee_maker.get_last_status().water_volume)
+            self.progress_label.config(text=f"{self.water_vol:.0f} / {self.water_volume} mL")
+            await asyncio.sleep(1)
+        self.close()
 
     def close(self):
         self.future.set_result(True)

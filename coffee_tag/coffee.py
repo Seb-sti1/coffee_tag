@@ -3,13 +3,12 @@ In this file is implemented the logic of the app.
 It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
-import datetime
+import datetime as dt
 import logging
-import time
 from argparse import Namespace
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
-from juracoffeemachine import CoffeeMaker, JuraCommand
+from juracoffeemachine import CoffeeMaker, JuraCommand, Response
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword, \
@@ -52,17 +51,21 @@ class CoffeeManager:
             if 7 <= date.hour <= 20:
                 self.statistics_were_log = False  # reset for next night
                 if self.next_ping_to_machine != False:
-                    msg = self.coffee_maker.ping(self.next_ping_to_machine)
-                    if msg is None:
-                        logger.warning(f"No message returned for {self.next_ping_to_machine}")
+                    def _cb(response: Optional[Response]):
+                        if response is None:
+                            logger.warning(f"No message returned for {self.next_ping_to_machine}")
+
+                    self.coffee_maker.ping(self.next_ping_to_machine, cb=_cb)
                     self.next_ping_to_machine = JuraCommand.CS if self.next_ping_to_machine == JuraCommand.HZ else JuraCommand.HZ
                 await asyncio.sleep(60)
             else:
                 if date.hour == 0 and not self.statistics_were_log:
-                    self.statistics_were_log = True
-                    stat = self.coffee_maker.get_totals_statistics()
-                    if stat is not None:
-                        logger.info(f"Stats are {', '.join(map(str, stat))}. Total {sum(stat)}")
+                    def _cb(stat: Optional[Tuple[int, int, int, int, int, int, int]]):
+                        self.statistics_were_log = True
+                        if stat is not None:
+                            logger.info(f"Stats are {', '.join(map(str, stat))}. Total {sum(stat)}")
+
+                    self.coffee_maker.get_totals_statistics(cb=_cb)
                 await asyncio.sleep(20 * 60)
 
     async def listen_to_card_reader(self) -> None:
@@ -170,23 +173,29 @@ class CoffeeManager:
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             self.next_ping_to_machine = False
             logger.warning(f"========== new coffee ============")
-            logger.warning(f"{self.coffee_maker.get_last_status()[1]}")
-            connected = self.coffee_maker.test_connection()
-            logger.warning(f"{connected}")
-            logger.warning(f"{self.coffee_maker.get_last_status()[1]}")
-            if connected:
-                param = await BrewCoffee(self.root_gui,
-                                         f"Last contact "
-                                         f"{time.time() - self.coffee_maker.get_last_status()[0]:.1f}s ago."
-                                         f" {self.coffee_maker.get_last_status()[1]}.").get_future()
-                if param is not None:
-                    coffee_bean, water_volume = param
-                    logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
-                    progress_gui = BrewProgress(self.root_gui, 100)
-                    self.coffee_maker.brew_coffee(coffee_bean, water_volume, lambda v: logger.warning(f"volume is {v}"))
-                    progress_gui.close()
-                    await progress_gui.get_future()
-                    logger.warning(f"Resetting param to actual default: {self.coffee_maker.reset_coffee_param()}")
+            logger.warning(f"{self.coffee_maker.get_last_status().maker_status}")
+
+            def _cb(connected: bool):
+                logger.warning(f"{connected}")
+                logger.warning(f"{self.coffee_maker.get_last_status().maker_status}")
+
+            self.coffee_maker.test_connection(cb=_cb)
+            delta = str(dt.datetime.now() - self.coffee_maker.get_last_status().last_maker_status_change).split('.')[0]
+            param = await BrewCoffee(self.root_gui,
+                                     f"Last contact {delta} ago."
+                                     f" {self.coffee_maker.get_last_status().maker_status}.").get_future()
+            if param is not None:
+                coffee_bean, water_volume = param
+                logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
+                progress_gui = BrewProgress(self.root_gui, 100)
+                self.coffee_maker.brew_coffee(coffee_bean, water_volume, lambda _: None)
+                await progress_gui.update(self.coffee_maker)
+                await progress_gui.get_future()
+
+                def _cb(reset):
+                    logger.warning(f"Resetting param to actual default: {reset}")
+
+                self.coffee_maker.reset_coffee_param(cb=_cb)
             self.next_ping_to_machine = JuraCommand.HZ
         # show account ui for everyone
         coffee_bought = await UserMenu(self.root_gui, user).get_future()
