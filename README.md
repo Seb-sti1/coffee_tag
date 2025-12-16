@@ -23,6 +23,33 @@ Additional arguments and flags are described with the `-h` argument.
 
 ### Initial configuration of the Raspberry PI (do once)
 
+#### Wiring
+
+| Usage           | Pin | Left Signal     | Right Signal      | Pin | Usage           |
+|-----------------|-----|-----------------|-------------------|-----|-----------------|
+|                 | 1   | 3V3 Power       | 5V Power          | 2   | PN532           |
+| PN532 SDA       | 3   | GPIO2 (SDA1)    | 5V Power          | 4   | SCREEN          |
+| PN532 SCL       | 5   | GPIO3 (SCL1)    | GND               | 6   | SCREEN          |
+|                 | 7   | GPIO4           | GPIO14 (TXD0)     | 8   | JURA RX         |
+| JURA            | 9   | GND             | GPIO15 (RXD0)     | 10  | JURA TX         |
+|                 | 11  | GPIO17          | GPIO18 (PWM0)     | 12  |                 |
+|                 | 13  | GPIO27          | GND               | 14  | PN532           |
+|                 | 15  | GPIO22          | GPIO23            | 16  | JURA            |
+|                 | 17  | 3V3 Power       | GPIO24            | 18  |                 |
+|                 | 19  | GPIO10 (MOSI)   | GND               | 20  |                 |
+|                 | 21  | GPIO9 (MISO)    | GPIO25            | 22  |                 |
+|                 | 23  | GPIO11 (SCLK)   | GPIO8 (CE0)       | 24  |                 |
+|                 | 25  | GND             | GPIO7 (CE1)       | 26  |                 |
+| (useless) PN532 | 27  | GPIO0 (ID_SD)   | GPIO1 (ID_SC)     | 28  | (useless) PN532 |
+|                 | 29  | GPIO5           | GND               | 30  |                 |
+|                 | 31  | GPIO6           | GPIO12 (PWM0)     | 32  |                 |
+|                 | 33  | GPIO13 (PWM1)   | GND               | 34  |                 |
+|                 | 35  | GPIO19 (PCM_FS) | GPIO16            | 36  |                 |
+|                 | 37  | GPIO26          | GPIO20 (PCM_DIN)  | 38  |                 |
+|                 | 39  | GND             | GPIO21 (PCM_DOUT) | 40  |                 |
+
+#### Software
+
 When creating the image, select Raspberry PI 2 and choose the 32-bit desktop image.
 Also edit `/boot/firmware/config.txt` and change the following lines:
 
@@ -31,10 +58,10 @@ dtparam=i2c_arm=off
 dtparam=spi=off
 ```
 
-Finally, to ensure the Raspberry PI 2 stays up to date (literally), add a cron task (with `crontab -e`):
+Finally, to ensure the Raspberry PI 2 stays up to date (literally), add a cron task (with `sudo crontab -e`):
 
 ```cron
-0 1 * * * sudo date -s "$(wget --method=HEAD -qSO- --max-redirect=0 google.com 2>&1 | sed -n 's/^ *Date: *//p')"
+0 1 * * * date -s "$(wget --method=HEAD -qSO- --max-redirect=0 google.com 2>&1 | sed -n 's/^ *Date: *//p')"
 ```
 
 > [!note]

@@ -7,8 +7,6 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from juracoffeemachine import CoffeeMaker
-
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
 from coffee_tag.gui import show_gui
