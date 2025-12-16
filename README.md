@@ -82,6 +82,9 @@ pip install -r requirements.txt # install dependencies
 
 While developing, be sure to use the argument `--dev` to prevent the app from trying to connect to the rfid reader.
 
+At the time of writing (16/12/25), the recommended command to use is
+`coffee_tag 0.25 coffee.db --no-authentication --dev --verbose --read-only`.
+
 ### Docs
 
 - Test RFID reader

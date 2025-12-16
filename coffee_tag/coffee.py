@@ -24,7 +24,7 @@ class CoffeeManager:
         self.db = db
         self.rfid = rfid
         self.args = args
-        self.coffee_maker: CoffeeMaker = CoffeeMaker.create_from_uart(self.args.tty)
+        self.coffee_maker: Optional[CoffeeMaker] = CoffeeMaker.create_from_uart(self.args.tty) if not args.dev else None
         self.root_gui = MainGUI(self.__main_gui_callback__,
                                 self.db.coffee_price)
         self.rfid_can_open_menu = True
@@ -47,8 +47,8 @@ class CoffeeManager:
             await asyncio.sleep(1 / 60)
 
     async def monitor_machine(self) -> None:
-        while self.rfid.run and not self.args.no_monitor:
-            date = datetime.datetime.now()
+        while self.rfid.run and not self.args.no_monitor and not self.args.dev:
+            date = dt.datetime.now()
             if 7 <= date.hour <= 20:
                 self.statistics_were_log = False  # reset for next night
                 if self.next_ping_to_machine != False:
@@ -167,7 +167,7 @@ class CoffeeManager:
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
-        if user.user_id in [100] + self.args.beta:
+        if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             self.next_ping_to_machine = False
             logger.warning(f"========== new coffee ============")
             logger.warning(f"{self.coffee_maker.get_last_status()[1]}")
