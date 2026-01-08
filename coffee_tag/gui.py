@@ -47,10 +47,10 @@ class AbstractUI:
     def add_label(self, text: str, **kwargs) -> tk.Label:
         defaults = {"font": "Helvetica 14", "fg": "white", "bg": "#754c24",
                     "justify": "center", "side": "top", "pady": 10, "fill": "x", "x": 0,
-                    "wraplength": self.w - 20, "text": text}
-        exclude_keys = ["x", "y", "side", "pady", "fill"]
+                    "wraplength": self.w - 20, "text": text, "gui": self.gui}
+        exclude_keys = ["x", "y", "side", "pady", "fill", "gui"]
         kwargs = {**defaults, **kwargs}
-        lbl = tk.Label(self.gui, **{k: kwargs[k] for k in kwargs.keys() if k not in exclude_keys})
+        lbl = tk.Label(kwargs["gui"], **{k: kwargs[k] for k in kwargs.keys() if k not in exclude_keys})
         if "x" in kwargs and "y" in kwargs:
             lbl.place(x=kwargs["x"], y=kwargs["y"])
         else:
@@ -105,9 +105,10 @@ class AbstractUI:
         side = kwargs["side"] if "side" in kwargs else "bottom"
         pady = kwargs["pady"] if "pady" in kwargs else 10
         image = kwargs["image"] if "image" in kwargs else None
+        gui = kwargs["gui"] if "gui" in kwargs else self.gui
         highlightthickness = kwargs["highlightthickness"] if "highlightthickness" in kwargs else None
         bd = kwargs["bd"] if "bd" in kwargs else None
-        btn = tk.Button(self.gui, text=text, font=font, fg=fg, bg=bg, command=callback,
+        btn = tk.Button(gui, text=text, font=font, fg=fg, bg=bg, command=callback,
                         height=height, width=width, image=image,
                         highlightthickness=highlightthickness, bd=bd)
         if "x" in kwargs and "y" in kwargs:
@@ -337,19 +338,39 @@ class BrewCoffee(AbstractUI):
     def __init__(self, main: MainGUI, status: str,
                  beans_q: int, water_v: int,
                  with_arrows: bool = False):
-        super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60, 400)
+        super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60 + 170, 450)
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                       "coffee_icon.png")).resize((50, 50)))
         self.coffee_icon_gray = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                            "coffee_icon_gray.png")).resize((50, 50)))
 
-        self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=None, fill=None)
-        self.add_label(status, font='Helvetica 12', fg='#c9a589', pady=None, fill=None)
+        self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=None, fill=None)
+        self.debug_label = self.add_label(status, font='Helvetica 12', fg='#c9a589', x=0, y=420, fill=None)
+
+        # ==== PRESETS
+        self.presets_rect = tk.LabelFrame(self.gui, text="Presets", font='Helvetica 12',
+                                          bg="#754c24", fg="white", relief='groove')
+        self.presets_rect.place(x=70, y=35, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
+
+        def wrapper_preset_cb(c: int, w: int):
+            def _cb():
+                self.change_coffee_bean(c)
+                self.change_water_volume(w)
+
+            return _cb
+
+        self.add_button("Expresso", wrapper_preset_cb(6, 45), gui=self.presets_rect,
+                        x=15, y=10, width=15, height=2)
+        self.add_button("Coffee", wrapper_preset_cb(4, 100), gui=self.presets_rect,
+                        x=225, y=10, width=15, height=2)
+        self.add_button("Ristretto", wrapper_preset_cb(2, 150), gui=self.presets_rect,
+                        x=435, y=10, width=15, height=2)
 
         # ==== COFFEE BEAN QUANTITY
-        y = 70
-        self.add_label("Coffee quantity:", font='Helvetica 12', pady=None, fill=None, x=45, y=y)
-        y += 30
+        self.coffee_bean_rect = tk.LabelFrame(self.gui, text="Coffee quantity:", font='Helvetica 12',
+                                              bg="#754c24", fg="white", relief='groove')
+        self.coffee_bean_rect.place(x=70, y=150, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
+
         self.coffee_bean = beans_q
         self.coffee_bean_btns: list[Button] = []
 
@@ -358,23 +379,24 @@ class BrewCoffee(AbstractUI):
 
         for i in range(8):
             img = self.coffee_icon if i <= self.coffee_bean else self.coffee_icon_gray
-            btn = self.add_button(text="a", image=img, callback=_coffee_cb(i),
+            btn = self.add_button(gui=self.coffee_bean_rect, text="a", image=img, callback=_coffee_cb(i),
                                   pady=None, bg="#754c24", fg="#754c24",
                                   highlightthickness=0, bd=0,
-                                  x=i * 60 + 60, y=y, height=60, width=60)
+                                  x=i * 60 + 60 + 15, y=10, height=60, width=60)
             self.coffee_bean_btns.append(btn)
         if with_arrows:
             self.add_button("◄", self.wrapper_left_right(False, True),
-                            font='Helvetica 25', height=1, width=1, x=0, y=y)
+                            gui=self.coffee_bean_rect,
+                            font='Helvetica 25', height=1, width=1, x=15, y=10)
             self.add_button("►", self.wrapper_left_right(True, True),
-                            font='Helvetica 25', height=1, width=1, x=9 * 60 + 10, y=y)
-        y += 60 + 20
+                            gui=self.coffee_bean_rect,
+                            font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
         # ==== WATER VOLUME
         self.water_volume = water_v
-        self.water_volume_label = self.add_label(f"Water volume: {self.water_volume} mL", font='Helvetica 12',
-                                                 pady=None, fill=None, x=45, y=y)
-        y += 30
-        self.water_volume_scale = Scale(self.gui, from_=25, to=240, resolution=5,
+        self.water_volume_rect = tk.LabelFrame(self.gui, text=f"Water volume: {self.water_volume} mL",
+                                               font='Helvetica 12', bg="#754c24", fg="white", relief='groove')
+        self.water_volume_rect.place(x=70, y=265, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
+        self.water_volume_scale = Scale(self.water_volume_rect, from_=25, to=240, resolution=5,
                                         variable=tk.IntVar(value=self.water_volume),
                                         command=lambda v: self.change_water_volume(int(v)),
                                         bg="#754c24", fg="#c9a589", troughcolor="#c9a589",
@@ -382,14 +404,16 @@ class BrewCoffee(AbstractUI):
                                         length=8 * 60, width=50, sliderlength=50,
                                         bd=0, highlightthickness=0,
                                         orient=HORIZONTAL)
-        self.water_volume_scale.place(x=60, y=y)
+        self.water_volume_scale.place(x=60 + 15, y=10)
         if with_arrows:
             self.add_button("◄", self.wrapper_left_right(False, False),
-                            font='Helvetica 25', height=1, width=1, x=0, y=y)
+                            gui=self.water_volume_rect,
+                            font='Helvetica 25', height=1, width=1, x=15, y=10)
             self.add_button("►", self.wrapper_left_right(True, False),
-                            font='Helvetica 25', height=1, width=1, x=9 * 60 + 10, y=y)
+                            gui=self.water_volume_rect,
+                            font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
 
-        self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=3)
+        self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=2)
 
     def change_coffee_bean(self, coffee: int):
         logger.debug(f"User changed coffee to {coffee}")
@@ -406,7 +430,7 @@ class BrewCoffee(AbstractUI):
                                 min(CoffeeMaker.water_volume_param[2],
                                     volume)) // CoffeeMaker.water_volume_param[3] * CoffeeMaker.water_volume_param[3]
         self.water_volume_scale.set(self.water_volume)
-        self.water_volume_label.config(text=f"Water volume: {self.water_volume} mL")
+        self.water_volume_rect.config(text=f"Water volume: {self.water_volume} mL")
 
     def wrapper_left_right(self, is_more: bool, is_coffee: bool):
         def _cb():
@@ -604,7 +628,7 @@ def show_gui(path: str, price: float):
                                  should_close_in_5=True))
         loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
         loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
-        loop.create_task(wrapper(BrewCoffee, main=gui, status="status"))
+        loop.create_task(wrapper(BrewCoffee, main=gui, status="status", beans_q=2, water_v=80))
 
         while True:
             gui.tk.update()

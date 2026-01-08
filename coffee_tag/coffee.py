@@ -181,10 +181,11 @@ class CoffeeManager:
 
             self.coffee_maker.test_connection(cb=_cb)
             delta = str(dt.datetime.now() - self.coffee_maker.get_last_status().last_maker_status_change).split('.')[0]
-            param = await BrewCoffee(self.root_gui,
-                                     f"Last contact {delta} ago."
-                                     f" {self.coffee_maker.get_last_status().maker_status}.",
-                                     user.beans_q, user.water_v).get_future()
+            brew = BrewCoffee(self.root_gui,
+                              f"Last contact {delta} ago."
+                              f" {self.coffee_maker.get_last_status().maker_status}.",
+                              user.beans_q, user.water_v)
+            param = await brew.get_future()
             if param is not None:
                 coffee_bean, water_volume = param
                 user.beans_q, user.water_v = coffee_bean, water_volume
