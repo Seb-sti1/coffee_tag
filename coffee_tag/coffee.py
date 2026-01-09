@@ -12,7 +12,7 @@ from juracoffeemachine import CoffeeMaker, JuraCommand, Response
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword, \
-    BrewCoffee, BrewProgress
+    BrewCoffee
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -170,6 +170,7 @@ class CoffeeManager:
         admin_status = None
         if user.permissions == "owner":
             admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
+        coffee_bought = 0
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             self.next_ping_to_machine = False
             logger.warning(f"========== new coffee ============")
@@ -185,46 +186,49 @@ class CoffeeManager:
                               f"Last contact {delta} ago."
                               f" {self.coffee_maker.get_last_status().maker_status}.",
                               user.beans_q, user.water_v)
-            param = await brew.get_future()
+            param = await brew.get_request()
             if param is not None:
                 coffee_bean, water_volume = param
                 user.beans_q, user.water_v = coffee_bean, water_volume
                 if not user.update():
                     logger.error(f"Could not save new coffee params.")
                 logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
-                progress_gui = BrewProgress(self.root_gui, 100)
-                self.coffee_maker.brew_coffee(coffee_bean, water_volume, lambda _: None)
-                await progress_gui.update(self.coffee_maker)
-                await progress_gui.get_future()
+                self.coffee_maker.brew_coffee(coffee_bean, water_volume, brew.jura_brew_cb)
+                await brew.update(self.coffee_maker)
+                await brew.get_future_with_autoclosing()
+                if brew.brew_sent_with_success:
+                    coffee_bought = 1
 
                 def _cb(reset):
                     logger.warning(f"Resetting param to actual default: {reset}")
 
                 self.coffee_maker.reset_coffee_param(cb=_cb)
             self.next_ping_to_machine = JuraCommand.HZ
-        # show account ui for everyone
-        coffee_bought = await UserMenu(self.root_gui, user).get_future()
-        if admin_status is not None:
-            admin_status.close()
-            await admin_status.get_future()
-        if coffee_bought is None:
-            return None
-        # double check when high count
-        if coffee_bought > 9:
-            validate = await GeneralUI(self.root_gui, "Wow, are you sure?",
-                                       260, 250,
-                                       main_text=f"Do you confirm buying {coffee_bought} coffee?",
-                                       button_one="Yes", button_two="Oops").get_future()
-            if validate is None or validate is False:
-                return None
-        logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
-        if self.db.buy_coffees(user, coffee_bought):
-            logger.info("This was saved in db.")
-            await GeneralUI(self.root_gui, f"Thank you {user}!", 320, 230, "Your balance is now",
-                            main_text=f"{-user.get_user_balance()} €",
-                            should_close_in_5=True).get_future_with_autoclosing()
         else:
-            logger.error("Couldn't save in db!")
+            # show account ui for everyone
+            coffee_bought = await UserMenu(self.root_gui, user).get_future()
+            if admin_status is not None:
+                admin_status.close()
+                await admin_status.get_future()
+            if coffee_bought is None:
+                return None
+            # double check when high count
+            if coffee_bought > 9:
+                validate = await GeneralUI(self.root_gui, "Wow, are you sure?",
+                                           260, 250,
+                                           main_text=f"Do you confirm buying {coffee_bought} coffee?",
+                                           button_one="Yes", button_two="Oops").get_future()
+                if validate is None or validate is False:
+                    return None
+        if coffee_bought > 0:
+            logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
+            if self.db.buy_coffees(user, coffee_bought):
+                logger.info("This was saved in db.")
+                await GeneralUI(self.root_gui, f"Thank you {user}!", 320, 230, "Your balance is now",
+                                main_text=f"{-user.get_user_balance()} €",
+                                should_close_in_5=True).get_future_with_autoclosing()
+            else:
+                logger.error("Couldn't save in db!")
         return None
 
     async def add_or_update_user(self, current_user: Optional[User] = None) -> Optional[bool]:

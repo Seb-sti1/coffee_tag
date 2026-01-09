@@ -7,8 +7,9 @@ import tkinter as tk
 from asyncio import Future
 from datetime import datetime as dt, timezone
 from itertools import count  # Islice for list iteration not starting at 0
-from tkinter import Button, Scale, HORIZONTAL
-from typing import Tuple, Optional, Callable
+from tkinter import Button, Scale
+from tkinter import ttk
+from typing import Tuple, Optional, Callable, Literal
 
 import bcrypt
 from PIL import Image, ImageTk
@@ -189,7 +190,7 @@ class GeneralUI(AbstractUI):
         if button_two:
             self.add_button(button_two, self.btn_two_callback, side="top", font='Helvetica 12 bold')
         if should_close_in_5:
-            self.closing_lbl = self.add_label("Closing window in 5 seconds...",
+            self.closing_lbl = self.add_label("The window will close in 5 seconds...",
                                               font='Helvetica 12 bold italic',
                                               fg="#c9a589")
 
@@ -205,7 +206,7 @@ class GeneralUI(AbstractUI):
         for i in range(5, -1, -1):
             if self.future.done():
                 break
-            self.closing_lbl.config(text=f"Closing window in {i} seconds...")
+            self.closing_lbl.config(text=f"The window will close in {i} seconds...")
             self.gui.update()
             await asyncio.sleep(1)
         if not self.future.done():
@@ -339,13 +340,39 @@ class BrewCoffee(AbstractUI):
                  beans_q: int, water_v: int,
                  with_arrows: bool = False):
         super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60 + 170, 450)
+        self.gui_status: Literal["req", "wt_fb", "brew", "ack"] = "req"
+
+        self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=None, fill=None)
+        self.debug_label = self.add_label(status, font='Helvetica 12', fg='#c9a589', x=0, y=420, fill=None)
+
+        self.req_coffee_bean = beans_q
+        self.req_water_volume = water_v
+        self.with_arrows = with_arrows
+
+        self.coffee_icon = None
+        self.coffee_icon_gray = None
+        self.presets_rect = None
+        self.coffee_bean_rect = None
+        self.coffee_bean_btns = None
+        self.water_volume_rect = None
+        self.water_volume_scale = None
+        self.request_future = None
+        self.submit_btn = None
+        self.request_ui()
+
+        self.progress_label = None
+        self.received_jura_cb = False
+        self.brew_sent_with_success = False
+        self.curr_water_volume = None
+        self.progress_bar = None
+        self.closing_delay = 5
+        self.closing_label = None
+
+    def request_ui(self):
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                       "coffee_icon.png")).resize((50, 50)))
         self.coffee_icon_gray = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                            "coffee_icon_gray.png")).resize((50, 50)))
-
-        self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=None, fill=None)
-        self.debug_label = self.add_label(status, font='Helvetica 12', fg='#c9a589', x=0, y=420, fill=None)
 
         # ==== PRESETS
         self.presets_rect = tk.LabelFrame(self.gui, text="Presets", font='Helvetica 12',
@@ -371,20 +398,19 @@ class BrewCoffee(AbstractUI):
                                               bg="#754c24", fg="white", relief='groove')
         self.coffee_bean_rect.place(x=70, y=150, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
 
-        self.coffee_bean = beans_q
         self.coffee_bean_btns: list[Button] = []
 
         def _coffee_cb(idx):
             return lambda: self.change_coffee_bean(idx)
 
         for i in range(8):
-            img = self.coffee_icon if i <= self.coffee_bean else self.coffee_icon_gray
+            img = self.coffee_icon if i <= self.req_coffee_bean else self.coffee_icon_gray
             btn = self.add_button(gui=self.coffee_bean_rect, text="a", image=img, callback=_coffee_cb(i),
                                   pady=None, bg="#754c24", fg="#754c24",
                                   highlightthickness=0, bd=0,
                                   x=i * 60 + 60 + 15, y=10, height=60, width=60)
             self.coffee_bean_btns.append(btn)
-        if with_arrows:
+        if self.with_arrows:
             self.add_button("◄", self.wrapper_left_right(False, True),
                             gui=self.coffee_bean_rect,
                             font='Helvetica 25', height=1, width=1, x=15, y=10)
@@ -392,20 +418,19 @@ class BrewCoffee(AbstractUI):
                             gui=self.coffee_bean_rect,
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
         # ==== WATER VOLUME
-        self.water_volume = water_v
-        self.water_volume_rect = tk.LabelFrame(self.gui, text=f"Water volume: {self.water_volume} mL",
+        self.water_volume_rect = tk.LabelFrame(self.gui, text=f"Water volume: {self.req_water_volume} mL",
                                                font='Helvetica 12', bg="#754c24", fg="white", relief='groove')
         self.water_volume_rect.place(x=70, y=265, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
         self.water_volume_scale = Scale(self.water_volume_rect, from_=25, to=240, resolution=5,
-                                        variable=tk.IntVar(value=self.water_volume),
+                                        variable=tk.IntVar(value=self.req_water_volume),
                                         command=lambda v: self.change_water_volume(int(v)),
                                         bg="#754c24", fg="#c9a589", troughcolor="#c9a589",
                                         tickinterval=15, showvalue=False,
                                         length=8 * 60, width=50, sliderlength=50,
                                         bd=0, highlightthickness=0,
-                                        orient=HORIZONTAL)
+                                        orient="horizontal")
         self.water_volume_scale.place(x=60 + 15, y=10)
-        if with_arrows:
+        if self.with_arrows:
             self.add_button("◄", self.wrapper_left_right(False, False),
                             gui=self.water_volume_rect,
                             font='Helvetica 25', height=1, width=1, x=15, y=10)
@@ -413,63 +438,112 @@ class BrewCoffee(AbstractUI):
                             gui=self.water_volume_rect,
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
 
-        self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=2)
+        # ==== SUBMIT REQUEST
+        self.request_future = asyncio.get_event_loop().create_future()
+        self.submit_btn = self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=2)
+
+    def cleanup_request_ui(self):
+        self.presets_rect.place_forget()
+        self.coffee_bean_rect.place_forget()
+        self.water_volume_rect.place_forget()
+        self.submit_btn.pack_forget()
 
     def change_coffee_bean(self, coffee: int):
         logger.debug(f"User changed coffee to {coffee}")
-        self.coffee_bean = max(CoffeeMaker.coffee_bean_param[0],
-                               min(CoffeeMaker.coffee_bean_param[2],
-                                   coffee)) // CoffeeMaker.coffee_bean_param[3] * CoffeeMaker.coffee_bean_param[3]
+        self.req_coffee_bean = max(CoffeeMaker.coffee_bean_param[0],
+                                   min(CoffeeMaker.coffee_bean_param[2],
+                                       coffee)) // CoffeeMaker.coffee_bean_param[3] * CoffeeMaker.coffee_bean_param[3]
         for i in range(8):
-            img = self.coffee_icon if i <= self.coffee_bean else self.coffee_icon_gray
+            img = self.coffee_icon if i <= self.req_coffee_bean else self.coffee_icon_gray
             self.coffee_bean_btns[i].config(image=img)
 
     def change_water_volume(self, volume: int):
         logger.debug(f"User changed volume to {volume} mL")
-        self.water_volume = max(CoffeeMaker.water_volume_param[0],
-                                min(CoffeeMaker.water_volume_param[2],
-                                    volume)) // CoffeeMaker.water_volume_param[3] * CoffeeMaker.water_volume_param[3]
-        self.water_volume_scale.set(self.water_volume)
-        self.water_volume_rect.config(text=f"Water volume: {self.water_volume} mL")
+        self.req_water_volume = max(CoffeeMaker.water_volume_param[0],
+                                    min(CoffeeMaker.water_volume_param[2],
+                                        volume)) // CoffeeMaker.water_volume_param[3] * CoffeeMaker.water_volume_param[
+                                    3]
+        self.water_volume_scale.set(self.req_water_volume)
+        self.water_volume_rect.config(text=f"Water volume: {self.req_water_volume} mL")
 
     def wrapper_left_right(self, is_more: bool, is_coffee: bool):
         def _cb():
             v = 1 if is_more else -1
             if is_coffee:
-                self.change_coffee_bean(self.coffee_bean + v)
+                self.change_coffee_bean(self.req_coffee_bean + v)
             else:
-                self.change_water_volume(self.water_volume + v * 5)
+                self.change_water_volume(self.req_water_volume + v * 5)
 
         return _cb
 
     def submit_callback(self):
-        self.future.set_result((int(self.coffee_bean), int(self.water_volume)))
-        self.gui.destroy()
+        self.request_future.set_result((int(self.req_coffee_bean), int(self.req_water_volume)))
+        self.cleanup_request_ui()
+        self.progress_ui()
 
-    def get_future(self) -> Future[Optional[Tuple[int, int]]]:
-        return self.future
+    def progress_ui(self):
+        self.gui_status = "wt_fb"
+        self.top_label.config(text="Brewing...", pady=75)
+        self.progress_label = self.add_label("Contacting the Jura coffee machine...")
+        s = ttk.Style()
+        s.theme_use('clam')
+        s.configure("bg.Horizontal.TProgressbar", foreground='#c9a589', background='#754c24')
+        self.progress_bar = ttk.Progressbar(self.gui, style="bg.Horizontal.TProgressbar", orient="horizontal",
+                                            length=300, mode="determinate")
+        self.progress_bar.pack()
 
+    def ui_before_exit(self):
+        self.progress_bar.pack_forget()
+        if self.brew_sent_with_success:
+            self.top_label.config(text="You're coffee is ready!")
+            self.progress_label.config(text="Enjoy :)")
+            self.add_label("One coffee will be debited from your account.",
+                           font='Helvetica 12 italic', fg='#c9a589')
+        else:
+            self.top_label.config(text="An unexpected event occurred...")
+            self.progress_label.config(text="Please try again...")
+            self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
+                           font='Helvetica 12 italic')
+            self.add_label("Nothing will be debited from your account.", font='Helvetica 13 bold')
+            self.closing_delay = 15
+        self.closing_label = self.add_label(f"The window will close in {self.closing_delay} seconds...",
+                                            font='Helvetica 12 italic',
+                                            fg="#c9a589", pady=20)
 
-class BrewProgress(AbstractUI):
-    def __init__(self, main: MainGUI, water_volume: int):
-        super().__init__(main, "Brewing...", 320, 250)
-        self.water_volume = water_volume
-        self.add_label("Please wait while you're coffee is brewing!")
-        self.progress_label = self.add_label("")
-        self.water_vol = 0
+    def jura_brew_cb(self, success: bool):
+        self.received_jura_cb = True
+        self.brew_sent_with_success = success
 
     async def update(self, coffee_maker: CoffeeMaker):
-        while coffee_maker.get_last_status().maker_status == MakerStatus.BREWING:
-            self.water_vol = max(self.water_vol, coffee_maker.get_last_status().water_volume)
-            self.progress_label.config(text=f"{self.water_vol:.0f} / {self.water_volume} mL")
+        while not self.received_jura_cb:
+            if coffee_maker.get_last_status().maker_status == MakerStatus.BREWING:
+                if coffee_maker.get_last_status().water_volume == 0:
+                    self.gui_status = "ack"
+                    self.progress_label.config(text=f"Grinding the coffee beans...")
+                else:
+                    self.gui_status = "brew"
+                    self.progress_label.config(text=f"Pumping the water...")
+                    self.curr_water_volume = max(self.curr_water_volume, coffee_maker.get_last_status().water_volume)
+                    self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
             await asyncio.sleep(1)
-        self.close()
+        self.ui_before_exit()
 
-    def close(self):
-        self.future.set_result(True)
+    def get_request(self) -> Future[Optional[Tuple[int, int]]]:
+        return self.request_future
+
+    async def get_future_with_autoclosing(self) -> Future[Optional[bool]]:
+        for i in range(self.closing_label, -1, -1):
+            if self.future.done():
+                break
+            self.closing_label.config(text=f"The window will close in {i} seconds...")
+            self.gui.update()
+            await asyncio.sleep(1)
+        if not self.future.done():
+            self.future.set_result(None)
         self.gui.destroy()
+        return self.get_future()
 
-    def get_future(self) -> Future[Optional[True]]:
+    def get_future(self) -> Future[Optional[bool]]:
         return self.future
 
 
