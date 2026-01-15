@@ -25,28 +25,28 @@ Additional arguments and flags are described with the `-h` argument.
 
 #### Wiring
 
-| Usage           | Pin | Left Signal     | Right Signal      | Pin | Usage           |
-|-----------------|-----|-----------------|-------------------|-----|-----------------|
-|                 | 1   | 3V3 Power       | 5V Power          | 2   | PN532           |
-| PN532 SDA       | 3   | GPIO2 (SDA1)    | 5V Power          | 4   | SCREEN          |
-| PN532 SCL       | 5   | GPIO3 (SCL1)    | GND               | 6   | SCREEN          |
-|                 | 7   | GPIO4           | GPIO14 (TXD0)     | 8   | JURA RX         |
-| JURA            | 9   | GND             | GPIO15 (RXD0)     | 10  | JURA TX         |
-|                 | 11  | GPIO17          | GPIO18 (PWM0)     | 12  |                 |
-|                 | 13  | GPIO27          | GND               | 14  | PN532           |
-|                 | 15  | GPIO22          | GPIO23            | 16  | JURA            |
-|                 | 17  | 3V3 Power       | GPIO24            | 18  |                 |
-|                 | 19  | GPIO10 (MOSI)   | GND               | 20  |                 |
-|                 | 21  | GPIO9 (MISO)    | GPIO25            | 22  |                 |
-|                 | 23  | GPIO11 (SCLK)   | GPIO8 (CE0)       | 24  |                 |
-|                 | 25  | GND             | GPIO7 (CE1)       | 26  |                 |
-| (useless) PN532 | 27  | GPIO0 (ID_SD)   | GPIO1 (ID_SC)     | 28  | (useless) PN532 |
-|                 | 29  | GPIO5           | GND               | 30  |                 |
-|                 | 31  | GPIO6           | GPIO12 (PWM0)     | 32  |                 |
-|                 | 33  | GPIO13 (PWM1)   | GND               | 34  |                 |
-|                 | 35  | GPIO19 (PCM_FS) | GPIO16            | 36  |                 |
-|                 | 37  | GPIO26          | GPIO20 (PCM_DIN)  | 38  |                 |
-|                 | 39  | GND             | GPIO21 (PCM_DOUT) | 40  |                 |
+| Usage              | Pin | Left Signal     | Right Signal      | Pin | Usage           |
+|--------------------|-----|-----------------|-------------------|-----|-----------------|
+|                    | 1   | 3V3 Power       | 5V Power          | 2   | PN532 (red)     |
+| PN532 SDA (yellow) | 3   | GPIO2 (SDA1)    | 5V Power          | 4   | SCREEN (red)    |
+| PN532 SCL (green)  | 5   | GPIO3 (SCL1)    | GND               | 6   | SCREEN (brown)  |
+|                    | 7   | GPIO4           | GPIO14 (TXD0)     | 8   | JURA RX (brown) |
+| JURA (black)       | 9   | GND             | GPIO15 (RXD0)     | 10  | JURA TX (blue)  |
+|                    | 11  | GPIO17          | GPIO18 (PWM0)     | 12  |                 |
+|                    | 13  | GPIO27          | GND               | 14  | PN532 (brown)   |
+|                    | 15  | GPIO22          | GPIO23            | 16  | JURA  (white)   |
+|                    | 17  | 3V3 Power       | GPIO24            | 18  |                 |
+|                    | 19  | GPIO10 (MOSI)   | GND               | 20  |                 |
+|                    | 21  | GPIO9 (MISO)    | GPIO25            | 22  |                 |
+|                    | 23  | GPIO11 (SCLK)   | GPIO8 (CE0)       | 24  |                 |
+|                    | 25  | GND             | GPIO7 (CE1)       | 26  |                 |
+|                    | 27  | GPIO0 (ID_SD)   | GPIO1 (ID_SC)     | 28  |                 |
+|                    | 29  | GPIO5           | GND               | 30  |                 |
+|                    | 31  | GPIO6           | GPIO12 (PWM0)     | 32  |                 |
+|                    | 33  | GPIO13 (PWM1)   | GND               | 34  |                 |
+|                    | 35  | GPIO19 (PCM_FS) | GPIO16            | 36  |                 |
+|                    | 37  | GPIO26          | GPIO20 (PCM_DIN)  | 38  |                 |
+|                    | 39  | GND             | GPIO21 (PCM_DOUT) | 40  |                 |
 
 #### Software
 
@@ -136,6 +136,8 @@ Please refer to [.gitlab-ci.yml](.gitlab-ci.yml) for the exact details of the pi
 > [U2IS Runner](https://u2is.ovh/en/tech/tools/gitlab-runner) was added to the group.
 
 > [!tip]
-> To allow releases creation, create a token [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/access_tokens) with the permission
+> To allow releases creation, create a
+> token [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/access_tokens) with the permission
 > `api`, `write_repository` with the role `Developer`, then create the variable
-> `RELEASE_TOKEN` [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
+>
+`RELEASE_TOKEN` [here](https://gitlab.ensta.fr/u2is-coffee-team/coffee_tag/-/settings/ci_cd#js-cicd-variables-settings).
