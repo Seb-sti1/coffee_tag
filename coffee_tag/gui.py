@@ -363,7 +363,7 @@ class BrewCoffee(AbstractUI):
         self.progress_label = None
         self.received_jura_cb = False
         self.brew_sent_with_success = False
-        self.curr_water_volume = None
+        self.curr_water_volume = 0.
         self.progress_bar = None
         self.closing_delay = 5
         self.closing_label = None
