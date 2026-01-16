@@ -21,6 +21,10 @@ from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
 
+WHITE = 'white'
+LIGHT_BROWN = '#c9a589'
+BROWN = '#754c24'
+DARK_BROWN = '#5b3719'
 
 class AbstractUI:
 
@@ -29,14 +33,15 @@ class AbstractUI:
         self.future = asyncio.get_event_loop().create_future()
         self.main = main
         self.gui = tk.Toplevel(main.tk)
-        self.gui.protocol("WM_DELETE_WINDOW", lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()])
+        self.gui.protocol("WM_DELETE_WINDOW",
+                          lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()])
         self.gui.transient(main.tk)
         self.gui.grab_set()
         self.x = (main.tk.winfo_width() - w) // 2 if x is None else x
         self.y = (main.tk.winfo_height() - h) // 2 if y is None else y
         self.gui.geometry(f"{w}x{h}+{self.x}+{self.y}")
         self.gui.title(title)
-        self.gui['bg'] = '#754c24'
+        self.gui['bg'] = BROWN
         self.gui.resizable(height=False, width=False)
         self.w = w
         self.h = h
@@ -52,7 +57,7 @@ class AbstractUI:
         pass
 
     def add_label(self, text: str, **kwargs) -> tk.Label:
-        defaults = {"font": "Helvetica 14", "fg": "white", "bg": "#754c24",
+        defaults = {"font": "Helvetica 14", "fg": WHITE, "bg": BROWN,
                     "justify": "center", "side": "top", "pady": 10, "fill": "x", "x": 0,
                     "wraplength": self.w - 20, "text": text, "gui": self.gui}
         exclude_keys = ["x", "y", "side", "pady", "fill", "gui"]
@@ -105,8 +110,8 @@ class AbstractUI:
 
     def add_button(self, text: Optional[str], callback: Callable, **kwargs) -> tk.Button:
         font = kwargs["font"] if "font" in kwargs else "Helvetica 14"
-        fg = kwargs["fg"] if "fg" in kwargs else "#5b3719"
-        bg = kwargs["bg"] if "bg" in kwargs else "#c9a589"
+        fg = kwargs["fg"] if "fg" in kwargs else DARK_BROWN
+        bg = kwargs["bg"] if "bg" in kwargs else LIGHT_BROWN
         height = kwargs["height"] if "height" in kwargs else 3
         width = kwargs["width"] if "width" in kwargs else 15
         side = kwargs["side"] if "side" in kwargs else "bottom"
@@ -135,7 +140,7 @@ class ManualEntry(AbstractUI):
         self.add_label("What is your name ?", font="Helvetica 14 bold italic")
         self.entry = self.add_entry(on_text_change=self.on_text_change, focus=True)
         self.add_button("Create new user", self.btn_callback, x=455, y=25, width=14, height=2)
-        self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg="#c9a589")
+        self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg=LIGHT_BROWN)
         self.choices: list[tk.Button] = []
 
     def on_text_change(self, text_var: tk.StringVar):
@@ -145,7 +150,7 @@ class ManualEntry(AbstractUI):
         self.gui.update()
         if len(text_var.get()) == 0:
             if self.label is None:
-                self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg="#c9a589")
+                self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg=LIGHT_BROWN)
                 return
         elif self.label is not None:
             self.label.pack_forget()
@@ -186,11 +191,11 @@ class GeneralUI(AbstractUI):
         super().__init__(main, title, w, h)
         self.add_label(title, font='Helvetica 22 bold')
         if sub_text and not sub_after_main:
-            self.add_label(sub_text, fg="#c9a589", font='Helvetica 12 bold italic', pady=None)
+            self.add_label(sub_text, fg=LIGHT_BROWN, font='Helvetica 12 bold italic', pady=None)
         if main_text:
             self.add_label(main_text, font='Helvetica 16 bold')
         if sub_text and sub_after_main:
-            self.add_label(sub_text, fg="#c9a589", font='Helvetica 12 bold italic', pady=None)
+            self.add_label(sub_text, fg=LIGHT_BROWN, font='Helvetica 12 bold italic', pady=None)
         if button_one:
             self.add_button(button_one, self.btn_one_callback, side="top", font='Helvetica 12 bold')
         if button_two:
@@ -198,7 +203,7 @@ class GeneralUI(AbstractUI):
         if should_close_in_5:
             self.closing_lbl = self.add_label("The window will close in 5 seconds...",
                                               font='Helvetica 12 bold italic',
-                                              fg="#c9a589")
+                                              fg=LIGHT_BROWN)
 
     def btn_one_callback(self):
         self.future.set_result(True)
@@ -228,14 +233,14 @@ class UserMenu(AbstractUI):
     def __init__(self, main: MainGUI, user: User):
         super().__init__(main, "Your account", 420, 370)
         self.add_label(f"Hello {user}!", font='Helvetica 22 bold')
-        self.add_label("Your balance is currently", font='Helvetica 15', fg='#c9a589',
+        self.add_label("Your balance is currently", font='Helvetica 15', fg=LIGHT_BROWN,
                        pady=None, fill=None)
         self.add_label(f"{-user.get_user_balance()} €", font='Helvetica 22 bold')
         last_coffee = user.get_last_coffee()
         if last_coffee is not None:
             self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
-                           font='Helvetica 15', fg='#c9a589', pady=None)
-        self.add_label("How many coffees will you take ?", font='Helvetica 15', fg='#c9a589', pady=None, fill=None)
+                           font='Helvetica 15', fg=LIGHT_BROWN, pady=None)
+        self.add_label("How many coffees will you take ?", font='Helvetica 15', fg=LIGHT_BROWN, pady=None, fill=None)
         self.entry = self.add_entry(width=3, font='Helvetica 15 bold', x=193, y=227)
         self.entry.delete(0, tk.END)
         self.entry.insert(0, "1")
@@ -278,7 +283,7 @@ class UserProperties(AbstractUI):
         self.user = user
         self.entries = []
         self.add_label("Enter your data" if is_creation else "Please update your data", font='Helvetica 16 bold',
-                       fg='#c9a589')
+                       fg=LIGHT_BROWN)
         # === First column
         self.add_label("Name*", font='Helvetica 12 bold italic', x=40, y=50)
         self.entries.append(self.add_entry(value=user.name, width=20, font='Helvetica 12', focus=True, x=40, y=70))
@@ -308,7 +313,7 @@ class UserProperties(AbstractUI):
                                         borderwidth=1, highlightthickness=1, x=250, y=220)
         self.card_future = rfid.get_rfid()
         self.card_future.add_done_callback(self.read_card_callback)
-        self.add_label("Required fields are marked with an *", font='Helvetica 10 italic', fg='#c9a589', x=220, y=255)
+        self.add_label("Required fields are marked with an *", font='Helvetica 10 italic', fg=LIGHT_BROWN, x=220, y=255)
         self.add_button("OK", self.submit_callback, font='Helvetica 16 bold', height=2, width=4, x=290, y=280)
 
     def read_card_callback(self, f: Future[str]):
@@ -349,7 +354,7 @@ class BrewCoffee(AbstractUI):
         self.gui_status: Literal["req", "wt_fb", "brew", "ack"] = "req"
 
         self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=None, fill=None)
-        self.debug_label = self.add_label(status, font='Helvetica 12', fg='#c9a589', x=0, y=420, fill=None)
+        self.debug_label = self.add_label(status, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=420, fill=None)
 
         self.req_coffee_bean = beans_q
         self.req_water_volume = water_v
@@ -385,7 +390,7 @@ class BrewCoffee(AbstractUI):
 
         # ==== PRESETS
         self.presets_rect = tk.LabelFrame(self.gui, text="Presets", font='Helvetica 12',
-                                          bg="#754c24", fg="white", relief='groove')
+                                          bg=BROWN, fg=WHITE, relief='groove')
         self.presets_rect.place(x=70, y=35, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
 
         def wrapper_preset_cb(c: int, w: int):
@@ -404,7 +409,7 @@ class BrewCoffee(AbstractUI):
 
         # ==== COFFEE BEAN QUANTITY
         self.coffee_bean_rect = tk.LabelFrame(self.gui, text="Coffee quantity:", font='Helvetica 12',
-                                              bg="#754c24", fg="white", relief='groove')
+                                              bg=BROWN, fg=WHITE, relief='groove')
         self.coffee_bean_rect.place(x=70, y=150, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
 
         self.coffee_bean_btns: list[Button] = []
@@ -415,7 +420,7 @@ class BrewCoffee(AbstractUI):
         for i in range(8):
             img = self.coffee_icon if i <= self.req_coffee_bean else self.coffee_icon_gray
             btn = self.add_button(gui=self.coffee_bean_rect, text="a", image=img, callback=_coffee_cb(i),
-                                  pady=None, bg="#754c24", fg="#754c24",
+                                  pady=None, bg=BROWN, fg=BROWN,
                                   highlightthickness=0, bd=0,
                                   x=i * 60 + 60 + 15, y=10, height=60, width=60)
             self.coffee_bean_btns.append(btn)
@@ -428,12 +433,12 @@ class BrewCoffee(AbstractUI):
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
         # ==== WATER VOLUME
         self.water_volume_rect = tk.LabelFrame(self.gui, text=f"Water volume: {self.req_water_volume} mL",
-                                               font='Helvetica 12', bg="#754c24", fg="white", relief='groove')
+                                               font='Helvetica 12', bg=BROWN, fg=WHITE, relief='groove')
         self.water_volume_rect.place(x=70, y=265, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
         self.water_volume_scale = Scale(self.water_volume_rect, from_=25, to=240, resolution=5,
                                         variable=tk.IntVar(value=self.req_water_volume),
                                         command=lambda v: self.change_water_volume(int(v)),
-                                        bg="#754c24", fg="#c9a589", troughcolor="#c9a589",
+                                        bg=BROWN, fg=LIGHT_BROWN, troughcolor=LIGHT_BROWN,
                                         tickinterval=15, showvalue=False,
                                         length=8 * 60, width=50, sliderlength=50,
                                         bd=0, highlightthickness=0,
@@ -495,7 +500,7 @@ class BrewCoffee(AbstractUI):
         self.progress_label = self.add_label("Contacting the Jura coffee machine...")
         s = ttk.Style()
         s.theme_use('clam')
-        s.configure("bg.Horizontal.TProgressbar", foreground='#c9a589', background='#754c24')
+        s.configure("bg.Horizontal.TProgressbar", foreground=LIGHT_BROWN, background=BROWN)
         self.progress_bar = ttk.Progressbar(self.gui, style="bg.Horizontal.TProgressbar", orient="horizontal",
                                             length=300, mode="determinate")
         self.progress_bar.pack()
@@ -506,7 +511,7 @@ class BrewCoffee(AbstractUI):
             self.top_label.config(text="You're coffee is ready!")
             self.progress_label.config(text="Enjoy :)")
             self.add_label("One coffee will be debited from your account.",
-                           font='Helvetica 12 italic', fg='#c9a589')
+                           font='Helvetica 12 italic', fg=LIGHT_BROWN)
         else:
             self.top_label.config(text="An unexpected event occurred...")
             self.progress_label.config(text="Please try again...")
@@ -516,7 +521,7 @@ class BrewCoffee(AbstractUI):
             self.closing_delay = 15
         self.closing_label = self.add_label(f"The window will close in {self.closing_delay} seconds...",
                                             font='Helvetica 12 italic',
-                                            fg="#c9a589", pady=20)
+                                            fg=LIGHT_BROWN, pady=20)
 
     def jura_brew_cb(self, success: bool):
         self.received_jura_cb = True
@@ -561,7 +566,7 @@ class AskPassword(AbstractUI):
         super().__init__(main, "Login", 320, 250)
         self.rfid = rfid
         self.add_label(f"Hello {user}!", font='Helvetica 22 bold')
-        self.add_label("Please enter your password", font='Helvetica 15', fg='#c9a589', pady=None, fill=None)
+        self.add_label("Please enter your password", font='Helvetica 15', fg=LIGHT_BROWN, pady=None, fill=None)
         self.password = self.add_entry(width=20, font='Helvetica 12', focus=True)
         self.card_future = rfid.get_rfid()
         self.card_future.add_done_callback(self.read_card_callback)
@@ -607,7 +612,7 @@ class MainGUI:
         self.tk = tk.Tk()
         self.tk.geometry('800x480')
         self.tk.title('My wonderful coffee app')
-        self.tk["bg"] = '#754c24'  # background color
+        self.tk["bg"] = BROWN  # background color
         self.tk.resizable(height=False, width=False)
 
         # Use fullscreen but bind an escape key to window destruction to escape fullscreen
@@ -616,17 +621,17 @@ class MainGUI:
 
         # Place the text label on the window, 10 pixels from the top, and fill the window on x
         txt_lbl1 = tk.Label(self.tk, text="You should take a break...",
-                            font='Helvetica 22 bold', fg="white", bg='#754c24')
+                            font='Helvetica 22 bold', fg=WHITE, bg=BROWN)
         txt_lbl1.pack(side="top", pady=10, fill='x')
 
         # Add coffee price
         txt_lbl2 = tk.Label(self.tk, text=f"Badge for a coffee ({coffee_price:.2f} €)",
-                            font='Helvetica 16 bold', fg='#c9a589', bg='#754c24')
+                            font='Helvetica 16 bold', fg=LIGHT_BROWN, bg=BROWN)
         txt_lbl2.pack(side="top", fill='x')
 
         # Button label to manually check identity
-        bt_lbl = tk.Button(self.tk, text="Can't read my badge ?", font='Helvetica 15 bold', fg='#5b3719',
-                           bg='#c9a589', height=2, width=24,
+        bt_lbl = tk.Button(self.tk, text="Can't read my badge ?", font='Helvetica 15 bold', fg=DARK_BROWN,
+                           bg=LIGHT_BROWN, height=2, width=24,
                            command=callback)
         bt_lbl.pack(side="bottom", pady=20)
 
