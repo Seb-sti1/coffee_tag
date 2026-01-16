@@ -204,12 +204,9 @@ class CoffeeManager:
 
                 self.coffee_maker.reset_coffee_param(cb=_cb)
             self.next_ping_to_machine = JuraCommand.HZ
-        else:
-            # show account ui for everyone
+        # show account ui only no coffee was already bought by the new gui
+        if coffee_bought == 0:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()
-            if admin_status is not None:
-                admin_status.close()
-                await admin_status.get_future()
             if coffee_bought is None:
                 return None
             # double check when high count
@@ -220,6 +217,11 @@ class CoffeeManager:
                                            button_one="Yes", button_two="Oops").get_future()
                 if validate is None or validate is False:
                     return None
+        # close admin gui if necessary
+        if admin_status is not None:
+            admin_status.close()
+            await admin_status.get_future()
+        # if coffee was bought, saves it
         if coffee_bought > 0:
             logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
             if self.db.buy_coffees(user, coffee_bought):
