@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import logging
 import os
 import tkinter as tk
@@ -605,6 +606,20 @@ class AdminStatus(AbstractUI):
         return self.future
 
 
+def get_app_version():
+    try:
+        return importlib.metadata.version('coffee_tag')
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown (dev)"
+
+
+def get_driver_version():
+    try:
+        return importlib.metadata.version('juracoffeemachine')
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown (dev)"
+
+
 class MainGUI:
 
     def __init__(self, callback: Callable[[], None], coffee_price: float):
@@ -634,6 +649,12 @@ class MainGUI:
                            bg=LIGHT_BROWN, height=2, width=24,
                            command=callback)
         bt_lbl.pack(side="bottom", pady=20)
+
+        # Version label
+        version_lbl = tk.Label(self.tk, text=f"{get_app_version()} - {get_driver_version()}",
+                               font='Helvetica 10', fg=LIGHT_BROWN,
+                               bg=BROWN)
+        version_lbl.place(x=5, y=460)
 
         # Add cup gif, To hide border, set borderwidth and highlightthickness to 0
         lbl = ImageLabel(self.tk, borderwidth=0, highlightthickness=0)
