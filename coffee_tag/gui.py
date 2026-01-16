@@ -532,7 +532,7 @@ class BrewCoffee(AbstractUI):
         return self.request_future
 
     async def get_future_with_autoclosing(self) -> Future[Optional[bool]]:
-        for i in range(self.closing_label, -1, -1):
+        for i in range(self.closing_delay, -1, -1):
             if self.future.done():
                 break
             self.closing_label.config(text=f"The window will close in {i} seconds...")
