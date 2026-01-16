@@ -735,22 +735,71 @@ def show_gui(path: str, price: float):
         asyncio.set_event_loop(loop)
 
         loop.create_task(wrapper(ManualEntry, main=gui, search_user=db.search_by_name))
+        loop.create_task(wrapper(AdminStatus, main=gui, last_coffees=db.get_last_coffees()))
+        loop.create_task(wrapper(AskPassword, main=gui, rfid=rfid, user=users[0]))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
-                                 w=200, h=250,
-                                 sub_text="I could not find you",
-                                 button_one="Try again",
-                                 button_two="Add me"))
-        loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
-                                 w=350, h=290,
+                                 w=350, h=310,
                                  sub_text="I could not find you",
                                  main_text="Former user with new badge?",
                                  button_one="Synchronize",
                                  button_two="Add me"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Welcome back!",
+                                 w=320, h=250,
+                                 main_text="Your badge has been successfully linked to your account",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Please update your profile.",
+                                 w=320, h=250,
+                                 main_text="To access your account please update your profile.",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Your account is deactivated.",
+                                 w=320, h=300,
+                                 main_text="Your account has been blocked indefinitely.",
+                                 sub_text="Please contact us at cafe.u2is@gmail.com.",
+                                 sub_after_main=True,
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Oops...",
+                                 w=320, h=300,
+                                 main_text="An unexpected error occurred while opening your profile!",
+                                 sub_text="If it is continues, please contact us at cafe.u2is@gmail.com.",
+                                 sub_after_main=True,
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Wrong password!",
+                                 w=320, h=300,
+                                 main_text="The provided password is not correct!",
+                                 sub_text="Please contact an admin if you're having trouble login in.",
+                                 sub_after_main=True,
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Wow, are you sure?",
+                                 w=320, h=320,
+                                 main_text=f"Do you confirm buying {5} coffee?",
+                                 button_one="Yes", button_two="Oops"))
         loop.create_task(wrapper(GeneralUI, main=gui, title=f"Thank you {users[0]}!",
-                                 w=320, h=230,
+                                 w=320, h=250,
                                  sub_text="Your balance is now",
                                  main_text=f"{-users[0].get_user_balance()} €",
                                  should_close_in_5=True))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Fill all the required field.",
+                                 w=320, h=290,
+                                 main_text="You must provide at least your name, surname, mail, passcode"
+                                           " and date of departure.",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Your mail is not valid.",
+                                 w=320, h=250,
+                                 main_text="Please provide a valid mail.",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Account already exists.",
+                                 w=320, h=250,
+                                 main_text="An account with this name and surname or mail or badge id already exists.",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title=f"Welcome {str(users[0])}!",
+                                 w=320, h=250,
+                                 main_text="Your profile is now created!" if users[0] is None \
+                                     else "Your profile was updated!",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Oops...",
+                                 w=320, h=250,
+                                 main_text="An unexpected error occurred while creating your profile!",
+                                 button_one="Ok"))
         loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
         loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
         loop.create_task(wrapper(BrewCoffee, main=gui, status="status", beans_q=2, water_v=80))
