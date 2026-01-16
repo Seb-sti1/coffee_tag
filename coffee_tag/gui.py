@@ -30,22 +30,31 @@ DARK_BROWN = '#5b3719'
 class AbstractUI:
 
     def __init__(self, main: MainGUI, title: str, w: int, h: int,
-                 x: int = None, y: int = None):
+                 border: int = 3, x: int = None, y: int = None):
         self.future = asyncio.get_event_loop().create_future()
         self.main = main
+        self.w = w
+        self.h = h
+        self.x = main.tk.winfo_rootx() + (main.tk.winfo_width() - w) // 2 if x is None else x
+        self.y = main.tk.winfo_rooty() + (main.tk.winfo_height() - h) // 2 if y is None else y
+        # set up the new popup
         self.gui = tk.Toplevel(main.tk)
+        self.gui['bg'] = LIGHT_BROWN
         self.gui.protocol("WM_DELETE_WINDOW",
                           lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()])
         self.gui.transient(main.tk)
         self.gui.grab_set()
-        self.x = (main.tk.winfo_width() - w) // 2 if x is None else x
-        self.y = (main.tk.winfo_height() - h) // 2 if y is None else y
+        self.gui.attributes("-type", "splash")
         self.gui.geometry(f"{w}x{h}+{self.x}+{self.y}")
         self.gui.title(title)
-        self.gui['bg'] = BROWN
         self.gui.resizable(height=False, width=False)
-        self.w = w
-        self.h = h
+        # create the border by adding a frame inside the toplevel gui
+        self.content = tk.Frame(self.gui, bg=BROWN)
+        self.content.place(x=border, y=border,
+                           width=self.w - 2 * border,
+                           height=self.h - 2 * border)
+        self.close_btn = None
+        self.close_btn = self.add_button("X", lambda: self.gui.destroy(), x=self.w - 50, y=5, width=1, height=1)
         main.opened_popup.append(self)
 
     def is_opened(self) -> bool:
@@ -60,7 +69,7 @@ class AbstractUI:
     def add_label(self, text: str, **kwargs) -> tk.Label:
         defaults = {"font": "Helvetica 14", "fg": WHITE, "bg": BROWN,
                     "justify": "center", "side": "top", "pady": 10, "fill": "x", "x": 0,
-                    "wraplength": self.w - 20, "text": text, "gui": self.gui}
+                    "wraplength": self.w - 20, "text": text, "gui": self.content}
         exclude_keys = ["x", "y", "side", "pady", "fill", "gui"]
         kwargs = {**defaults, **kwargs}
         lbl = tk.Label(kwargs["gui"], **{k: kwargs[k] for k in kwargs.keys() if k not in exclude_keys})
@@ -68,6 +77,7 @@ class AbstractUI:
             lbl.place(x=kwargs["x"], y=kwargs["y"])
         else:
             lbl.pack(side=kwargs["side"], pady=kwargs["pady"], fill=kwargs["fill"])
+        self.close_btn.lift()
         return lbl
 
     def add_entry(self, **kwargs) -> tk.Entry:
@@ -82,7 +92,7 @@ class AbstractUI:
 
             text_var.trace_add("write", on_text_change)
 
-        entry = tk.Entry(self.gui, font=font, textvariable=text_var, width=width)
+        entry = tk.Entry(self.content, font=font, textvariable=text_var, width=width)
 
         if "suggestion" in kwargs and ("value" not in kwargs or kwargs["value"] is None or kwargs["value"] == ""):
             def handle_focus_in(_):
@@ -107,6 +117,7 @@ class AbstractUI:
             entry.place(x=kwargs["x"], y=kwargs["y"])
         else:
             entry.pack(side=side)
+        self.close_btn.lift()
         return entry
 
     def add_button(self, text: Optional[str], callback: Callable, **kwargs) -> tk.Button:
@@ -118,7 +129,7 @@ class AbstractUI:
         side = kwargs["side"] if "side" in kwargs else "bottom"
         pady = kwargs["pady"] if "pady" in kwargs else 10
         image = kwargs["image"] if "image" in kwargs else None
-        gui = kwargs["gui"] if "gui" in kwargs else self.gui
+        gui = kwargs["gui"] if "gui" in kwargs else self.content
         highlightthickness = kwargs["highlightthickness"] if "highlightthickness" in kwargs else None
         bd = kwargs["bd"] if "bd" in kwargs else None
         btn = tk.Button(gui, text=text, font=font, fg=fg, bg=bg, command=callback,
@@ -128,6 +139,8 @@ class AbstractUI:
             btn.place(x=kwargs["x"], y=kwargs["y"])
         else:
             btn.pack(side=side, pady=pady)
+        if self.close_btn is not None:
+            self.close_btn.lift()
         return btn
 
 
@@ -140,7 +153,7 @@ class ManualEntry(AbstractUI):
         self.search_user = search_user
         self.add_label("What is your name ?", font="Helvetica 14 bold italic")
         self.entry = self.add_entry(on_text_change=self.on_text_change, focus=True)
-        self.add_button("Create new user", self.btn_callback, x=455, y=25, width=14, height=2)
+        self.add_button("Create new user", self.btn_callback, x=10, y=25, width=14, height=2)
         self.label = self.add_label("Type at least one character.", font="Helvetica 12 italic", fg=LIGHT_BROWN)
         self.choices: list[tk.Button] = []
 
@@ -190,7 +203,7 @@ class GeneralUI(AbstractUI):
                  button_two: Optional[str] = None,
                  should_close_in_5: bool = False):
         super().__init__(main, title, w, h)
-        self.add_label(title, font='Helvetica 22 bold')
+        self.add_label(title, font='Helvetica 22 bold', wraplength=self.w - 120)
         if sub_text and not sub_after_main:
             self.add_label(sub_text, fg=LIGHT_BROWN, font='Helvetica 12 bold italic', pady=None)
         if main_text:
@@ -354,7 +367,7 @@ class BrewCoffee(AbstractUI):
         super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60 + 170, 450)
         self.gui_status: Literal["req", "wt_fb", "brew", "ack"] = "req"
 
-        self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=None, fill=None)
+        self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=3, fill=None)
         self.debug_label = self.add_label(status, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=420, fill=None)
 
         self.req_coffee_bean = beans_q
@@ -390,7 +403,7 @@ class BrewCoffee(AbstractUI):
                                                                            "coffee_icon_gray.png")).resize((50, 50)))
 
         # ==== PRESETS
-        self.presets_rect = tk.LabelFrame(self.gui, text="Presets", font='Helvetica 12',
+        self.presets_rect = tk.LabelFrame(self.content, text="Presets", font='Helvetica 12',
                                           bg=BROWN, fg=WHITE, relief='groove')
         self.presets_rect.place(x=70, y=35, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
 
@@ -401,15 +414,18 @@ class BrewCoffee(AbstractUI):
 
             return _cb
 
-        self.add_button("Expresso", wrapper_preset_cb(6, 45), gui=self.presets_rect,
-                        x=15, y=10, width=15, height=2)
-        self.add_button("Coffee", wrapper_preset_cb(4, 100), gui=self.presets_rect,
-                        x=225, y=10, width=15, height=2)
-        self.add_button("Ristretto", wrapper_preset_cb(2, 150), gui=self.presets_rect,
-                        x=435, y=10, width=15, height=2)
+        shift = 153
+        self.add_button("Ristretto", wrapper_preset_cb(7, 25), gui=self.presets_rect,
+                        x=15, y=10, width=11, height=2)
+        self.add_button("Expresso", wrapper_preset_cb(5, 45), gui=self.presets_rect,
+                        x=15 + shift * 1, y=10, width=11, height=2)
+        self.add_button("Coffee", wrapper_preset_cb(3, 100), gui=self.presets_rect,
+                        x=15 + shift * 2, y=10, width=11, height=2)
+        self.add_button("Special", wrapper_preset_cb(6, 200), gui=self.presets_rect,
+                        x=15 + shift * 3, y=10, width=11, height=2)
 
         # ==== COFFEE BEAN QUANTITY
-        self.coffee_bean_rect = tk.LabelFrame(self.gui, text="Coffee quantity:", font='Helvetica 12',
+        self.coffee_bean_rect = tk.LabelFrame(self.content, text="Coffee quantity:", font='Helvetica 12',
                                               bg=BROWN, fg=WHITE, relief='groove')
         self.coffee_bean_rect.place(x=70, y=150, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
 
@@ -433,7 +449,7 @@ class BrewCoffee(AbstractUI):
                             gui=self.coffee_bean_rect,
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
         # ==== WATER VOLUME
-        self.water_volume_rect = tk.LabelFrame(self.gui, text=f"Water volume: {self.req_water_volume} mL",
+        self.water_volume_rect = tk.LabelFrame(self.content, text=f"Water volume: {self.req_water_volume} mL",
                                                font='Helvetica 12', bg=BROWN, fg=WHITE, relief='groove')
         self.water_volume_rect.place(x=70, y=265, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
         self.water_volume_scale = Scale(self.water_volume_rect, from_=25, to=240, resolution=5,
@@ -502,7 +518,7 @@ class BrewCoffee(AbstractUI):
         s = ttk.Style()
         s.theme_use('clam')
         s.configure("bg.Horizontal.TProgressbar", foreground=LIGHT_BROWN, background=BROWN)
-        self.progress_bar = ttk.Progressbar(self.gui, style="bg.Horizontal.TProgressbar", orient="horizontal",
+        self.progress_bar = ttk.Progressbar(self.content, style="bg.Horizontal.TProgressbar", orient="horizontal",
                                             length=300, mode="determinate")
         self.progress_bar.pack()
 

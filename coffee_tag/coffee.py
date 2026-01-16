@@ -87,15 +87,15 @@ class CoffeeManager:
         user = self.db.get_user_by_rfid(card)
         if user is None:
             logger.info(f"No user account with badge {card}.")
-            should_sync = await GeneralUI(self.root_gui, "Sorry!", 350, 290,
+            should_sync = await GeneralUI(self.root_gui, "Sorry!", 350, 310,
                                           "I could not find you", main_text="Former user with new badge?",
                                           button_one="Synchronize", button_two="Add me").get_future()
             if should_sync:  # TODO security vulnerability
                 user = await self.get_user_by_manual_search()
                 if user is not None:
                     self.db.sync_badge(user, card)
-                    await GeneralUI(self.root_gui, "Welcome back!",
-                                    260, 200,
+                    await GeneralUI(self.root_gui, title="Welcome back!",
+                                    w=320, h=250,
                                     main_text="Your badge has been successfully linked to your account",
                                     button_one="Ok").get_future()
             elif should_sync is False:
@@ -135,7 +135,7 @@ class CoffeeManager:
         # verify account status
         if user.status == "banned":
             await GeneralUI(self.root_gui, "Your account is deactivated.",
-                            320, 250,
+                            320, 300,
                             main_text="Your account has been blocked indefinitely.",
                             sub_text="Please contact us at cafe.u2is@gmail.com.",
                             sub_after_main=True,
@@ -143,7 +143,7 @@ class CoffeeManager:
             return None
         if user.status == "shadow_banned":
             await GeneralUI(self.root_gui, "Oops...",
-                            320, 250,
+                            320, 300,
                             main_text="An unexpected error occurred while opening your profile!",
                             sub_text="If it is continues, please contact us at cafe.u2is@gmail.com.",
                             sub_after_main=True,
@@ -159,7 +159,7 @@ class CoffeeManager:
                 logger.warning(f"Someone failed to authenticate as {user}"
                                f"with a {'password' if is_password else 'badge'}.")
                 await GeneralUI(self.root_gui, "Wrong password!",
-                                320, 250,
+                                320, 300,
                                 main_text="The provided password is not correct!",
                                 sub_text="Please contact an admin if you're having trouble login in.",
                                 sub_after_main=True,
@@ -210,7 +210,7 @@ class CoffeeManager:
             # double check when high count
             if coffee_bought > 9:
                 validate = await GeneralUI(self.root_gui, "Wow, are you sure?",
-                                           260, 250,
+                                           w=320, h=320,
                                            main_text=f"Do you confirm buying {coffee_bought} coffee?",
                                            button_one="Yes", button_two="Oops").get_future()
                 if validate is None or validate is False:
@@ -224,7 +224,9 @@ class CoffeeManager:
             logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
             if self.db.buy_coffees(user, coffee_bought):
                 logger.info("This was saved in db.")
-                await GeneralUI(self.root_gui, f"Thank you {user}!", 320, 230, "Your balance is now",
+                await GeneralUI(self.root_gui, title=f"Thank you {user}!",
+                                w=320, h=250,
+                                sub_text="Your balance is now",
                                 main_text=f"{-user.get_user_balance()} €",
                                 should_close_in_5=True).get_future_with_autoclosing()
             else:
@@ -246,7 +248,7 @@ class CoffeeManager:
             valid = tmp_user.is_valid()
             if valid == "missing_field":
                 await GeneralUI(self.root_gui, "Fill all the required field.",
-                                320, 250,
+                                320, 290,
                                 main_text="You must provide at least your name, surname, mail, passcode"
                                           " and date of departure.",
                                 button_one="Ok").get_future()
