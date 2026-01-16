@@ -175,25 +175,23 @@ class CoffeeManager:
             self.next_ping_to_machine = False
             logger.warning(f"========== new coffee ============")
             logger.warning(f"{self.coffee_maker.get_last_status().maker_status}")
-
-            def _cb(connected: bool):
-                logger.warning(f"{connected}")
-                logger.warning(f"{self.coffee_maker.get_last_status().maker_status}")
-
-            self.coffee_maker.test_connection(cb=_cb)
             delta = str(dt.datetime.now() - self.coffee_maker.get_last_status().last_maker_status_change).split('.')[0]
             brew = BrewCoffee(self.root_gui,
                               f"Last contact {delta} ago."
                               f" {self.coffee_maker.get_last_status().maker_status}.",
                               user.beans_q, user.water_v)
+
+            def _cb(connected: bool):
+                brew.debug_label.config(f"{connected} {self.coffee_maker.get_last_status().maker_status}")
+                logger.info(f"{connected} {self.coffee_maker.get_last_status().maker_status}")
+
+            self.coffee_maker.test_connection(cb=_cb)
             param = await brew.get_request()
             if param is not None:
-                coffee_bean, water_volume = param
-                user.beans_q, user.water_v = coffee_bean, water_volume
+                user.beans_q, user.water_v = param
                 if not user.update():
                     logger.error(f"Could not save new coffee params.")
-                logger.warning(f"Sending command c {coffee_bean}, w {water_volume}")
-                self.coffee_maker.brew_coffee(coffee_bean, water_volume, brew.jura_brew_cb)
+                self.coffee_maker.brew_coffee(user.beans_q, user.water_v, brew.jura_brew_cb)
                 await brew.update(self.coffee_maker)
                 await brew.get_future_with_autoclosing()
                 if brew.brew_sent_with_success:

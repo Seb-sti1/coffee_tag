@@ -29,7 +29,7 @@ class AbstractUI:
         self.future = asyncio.get_event_loop().create_future()
         self.main = main
         self.gui = tk.Toplevel(main.tk)
-        self.gui.protocol("WM_DELETE_WINDOW", lambda: [self.future.set_result(None), self.gui.destroy()])
+        self.gui.protocol("WM_DELETE_WINDOW", lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()])
         self.gui.transient(main.tk)
         self.gui.grab_set()
         self.x = (main.tk.winfo_width() - w) // 2 if x is None else x
@@ -44,6 +44,12 @@ class AbstractUI:
 
     def is_opened(self) -> bool:
         return self.gui.winfo_exists()
+
+    def on_closing(self):
+        """
+        Abstract on_closing method that can be overwritten
+        """
+        pass
 
     def add_label(self, text: str, **kwargs) -> tk.Label:
         defaults = {"font": "Helvetica 14", "fg": "white", "bg": "#754c24",
@@ -356,7 +362,7 @@ class BrewCoffee(AbstractUI):
         self.coffee_bean_btns = None
         self.water_volume_rect = None
         self.water_volume_scale = None
-        self.request_future = None
+        self.request_future = asyncio.get_event_loop().create_future()
         self.submit_btn = None
         self.request_ui()
 
@@ -367,6 +373,9 @@ class BrewCoffee(AbstractUI):
         self.progress_bar = None
         self.closing_delay = 5
         self.closing_label = None
+
+    def on_closing(self):
+        self.request_future.set_result(None)
 
     def request_ui(self):
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
@@ -439,7 +448,6 @@ class BrewCoffee(AbstractUI):
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
 
         # ==== SUBMIT REQUEST
-        self.request_future = asyncio.get_event_loop().create_future()
         self.submit_btn = self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=2)
 
     def cleanup_request_ui(self):
@@ -523,6 +531,7 @@ class BrewCoffee(AbstractUI):
                 else:
                     self.gui_status = "brew"
                     self.progress_label.config(text=f"Pumping the water...")
+                    self.debug_label.config(text=f"wv {coffee_maker.get_last_status().water_volume}")
                     self.curr_water_volume = max(self.curr_water_volume, coffee_maker.get_last_status().water_volume)
                     self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
             await asyncio.sleep(1)
