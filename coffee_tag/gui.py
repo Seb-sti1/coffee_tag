@@ -368,7 +368,8 @@ class BrewCoffee(AbstractUI):
         self.gui_status: Literal["req", "wt_fb", "brew", "ack"] = "req"
 
         self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=3, fill=None)
-        self.debug_label = self.add_label(status, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=420, fill=None)
+        self.debug_txt = status
+        self.debug_label = self.add_label(self.debug_txt, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=420, fill=None)
 
         self.req_coffee_bean = beans_q
         self.req_water_volume = water_v
@@ -395,6 +396,9 @@ class BrewCoffee(AbstractUI):
 
     def on_closing(self):
         self.request_future.set_result(None)
+
+    def update_debug(self):
+        self.debug_label.config(text=self.debug_txt)
 
     def request_ui(self):
         self.coffee_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
@@ -559,8 +563,11 @@ class BrewCoffee(AbstractUI):
             await asyncio.sleep(1)
         self.ui_before_exit()
 
-    def get_request(self) -> Future[Optional[Tuple[int, int]]]:
-        return self.request_future
+    async def get_request(self) -> Future[Optional[Tuple[int, int]]]:
+        while not self.request_future.done():
+            self.update_debug()
+            await asyncio.sleep(0.1)
+        return await self.request_future
 
     async def get_future_with_autoclosing(self) -> Future[Optional[bool]]:
         for i in range(self.closing_delay, -1, -1):

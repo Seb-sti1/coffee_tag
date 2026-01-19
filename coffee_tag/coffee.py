@@ -182,7 +182,7 @@ class CoffeeManager:
                               user.beans_q, user.water_v)
 
             def _cb(connected: bool):
-                brew.debug_label.config(f"{connected} {self.coffee_maker.get_last_status().maker_status}")
+                brew.debug_txt = f"{connected} {self.coffee_maker.get_last_status().maker_status}"
                 logger.info(f"{connected} {self.coffee_maker.get_last_status().maker_status}")
 
             self.coffee_maker.test_connection(cb=_cb)
