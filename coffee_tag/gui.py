@@ -44,7 +44,7 @@ class AbstractUI:
                           lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()])
         self.gui.transient(main.tk)
         self.gui.grab_set()
-        self.gui.attributes("-type", "splash")
+        self.gui.overrideredirect(True)
         self.gui.geometry(f"{w}x{h}+{self.x}+{self.y}")
         self.gui.title(title)
         self.gui.resizable(height=False, width=False)
@@ -54,7 +54,9 @@ class AbstractUI:
                            width=self.w - 2 * border,
                            height=self.h - 2 * border)
         self.close_btn = None
-        self.close_btn = self.add_button("X", lambda: self.gui.destroy(), x=self.w - 50, y=5, width=1, height=1)
+        self.close_btn = self.add_button("X",
+                                         lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()],
+                                         x=self.w - 50, y=5, width=1, height=1)
         main.opened_popup.append(self)
 
     def is_opened(self) -> bool:
