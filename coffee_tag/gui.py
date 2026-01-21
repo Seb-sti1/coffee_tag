@@ -56,7 +56,7 @@ class AbstractUI:
         self.close_btn = None
         self.close_btn = self.add_button("X",
                                          lambda: [self.future.set_result(None), self.on_closing(), self.gui.destroy()],
-                                         x=self.w - 50, y=5, width=1, height=1)
+                                         x=self.w - 60, y=3, px_width=50, px_height=50)
         main.opened_popup.append(self)
 
     def is_opened(self) -> bool:
@@ -127,7 +127,9 @@ class AbstractUI:
         fg = kwargs["fg"] if "fg" in kwargs else DARK_BROWN
         bg = kwargs["bg"] if "bg" in kwargs else LIGHT_BROWN
         height = kwargs["height"] if "height" in kwargs else 3
+        px_height = kwargs["px_height"] if "px_height" in kwargs else None
         width = kwargs["width"] if "width" in kwargs else 15
+        px_width = kwargs["px_width"] if "px_width" in kwargs else None
         side = kwargs["side"] if "side" in kwargs else "bottom"
         pady = kwargs["pady"] if "pady" in kwargs else 10
         image = kwargs["image"] if "image" in kwargs else None
@@ -138,7 +140,7 @@ class AbstractUI:
                         height=height, width=width, image=image,
                         highlightthickness=highlightthickness, bd=bd)
         if "x" in kwargs and "y" in kwargs:
-            btn.place(x=kwargs["x"], y=kwargs["y"])
+            btn.place(x=kwargs["x"], y=kwargs["y"], width=px_width, height=px_height)
         else:
             btn.pack(side=side, pady=pady)
         if self.close_btn is not None:
