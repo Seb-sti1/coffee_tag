@@ -168,8 +168,9 @@ class CoffeeManager:
             logger.info(f"Someone authenticate as {user} with a {'password' if is_password else 'badge'}.")
         # show admin ui for admin
         admin_status = None
-        if user.permissions == "owner":
-            admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
+        # FIXME fix admin gui
+        # if user.permissions == "owner":
+        #     admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         coffee_bought = 0
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             self.next_ping_to_machine = False
