@@ -177,7 +177,7 @@ class CoffeeManager:
             logger.warning(f"========== new coffee ============")
             logger.warning(f"{self.coffee_maker.get_last_status().maker_status}")
             delta = str(dt.datetime.now() - self.coffee_maker.get_last_status().last_maker_status_change).split('.')[0]
-            brew = BrewCoffee(self.root_gui,
+            brew = BrewCoffee(self.root_gui, user,
                               f"Last contact {delta} ago."
                               f" {self.coffee_maker.get_last_status().maker_status}.",
                               user.beans_q, user.water_v)
@@ -188,7 +188,7 @@ class CoffeeManager:
 
             self.coffee_maker.test_connection(cb=_cb)
             param = await brew.get_request()
-            if param is not None:
+            if param is not None and param != "settings":
                 user.beans_q, user.water_v = param
                 if not user.update():
                     logger.error(f"Could not save new coffee params.")
@@ -203,6 +203,8 @@ class CoffeeManager:
 
                 self.coffee_maker.reset_coffee_param(cb=_cb)
             self.next_ping_to_machine = JuraCommand.HZ
+            if param == "settings":
+                self.loop.create_task(self.add_or_update_user(user))
         # show account ui only no coffee was already bought by the new gui
         if coffee_bought == 0:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()

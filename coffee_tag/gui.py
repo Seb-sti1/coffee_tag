@@ -365,23 +365,39 @@ class UserProperties(AbstractUI):
 
 
 class BrewCoffee(AbstractUI):
-    def __init__(self, main: MainGUI, status: str,
+    def __init__(self, main: MainGUI,
+                 user: User,
+                 status: str,
                  beans_q: int, water_v: int,
                  with_arrows: bool = False):
-        super().__init__(main, "Brew a coffee", 8 * 60 + 2 * 60 + 170, 450)
+        super().__init__(main, "Brew a coffee", 800, 480)
         self.gui_status: Literal["req", "wt_fb", "brew", "ack"] = "req"
+        self.user = user
 
-        self.top_label = self.add_label("What coffee would you like?", font='Helvetica 22 bold', pady=3, fill=None)
+        self.add_label(f"Hello {user}!", font='Helvetica 22 bold', pady=3, fill=None)
+        self.add_label(f"Your balance is now", fg=LIGHT_BROWN,
+                       font='Helvetica 15 bold italic', x=300, y=60, fill=None)
+        self.balance_lbl = self.add_label(f"{-user.get_user_balance()} €",
+                                          font='Helvetica 15 bold', x=360, y=100, fill=None)
+
+        # TODO use logo
+        self.settings_btn = self.add_button(f"Settings", lambda: [self.request_future.set_result("settings"),
+                                                                  self.future.set_result(None), self.on_closing(),
+                                                                  self.gui.destroy()],
+                                            x=5, y=5, px_width=50, px_height=50)
+
         self.debug_txt = status
-        self.debug_label = self.add_label(self.debug_txt, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=420, fill=None)
+        self.debug_label = self.add_label(self.debug_txt, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=120, fill=None)
 
         self.req_coffee_bean = beans_q
         self.req_water_volume = water_v
         self.with_arrows = with_arrows
 
+        self.order_rect = None
+        self.title_order_rect = None
+        self.presets_rect = None
         self.coffee_icon = None
         self.coffee_icon_gray = None
-        self.presets_rect = None
         self.coffee_bean_rect = None
         self.coffee_bean_btns = None
         self.water_volume_rect = None
@@ -399,7 +415,8 @@ class BrewCoffee(AbstractUI):
         self.closing_label = None
 
     def on_closing(self):
-        self.request_future.set_result(None)
+        if not self.request_future.done():
+            self.request_future.set_result(None)
 
     def update_debug(self):
         self.debug_label.config(text=self.debug_txt)
@@ -410,10 +427,13 @@ class BrewCoffee(AbstractUI):
         self.coffee_icon_gray = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                            "coffee_icon_gray.png")).resize((50, 50)))
 
+        self.order_rect = tk.LabelFrame(self.content, text="Order a coffee", font='Helvetica 12',
+                                        bg=BROWN, fg=WHITE, relief='groove')
+        self.order_rect.place(x=5, y=150, width=800 - 17, height=320)
         # ==== PRESETS
-        self.presets_rect = tk.LabelFrame(self.content, text="Presets", font='Helvetica 12',
+        self.presets_rect = tk.LabelFrame(self.order_rect, text="Presets", font='Helvetica 12',
                                           bg=BROWN, fg=WHITE, relief='groove')
-        self.presets_rect.place(x=70, y=35, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
+        self.presets_rect.place(x=5, y=5, width=110, height=290)
 
         def wrapper_preset_cb(c: int, w: int):
             def _cb():
@@ -422,21 +442,20 @@ class BrewCoffee(AbstractUI):
 
             return _cb
 
-        shift = 153
+        shift = 60
+        # TODO use logo
         self.add_button("Ristretto", wrapper_preset_cb(7, 25), gui=self.presets_rect,
-                        x=15, y=10, width=11, height=2)
+                        x=5, y=10, width=6, height=2)
         self.add_button("Expresso", wrapper_preset_cb(5, 45), gui=self.presets_rect,
-                        x=15 + shift * 1, y=10, width=11, height=2)
+                        x=5, y=10 + shift * 1, width=6, height=2)
         self.add_button("Coffee", wrapper_preset_cb(3, 100), gui=self.presets_rect,
-                        x=15 + shift * 2, y=10, width=11, height=2)
+                        x=5, y=10 + shift * 2, width=6, height=2)
         self.add_button("Special", wrapper_preset_cb(6, 200), gui=self.presets_rect,
-                        x=15 + shift * 3, y=10, width=11, height=2)
-
+                        x=5, y=10 + shift * 3, width=6, height=2)
         # ==== COFFEE BEAN QUANTITY
-        self.coffee_bean_rect = tk.LabelFrame(self.content, text="Coffee quantity:", font='Helvetica 12',
+        self.coffee_bean_rect = tk.LabelFrame(self.order_rect, text="Coffee quantity:", font='Helvetica 12',
                                               bg=BROWN, fg=WHITE, relief='groove')
-        self.coffee_bean_rect.place(x=70, y=150, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
-
+        self.coffee_bean_rect.place(x=130, y=10, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
         self.coffee_bean_btns: list[Button] = []
 
         def _coffee_cb(idx):
@@ -457,9 +476,9 @@ class BrewCoffee(AbstractUI):
                             gui=self.coffee_bean_rect,
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
         # ==== WATER VOLUME
-        self.water_volume_rect = tk.LabelFrame(self.content, text=f"Water volume: {self.req_water_volume} mL",
+        self.water_volume_rect = tk.LabelFrame(self.order_rect, text=f"Water volume: {self.req_water_volume} mL",
                                                font='Helvetica 12', bg=BROWN, fg=WHITE, relief='groove')
-        self.water_volume_rect.place(x=70, y=265, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
+        self.water_volume_rect.place(x=130, y=125, width=8 * 60 + 2 * 60 + 2 * 15, height=105)
         self.water_volume_scale = Scale(self.water_volume_rect, from_=25, to=240, resolution=5,
                                         variable=tk.IntVar(value=self.req_water_volume),
                                         command=lambda v: self.change_water_volume(int(v)),
@@ -478,13 +497,16 @@ class BrewCoffee(AbstractUI):
                             font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
 
         # ==== SUBMIT REQUEST
-        self.submit_btn = self.add_button("Brew!", self.submit_callback, font='Helvetica 16 bold', width=10, height=2)
+        self.submit_btn = self.add_button("Brew!", self.submit_callback,
+                                          gui=self.order_rect,
+                                          font='Helvetica 16 bold', width=10, height=2,
+                                          x=245 + 121, y=236)
 
     def cleanup_request_ui(self):
         self.presets_rect.place_forget()
         self.coffee_bean_rect.place_forget()
         self.water_volume_rect.place_forget()
-        self.submit_btn.pack_forget()
+        self.submit_btn.place_forget()
 
     def change_coffee_bean(self, coffee: int):
         logger.debug(f"User changed coffee to {coffee}")
@@ -515,30 +537,34 @@ class BrewCoffee(AbstractUI):
         return _cb
 
     def submit_callback(self):
+        self.settings_btn.config(state="disabled")
         self.request_future.set_result((int(self.req_coffee_bean), int(self.req_water_volume)))
         self.cleanup_request_ui()
         self.progress_ui()
 
     def progress_ui(self):
         self.gui_status = "wt_fb"
-        self.top_label.config(text="Brewing...", pady=75)
-        self.progress_label = self.add_label("Contacting the Jura coffee machine...")
+        self.title_order_rect = self.add_label(text="Brewing...",
+                                               gui=self.order_rect,
+                                               font='Helvetica 20 bold', pady=50)
+        self.progress_label = self.add_label("Contacting the Jura coffee machine...", gui=self.order_rect)
         s = ttk.Style()
         s.theme_use('clam')
         s.configure("bg.Horizontal.TProgressbar", foreground=LIGHT_BROWN, background=BROWN)
-        self.progress_bar = ttk.Progressbar(self.content, style="bg.Horizontal.TProgressbar", orient="horizontal",
+        self.progress_bar = ttk.Progressbar(self.order_rect, style="bg.Horizontal.TProgressbar", orient="horizontal",
                                             length=300, mode="determinate")
         self.progress_bar.pack()
 
     def ui_before_exit(self):
         self.progress_bar.pack_forget()
         if self.brew_sent_with_success:
-            self.top_label.config(text="You're coffee is ready!")
+            self.title_order_rect.config(text="You're coffee is ready!")
             self.progress_label.config(text="Enjoy :)")
             self.add_label("One coffee will be debited from your account.",
                            font='Helvetica 12 italic', fg=LIGHT_BROWN)
+            self.balance_lbl.config(text=f"{-self.user.get_user_balance()}")
         else:
-            self.top_label.config(text="An unexpected event occurred...")
+            self.title_order_rect.config(text="An unexpected event occurred...")
             self.progress_label.config(text="Please try again...")
             self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
                            font='Helvetica 12 italic')
@@ -567,7 +593,7 @@ class BrewCoffee(AbstractUI):
             await asyncio.sleep(1)
         self.ui_before_exit()
 
-    async def get_request(self) -> Future[Optional[Tuple[int, int]]]:
+    async def get_request(self) -> Future[Optional[Tuple[int, int] | Literal["settings"]]]:
         while not self.request_future.done():
             self.update_debug()
             await asyncio.sleep(0.1)
@@ -813,7 +839,8 @@ def show_gui(path: str, price: float):
                                  button_one="Ok"))
         loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
         loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
-        loop.create_task(wrapper(BrewCoffee, main=gui, status="status", beans_q=2, water_v=80))
+        loop.create_task(wrapper(BrewCoffee, main=gui, user=users[0],
+                                 status="status status status status", beans_q=2, water_v=80))
 
         while True:
             gui.tk.update()
