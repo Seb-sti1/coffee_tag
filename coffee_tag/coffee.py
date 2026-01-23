@@ -205,6 +205,7 @@ class CoffeeManager:
             self.next_ping_to_machine = JuraCommand.HZ
             if param == "settings":
                 self.loop.create_task(self.add_or_update_user(user))
+                return None
         # show account ui only no coffee was already bought by the new gui
         if coffee_bought == 0:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()

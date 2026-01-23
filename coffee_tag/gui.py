@@ -450,7 +450,7 @@ class BrewCoffee(AbstractUI):
                         x=5, y=10 + shift * 1, width=6, height=2)
         self.add_button("Coffee", wrapper_preset_cb(3, 100), gui=self.presets_rect,
                         x=5, y=10 + shift * 2, width=6, height=2)
-        self.add_button("Special", wrapper_preset_cb(6, 200), gui=self.presets_rect,
+        self.add_button("Special", wrapper_preset_cb(7, 220), gui=self.presets_rect,
                         x=5, y=10 + shift * 3, width=6, height=2)
         # ==== COFFEE BEAN QUANTITY
         self.coffee_bean_rect = tk.LabelFrame(self.order_rect, text="Coffee quantity:", font='Helvetica 12',
