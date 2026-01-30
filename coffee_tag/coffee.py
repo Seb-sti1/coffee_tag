@@ -174,38 +174,43 @@ class CoffeeManager:
         coffee_bought = 0
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             self.next_ping_to_machine = False
-            logger.warning(f"========== new coffee ============")
-            logger.warning(f"{self.coffee_maker.get_last_status().maker_status}")
-            delta = str(dt.datetime.now() - self.coffee_maker.get_last_status().last_maker_status_change).split('.')[0]
             brew = BrewCoffee(self.root_gui, user,
-                              f"Last contact {delta} ago."
-                              f" {self.coffee_maker.get_last_status().maker_status}.",
+                              self.coffee_maker.get_last_status,
                               user.beans_q, user.water_v)
-
-            def _cb(connected: bool):
-                brew.debug_txt = f"{connected} {self.coffee_maker.get_last_status().maker_status}"
-                logger.info(f"{connected} {self.coffee_maker.get_last_status().maker_status}")
-
-            self.coffee_maker.test_connection(cb=_cb)
-            param = await brew.get_request()
-            if param is not None and param != "settings":
-                user.beans_q, user.water_v = param
-                if not user.update():
-                    logger.error(f"Could not save new coffee params.")
-                self.coffee_maker.brew_coffee(user.beans_q, user.water_v, brew.jura_brew_cb)
-                await brew.update(self.coffee_maker)
-                await brew.get_future_with_autoclosing()
-                if brew.brew_sent_with_success:
-                    coffee_bought = 1
-
-                def _cb(reset):
-                    logger.warning(f"Resetting param to actual default: {reset}")
-
-                self.coffee_maker.reset_coffee_param(cb=_cb)
-            self.next_ping_to_machine = JuraCommand.HZ
-            if param == "settings":
-                self.loop.create_task(self.add_or_update_user(user))
+            self.coffee_maker.test_connection(cb=brew.test_connection_cb)
+            r = await brew.get_checking_status_future()
+            if r != "connected":
+                if r == "settings":
+                    self.loop.create_task(self.add_or_update_user(user))
+                self.next_ping_to_machine = JuraCommand.HZ
                 return None
+            self.coffee_maker.ping(JuraCommand.HZ, brew.status_cb)
+            r = await brew.get_checking_status_future()
+            if r != "status_ok":
+                if r == "settings":
+                    self.loop.create_task(self.add_or_update_user(user))
+                self.next_ping_to_machine = JuraCommand.HZ
+                return None
+            r = await brew.get_request()
+            if type(r) != tuple:
+                if r == "settings":
+                    self.loop.create_task(self.add_or_update_user(user))
+                self.next_ping_to_machine = JuraCommand.HZ
+                return None
+            user.beans_q, user.water_v = r
+            if not user.update():
+                logger.error(f"Could not save new coffee params.")
+            self.coffee_maker.brew_coffee(user.beans_q, user.water_v, brew.jura_brew_cb)
+            await brew.update(self.coffee_maker)
+            await brew.get_future_with_autoclosing()
+            if brew.brew_sent_with_success:
+                coffee_bought = 1
+
+            def _cb(reset):
+                logger.warning(f"Resetting param to actual default: {reset}")
+
+            self.coffee_maker.reset_coffee_param(cb=_cb)
+            self.next_ping_to_machine = JuraCommand.HZ
         # show account ui only no coffee was already bought by the new gui
         if coffee_bought == 0:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()
