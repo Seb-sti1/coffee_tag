@@ -27,6 +27,7 @@ LIGHT_BROWN = '#c9a589'
 BROWN = '#754c24'
 DARK_BROWN = '#5b3719'
 
+
 class AbstractUI:
 
     def __init__(self, main: MainGUI, title: str, w: int, h: int,
@@ -546,7 +547,7 @@ class BrewCoffee(AbstractUI):
         self.gui_status = "wt_fb"
         self.title_order_rect = self.add_label(text="Brewing...",
                                                gui=self.order_rect,
-                                               font='Helvetica 20 bold', pady=50)
+                                               font='Helvetica 20 bold', pady=30)
         self.progress_label = self.add_label("Contacting the Jura coffee machine...", gui=self.order_rect)
         s = ttk.Style()
         s.theme_use('clam')
@@ -561,16 +562,18 @@ class BrewCoffee(AbstractUI):
             self.title_order_rect.config(text="You're coffee is ready!")
             self.progress_label.config(text="Enjoy :)")
             self.add_label("One coffee will be debited from your account.",
-                           font='Helvetica 12 italic', fg=LIGHT_BROWN)
+                           gui=self.order_rect, font='Helvetica 12 italic', fg=LIGHT_BROWN)
             self.balance_lbl.config(text=f"{-self.user.get_user_balance()}")
         else:
             self.title_order_rect.config(text="An unexpected event occurred...")
             self.progress_label.config(text="Please try again...")
             self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
-                           font='Helvetica 12 italic')
-            self.add_label("Nothing will be debited from your account.", font='Helvetica 13 bold')
+                           gui=self.order_rect, font='Helvetica 12 italic')
+            self.add_label("Nothing will be debited from your account.", gui=self.order_rect,
+                           font='Helvetica 13 bold')
             self.closing_delay = 15
         self.closing_label = self.add_label(f"The window will close in {self.closing_delay} seconds...",
+                                            gui=self.order_rect,
                                             font='Helvetica 12 italic',
                                             fg=LIGHT_BROWN, pady=20)
 
