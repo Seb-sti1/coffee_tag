@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class CoffeeManager:
-    def __init__(self, db: Database, rfid: RFIDReader, args: Namespace):
+    def __init__(self, db: Database, rfid: RFIDReader, coffee_maker: Optional[CoffeeMaker], args: Namespace):
         self.db = db
         self.rfid = rfid
         self.args = args
-        self.coffee_maker: Optional[CoffeeMaker] = CoffeeMaker.create_from_uart(self.args.tty) if not args.dev else None
+        self.coffee_maker = coffee_maker
         self.root_gui = MainGUI(self.__main_gui_callback__,
                                 self.db.coffee_price)
         self.rfid_can_open_menu = True

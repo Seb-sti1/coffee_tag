@@ -1,19 +1,15 @@
 import argparse
 import asyncio
 import logging
-import os
-import subprocess
 import sys
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
-
-from juracoffeemachine import CoffeeMaker
 
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
 from coffee_tag.gui import show_gui
 from coffee_tag.rfid import RFIDReader
 from coffee_tag.website.app import Website
+from test.mock_coffee_maker import MockCoffeeMaker
 
 logger = logging.getLogger(__name__)
 
@@ -39,27 +35,8 @@ def main():
                         help="List of account that are beta testers")
     args = parser.parse_args()
     path = Path(args.path).expanduser()
-    user_home = Path("~/").expanduser()
 
-    if args.install_autoboot:
-        if not os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
-            os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
-            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.desktop"),
-                       f"{user_home}/.local/share/applications/coffee-tag.desktop")
-        if not os.path.exists(f"{user_home}/.config/autostart/coffee-tag.desktop"):
-            os.makedirs(f"{user_home}/.config/autostart/", exist_ok=True)
-            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.desktop"),
-                       f"{user_home}/.config/autostart/coffee-tag.desktop")
-        subprocess.run(["gtk-launch", "coffee-tag"])
-        logging.info("Desktop file was installed, the app should start at boot.")
-        exit(0)
-
-    if args.uninstall_autoboot:
-        if os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
-            os.remove(f"{user_home}/.local/share/applications/coffee-tag.desktop")
-        if os.path.exists(f"{user_home}/.config/autostart/coffee-tag.desktop"):
-            os.remove(f"{user_home}/.config/autostart/coffee-tag.desktop")
-        logging.info("Desktop file was uninstalled.")
+    if args.install_autoboot or args.uninstall_autoboot:
         exit(0)
 
     if args.debug_gui:
@@ -67,19 +44,17 @@ def main():
         exit(0)
 
     fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
-    rotating_handler = RotatingFileHandler(path.parent / "debug.log", maxBytes=10485760, backupCount=3)
-    rotating_handler.setFormatter(fmt)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(fmt)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
-                        handlers=[rotating_handler, console_handler])
+                        handlers=[console_handler])
 
     db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
 
     async def asyncio_main():
-        CoffeeManager(db, rfid, CoffeeMaker.create_from_uart(args.tty) if not args.dev else None, args)
+        CoffeeManager(db, rfid, MockCoffeeMaker.create_from_uart(args.tty), args)
         await website.app.run_task(host="0.0.0.0", port=8080)
 
     asyncio.run(asyncio_main())
