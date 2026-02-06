@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 license = "GPL-3.0"
 license-files = ["LICENSE"]
 name = "coffee_tag"
-version = "0.21.3"
+version = "0.21.4"
 requires-python = ">=3.10"
 readme = "README.md"
 dependencies = [
@@ -18,7 +18,7 @@ dependencies = [
     "bcrypt",
     "spidev",
     "pyserial",
-    "juracoffeemachine >= 0.11.6"
+    "juracoffeemachine >= 0.11.8"
 ]
 
 authors = [
