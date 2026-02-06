@@ -466,6 +466,7 @@ class BrewCoffee(AbstractUI):
             self.gui_status = BrewCoffee.Status.CONNECTION_FAILED
 
     def status_cb(self, hz: HZ):
+        logger.debug(f"Received feedback {hz}")
         if hz.is_sleeping:
             self.gui_status = BrewCoffee.Status.JURA_SLEEPING
         elif not hz.is_water_tank_present:
