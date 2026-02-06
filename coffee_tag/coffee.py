@@ -40,6 +40,26 @@ class CoffeeManager:
     def __main_gui_callback__(self):
         self.loop.create_task(self.manual_search_and_open_account())
 
+    async def __check_authentication__(self, user) -> bool:
+        if self.args.no_authentication:
+            return True
+        result = await AskPassword(self.root_gui, self.rfid, user).get_future()
+        if result is None:
+            return False
+        is_password, login = result
+        if user.is_authorized(is_password, login):
+            logger.info(f"Someone authenticate as {user} with a {'password' if is_password else 'badge'}.")
+            return True
+        logger.warning(f"Someone failed to authenticate as {user}"
+                       f"with a {'password' if is_password else 'badge'}.")
+        await GeneralUI(self.root_gui, "Wrong password!",
+                        320, 300,
+                        main_text="The provided password is not correct!",
+                        sub_text="Please contact an admin if you're having trouble login in.",
+                        sub_after_main=True,
+                        button_one="Ok").get_future()
+        return False
+
     async def tk_loop(self):
         while self.rfid.run:
             self.root_gui.tk.update()
@@ -90,9 +110,12 @@ class CoffeeManager:
             should_sync = await GeneralUI(self.root_gui, "Sorry!", 350, 310,
                                           "I could not find you", main_text="Former user with new badge?",
                                           button_one="Synchronize", button_two="Add me").get_future()
-            if should_sync:  # TODO security vulnerability
+            if should_sync:
+                # verify access rights
                 user = await self.get_user_by_manual_search()
-                if user is not None:
+                if user is None:
+                    return None
+                if await self.__check_authentication__(user):
                     self.db.sync_badge(user, card)
                     await GeneralUI(self.root_gui, title="Welcome back!",
                                     w=320, h=250,
@@ -103,6 +126,7 @@ class CoffeeManager:
         else:
             logger.info(f"Opening {user.name} {user.surname} account.")
             self.loop.create_task(self.open_user_account(user, True))
+        return None
 
     async def get_user_by_manual_search(self) -> Optional[User]:
         user = await ManualEntry(self.root_gui, self.db.search_by_name).get_future()
@@ -150,22 +174,8 @@ class CoffeeManager:
                             button_one="Ok").get_future()
             return None
         # verify access rights
-        if not is_authenticated and not self.args.no_authentication:
-            result = await AskPassword(self.root_gui, self.rfid, user).get_future()
-            if result is None:
-                return None
-            is_password, login = result
-            if not user.is_authorized(is_password, login):
-                logger.warning(f"Someone failed to authenticate as {user}"
-                               f"with a {'password' if is_password else 'badge'}.")
-                await GeneralUI(self.root_gui, "Wrong password!",
-                                320, 300,
-                                main_text="The provided password is not correct!",
-                                sub_text="Please contact an admin if you're having trouble login in.",
-                                sub_after_main=True,
-                                button_one="Ok").get_future()
-                return None
-            logger.info(f"Someone authenticate as {user} with a {'password' if is_password else 'badge'}.")
+        if not is_authenticated and not await self.__check_authentication__(user):
+            return None
         # show admin ui for admin
         admin_status = None
         # FIXME fix admin gui
