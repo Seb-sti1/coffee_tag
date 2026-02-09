@@ -27,6 +27,8 @@ class Website:
         self.app.add_url_rule("/logout", view_func=self.logout)
         self.app.add_url_rule("/admin", view_func=login_required(self.admin), methods=["GET", "POST"])
         self.app.add_url_rule("/user", view_func=login_required(self.user))
+        self.app.add_url_rule("/api/user_data/<int:user_id>", view_func=self.api_user_data)
+        self.app.add_url_rule("/api/last_coffee/<badge>", view_func=self.api_last_coffee)
         self.app.add_url_rule("/export_sql", view_func=login_required(self.export_sql))
         self.app.add_url_rule("/export_csv", view_func=login_required(self.export_csv))
         self.app.register_error_handler(Unauthorized, f=lambda _: redirect(url_for("login")))
@@ -120,6 +122,52 @@ class Website:
     async def user(self):
         return "Not Implemented", 501
         # return await render_template("user.html", user=current_user)
+
+    async def api_user_data(self, user_id):
+        if request.authorization:
+            user = await self.db.auth_user(request.authorization.username, request.authorization.password)
+            if user is not None:
+                if user.user_id == user_id or user.permissions == "owner":
+                    query = self.db.get_user_by_id(user_id)
+                    if query is not None:
+                        last_coffee = query.get_last_coffee()
+                        return {
+                            "user_id": user_id,
+                            "name": query.name,
+                            "surname": query.surname,
+                            "last_coffee_date": None if last_coffee is None else last_coffee.date,
+                            "balance": -query.get_user_balance()
+                        }, 200
+                    else:
+                        return "Not found", 404
+                else:
+                    return "Wrong username or password", 403
+            else:
+                return "Wrong username or password", 401
+        return "You need to authenticate your request", 401
+
+    async def api_last_coffee(self, badge):
+        if request.authorization:
+            user = await self.db.auth_user(request.authorization.username, request.authorization.password)
+            if user is not None:
+                if user.permissions == "owner":
+                    query = self.db.get_user_by_rfid(badge)
+                    if query is not None:
+                        last_coffee = query.get_last_coffee()
+                        return {
+                            "user_id": query.user_id,
+                            "name": query.name,
+                            "surname": query.surname,
+                            "last_coffee_date": None if last_coffee is None else last_coffee.date,
+                            "balance": -query.get_user_balance()
+                        }, 200
+                    else:
+                        return "Not found", 404
+                else:
+                    return "Wrong username or password", 403
+            else:
+                return "Wrong username or password", 401
+        return "You need to authenticate your request", 401
 
     def start(self):
         asyncio.run(self.app.run_task(host="0.0.0.0", port=8080))
