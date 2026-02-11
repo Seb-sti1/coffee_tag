@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import logging
 import os
+import random
 import tkinter as tk
 from asyncio import Future
 from datetime import datetime as dt, timezone
@@ -11,7 +12,7 @@ from enum import Enum
 from itertools import count  # Islice for list iteration not starting at 0
 from tkinter import Button, Scale
 from tkinter import ttk
-from typing import Tuple, Optional, Callable, Literal
+from typing import Tuple, Optional, Callable, Literal, List
 
 import bcrypt
 from PIL import Image, ImageTk
@@ -364,6 +365,43 @@ class UserProperties(AbstractUI):
         self.gui.destroy()
 
     def get_future(self) -> Future[Optional[User]]:
+        return self.future
+
+
+class Meme(AbstractUI):
+
+    def __init__(self, main: MainGUI, memes: List[str]):
+        super().__init__(main, "Meme", 800, 480, x=0, y=0)
+        self.content.place_forget()
+        self.close_btn.place_forget()
+        self.closing_delay = 15
+        self.gui.attributes("-fullscreen", True)
+
+        self.canvas = tk.Canvas(self.gui, width=800, height=480, highlightthickness=0)
+        self.canvas.pack()
+        bg = Image.open(os.path.join(os.path.dirname(media.__file__), "bg.png"))
+        self.tk_bg = ImageTk.PhotoImage(bg)
+        self.bg_obj = self.canvas.create_image(bg.width, 0, image=self.tk_bg, anchor='nw')
+        self.canvas.coords(self.bg_obj, 0, 0)
+
+        self.img = Image.open(random.choice(memes))
+        self.tk_img = ImageTk.PhotoImage(self.img)
+        self.image_obj = self.canvas.create_image(self.img.width, 0, image=self.tk_img, anchor='nw')
+
+    async def get_future_with_autoclosing(self) -> Optional[bool]:
+        for x in range(self.img.width, -self.img.width, - (2 * self.img.width + 1) // 150):
+            if self.future.done():
+                break
+            self.canvas.coords(self.image_obj, x, 0)
+            self.gui.update()
+            await asyncio.sleep(0.1)
+
+        if not self.future.done():
+            self.future.set_result(None)
+        self.gui.destroy()
+        return await self.get_future()
+
+    def get_future(self) -> Future[Optional[bool]]:
         return self.future
 
 

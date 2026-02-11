@@ -5,14 +5,16 @@ It triggers the display of GUI and reactive depending on the user inputs.
 import asyncio
 import datetime as dt
 import logging
+import os
 from argparse import Namespace
+from pathlib import Path
 from typing import Optional, Union, Tuple
 
 from juracoffeemachine import CoffeeMaker, JuraCommand, Response
 
 from coffee_tag.database import User, Database
-from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AdminStatus, AskPassword, \
-    BrewCoffee
+from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
+    BrewCoffee, Meme
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -146,6 +148,15 @@ class CoffeeManager:
         self.loop.create_task(self.open_user_account(user))
         return None
 
+    async def check_for_meme(self, user: User) -> None:
+        meme_folder = Path("~/coffee/meme/").expanduser()
+        meme = [f"{meme_folder}/{name}" for name in os.listdir(meme_folder)
+                if name.startswith(f"meme{user.user_id}")]
+        if len(meme) == 0:
+            return None
+        await Meme(self.root_gui, meme).get_future_with_autoclosing()
+        return None
+
     async def open_user_account(self, user: User, is_authenticated: bool = False) -> None:
         # before anything else ask missing infos
         if user.is_valid() is not True:
@@ -183,6 +194,7 @@ class CoffeeManager:
         #     admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
         coffee_bought = 0
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
+            await self.check_for_meme(user)
             self.next_ping_to_machine = False
             brew = BrewCoffee(self.root_gui, user,
                               self.coffee_maker.get_last_status,
