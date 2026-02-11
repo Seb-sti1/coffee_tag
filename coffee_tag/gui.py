@@ -434,7 +434,6 @@ class BrewCoffee(AbstractUI):
         self.coffee_bean_btns = None
         self.water_volume_rect = None
         self.water_volume_scale = None
-        self.request_future = asyncio.get_event_loop().create_future()
         self.submit_btn = None
 
         # PROGRESS UI
@@ -600,7 +599,6 @@ class BrewCoffee(AbstractUI):
         self.submit_btn.place_forget()
 
     def change_coffee_bean(self, coffee: int):
-        logger.debug(f"User changed coffee to {coffee}")
         self.req_coffee_bean = (max(CoffeeMaker.coffee_bean_param[0],
                                     min(CoffeeMaker.coffee_bean_param[2], coffee))
                                 // CoffeeMaker.coffee_bean_param[3]
@@ -610,7 +608,6 @@ class BrewCoffee(AbstractUI):
             self.coffee_bean_btns[i].config(image=img)
 
     def change_water_volume(self, volume: int):
-        logger.debug(f"User changed volume to {volume} mL")
         self.req_water_volume = (max(CoffeeMaker.water_volume_param[0],
                                      min(CoffeeMaker.water_volume_param[2], volume))
                                  // CoffeeMaker.water_volume_param[3]

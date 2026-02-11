@@ -11,7 +11,7 @@ from juracoffeemachine import CoffeeMaker
 
 from coffee_tag.coffee import CoffeeManager
 from coffee_tag.database import Database
-from coffee_tag.gui import show_gui
+from coffee_tag.gui import show_gui, get_app_version, get_driver_version
 from coffee_tag.rfid import RFIDReader
 from coffee_tag.website.app import Website
 
@@ -73,6 +73,8 @@ def main():
     console_handler.setFormatter(fmt)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         handlers=[rotating_handler, console_handler])
+
+    logger.info(f"App version is {get_app_version()}. Jura driver version is {get_driver_version()}.")
 
     db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
