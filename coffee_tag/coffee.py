@@ -3,14 +3,13 @@ In this file is implemented the logic of the app.
 It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
-import datetime as dt
 import logging
 import os
 from argparse import Namespace
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple
 
-from juracoffeemachine import CoffeeMaker, JuraCommand, Response
+from juracoffeemachine import CoffeeMaker, JuraCommand
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
@@ -26,17 +25,13 @@ class CoffeeManager:
         self.rfid = rfid
         self.args = args
         self.coffee_maker = coffee_maker
-        self.root_gui = MainGUI(self.__main_gui_callback__,
-                                self.db.coffee_price)
-        self.rfid_can_open_menu = True
-        self.next_ping_to_machine: Optional[Union[JuraCommand.HZ, JuraCommand.CS]] = JuraCommand.HZ
-        self.statistics_were_log: bool = False
+        self.root_gui = MainGUI(self.__main_gui_callback__, self.db.coffee_price)
 
         self.loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self.loop)
 
         self.loop.create_task(self.listen_to_card_reader())
-        self.loop.create_task(self.monitor_machine())
+        self.loop.create_task(self.monitor_statistics())
         self.loop.create_task(self.tk_loop())
 
     def __main_gui_callback__(self):
@@ -67,28 +62,16 @@ class CoffeeManager:
             self.root_gui.tk.update()
             await asyncio.sleep(1 / 60)
 
-    async def monitor_machine(self) -> None:
-        while self.rfid.run and not self.args.no_monitor and not self.args.dev:
-            date = dt.datetime.now()
-            if 7 <= date.hour <= 20:
-                self.statistics_were_log = False  # reset for next night
-                if self.next_ping_to_machine != False:
-                    def _cb(response: Optional[Response]):
-                        if response is None:
-                            logger.warning(f"No message returned for {self.next_ping_to_machine}")
+    async def monitor_statistics(self) -> None:
+        while self.rfid.run and not self.args.dev:
+            def _cb(stat: Optional[Tuple[int, int, int, int, int, int, int]]):
+                if stat is not None:
+                    self.db.save_statistics(stat)
+                else:
+                    logger.warning("Couldn't fetch jura's statistics")
 
-                    self.coffee_maker.ping(self.next_ping_to_machine, cb=_cb)
-                    self.next_ping_to_machine = JuraCommand.CS if self.next_ping_to_machine == JuraCommand.HZ else JuraCommand.HZ
-                await asyncio.sleep(60)
-            else:
-                if date.hour == 0 and not self.statistics_were_log:
-                    def _cb(stat: Optional[Tuple[int, int, int, int, int, int, int]]):
-                        self.statistics_were_log = True
-                        if stat is not None:
-                            logger.info(f"Stats are {', '.join(map(str, stat))}. Total {sum(stat)}")
-
-                    self.coffee_maker.get_totals_statistics(cb=_cb)
-                await asyncio.sleep(20 * 60)
+            self.coffee_maker.get_totals_statistics(cb=_cb)
+            await asyncio.sleep(60 * 60)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
@@ -195,7 +178,6 @@ class CoffeeManager:
         coffee_bought = 0
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             await self.check_for_meme(user)
-            self.next_ping_to_machine = False
             brew = BrewCoffee(self.root_gui, user,
                               self.coffee_maker.get_last_status,
                               user.beans_q, user.water_v)
@@ -204,20 +186,17 @@ class CoffeeManager:
             if r != "connected":
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
-                self.next_ping_to_machine = JuraCommand.HZ
                 return None
             self.coffee_maker.ping(JuraCommand.HZ, brew.status_cb)
             r = await brew.get_checking_status_future()
             if r != "status_ok":
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
-                self.next_ping_to_machine = JuraCommand.HZ
                 return None
             r = await brew.get_request()
             if type(r) != tuple:
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
-                self.next_ping_to_machine = JuraCommand.HZ
                 return None
             user.beans_q, user.water_v = r
             if not user.update():
@@ -232,7 +211,6 @@ class CoffeeManager:
                 logger.warning(f"Resetting param to actual default: {reset}")
 
             self.coffee_maker.reset_coffee_param(cb=_cb)
-            self.next_ping_to_machine = JuraCommand.HZ
         # show account ui only no coffee was already bought by the new gui
         if coffee_bought == 0:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()

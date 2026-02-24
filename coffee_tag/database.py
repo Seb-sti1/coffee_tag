@@ -286,6 +286,16 @@ class Database:
                                 "coffee_bought": coffee_bought,
                                 "price": self.coffee_price * coffee_bought})
 
+    def save_statistics(self, stat: Tuple[int, int, int, int, int, int, int]) -> bool:
+        return self.edit_query("INSERT INTO jura_count (date, tot_espresso, tot_2_espresso,"
+                               "tot_ristretto, tot_2_ristretto, tot_coffee, tot_2_coffee, tot_special) VALUES"
+                               "(DATETIME('now'), :tot_espresso, :tot_2_espresso, :tot_ristretto,"
+                               ":tot_2_ristretto, :tot_coffee, :tot_2_coffee, :tot_special)",
+                               {"tot_espresso": stat[0], "tot_2_espresso": stat[1],
+                                "tot_ristretto": stat[2], "tot_2_ristretto": stat[3],
+                                "tot_coffee": stat[4], "tot_2_coffee": stat[5],
+                                "tot_special": stat[6]})
+
     def get_user_by_rfid(self, card: str):
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"
