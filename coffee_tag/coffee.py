@@ -3,6 +3,7 @@ In this file is implemented the logic of the app.
 It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
+from datetime import datetime, timezone
 import logging
 import os
 from argparse import Namespace
@@ -32,6 +33,7 @@ class CoffeeManager:
 
         self.loop.create_task(self.listen_to_card_reader())
         self.loop.create_task(self.monitor_statistics())
+        self.last_stat = None
         self.loop.create_task(self.tk_loop())
 
     def __main_gui_callback__(self):
@@ -66,12 +68,14 @@ class CoffeeManager:
         while self.rfid.run and not self.args.dev:
             def _cb(stat: Optional[Tuple[int, int, int, int, int, int, int]]):
                 if stat is not None:
-                    self.db.save_statistics(stat)
+                    self.last_stat = (datetime.now(tz=timezone.utc), stat)
                 else:
                     logger.warning("Couldn't fetch jura's statistics")
 
             self.coffee_maker.get_totals_statistics(cb=_cb)
-            await asyncio.sleep(60 * 60)
+            await asyncio.sleep(60 * 5)
+            self.db.save_statistics(self.last_stat)
+            await asyncio.sleep(60 * 55)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:

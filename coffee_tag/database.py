@@ -286,12 +286,14 @@ class Database:
                                 "coffee_bought": coffee_bought,
                                 "price": self.coffee_price * coffee_bought})
 
-    def save_statistics(self, stat: Tuple[int, int, int, int, int, int, int]) -> bool:
+    def save_statistics(self, data: Tuple[datetime, Tuple[int, int, int, int, int, int, int]]) -> bool:
+        stat = data[1]
         return self.edit_query("INSERT INTO jura_count (date, tot_espresso, tot_2_espresso,"
                                "tot_ristretto, tot_2_ristretto, tot_coffee, tot_2_coffee, tot_special) VALUES"
-                               "(DATETIME('now'), :tot_espresso, :tot_2_espresso, :tot_ristretto,"
+                               "(:date, :tot_espresso, :tot_2_espresso, :tot_ristretto,"
                                ":tot_2_ristretto, :tot_coffee, :tot_2_coffee, :tot_special)",
-                               {"tot_espresso": stat[0], "tot_2_espresso": stat[1],
+                               {"date": data[0].strftime("%Y-%m-%d %H:%M:%S"),
+                                "tot_espresso": stat[0], "tot_2_espresso": stat[1],
                                 "tot_ristretto": stat[2], "tot_2_ristretto": stat[3],
                                 "tot_coffee": stat[4], "tot_2_coffee": stat[5],
                                 "tot_special": stat[6]})
