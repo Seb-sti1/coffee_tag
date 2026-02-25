@@ -3,10 +3,10 @@ In this file is implemented the logic of the app.
 It triggers the display of GUI and reactive depending on the user inputs.
 """
 import asyncio
-from datetime import datetime, timezone
 import logging
 import os
 from argparse import Namespace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -14,7 +14,7 @@ from juracoffeemachine import CoffeeMaker, JuraCommand
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
-    BrewCoffee, Meme
+    BrewCoffee, Meme, AdminGUI
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -119,6 +119,11 @@ class CoffeeManager:
             self.loop.create_task(self.open_user_account(user, True))
         return None
 
+    async def open_admin_gui(self, user: User) -> None:
+        if user.permissions == "owner":
+            await AdminGUI(self.root_gui, self.db.get_users()).get_future()
+        return None
+
     async def get_user_by_manual_search(self) -> Optional[User]:
         user = await ManualEntry(self.root_gui, self.db.search_by_name).get_future()
         if user is None:
@@ -176,12 +181,6 @@ class CoffeeManager:
         # verify access rights
         if not is_authenticated and not await self.__check_authentication__(user):
             return None
-        # show admin ui for admin
-        admin_status = None
-        # FIXME fix admin gui
-        # if user.permissions == "owner":
-        #     admin_status = AdminStatus(self.root_gui, self.db.get_last_coffees())
-        coffee_bought = 0
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
@@ -192,17 +191,23 @@ class CoffeeManager:
             if r != "connected":
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
+                if r == "admin":
+                    self.loop.create_task(self.open_admin_gui(user))
                 return None
             self.coffee_maker.ping(JuraCommand.HZ, brew.status_cb)
             r = await brew.get_checking_status_future()
             if r != "status_ok":
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
+                if r == "admin":
+                    self.loop.create_task(self.open_admin_gui(user))
                 return None
             r = await brew.get_request()
             if type(r) != tuple:
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
+                if r == "admin":
+                    self.loop.create_task(self.open_admin_gui(user))
                 return None
             user.beans_q, user.water_v = r
             if not user.update():
@@ -211,14 +216,17 @@ class CoffeeManager:
             await brew.update(self.coffee_maker)
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
-                coffee_bought = 1
+                logger.info(f"{user} bought 1 coffees at {self.db.coffee_price} €.")
+                if user.buy_coffees(1):
+                    logger.info("This was saved in db.")
+                else:
+                    logger.error("Couldn't save in db!")
 
             def _cb(reset):
                 logger.warning(f"Resetting param to actual default: {reset}")
 
             self.coffee_maker.reset_coffee_param(cb=_cb)
-        # show account ui only no coffee was already bought by the new gui
-        if coffee_bought == 0:
+        else:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()
             if coffee_bought is None:
                 return None
@@ -230,22 +238,18 @@ class CoffeeManager:
                                            button_one="Yes", button_two="Oops").get_future()
                 if validate is None or validate is False:
                     return None
-        # close admin gui if necessary
-        if admin_status is not None:
-            admin_status.close()
-            await admin_status.get_future()
-        # if coffee was bought, saves it
-        if coffee_bought > 0:
-            logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
-            if self.db.buy_coffees(user, coffee_bought):
-                logger.info("This was saved in db.")
-                await GeneralUI(self.root_gui, title=f"Thank you {user}!",
-                                w=320, h=250,
-                                sub_text="Your balance is now",
-                                main_text=f"{-user.get_user_balance()} €",
-                                should_close_in_5=True).get_future_with_autoclosing()
-            else:
-                logger.error("Couldn't save in db!")
+            # if coffee was bought, saves it
+            if coffee_bought > 0:
+                logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
+                if user.buy_coffees(coffee_bought):
+                    logger.info("This was saved in db.")
+                    await GeneralUI(self.root_gui, title=f"Thank you {user}!",
+                                    w=320, h=250,
+                                    sub_text="Your balance is now",
+                                    main_text=f"{-user.get_user_balance()} €",
+                                    should_close_in_5=True).get_future_with_autoclosing()
+                else:
+                    logger.error("Couldn't save in db!")
         return None
 
     async def add_or_update_user(self, current_user: Optional[User] = None) -> Optional[bool]:

@@ -6,7 +6,7 @@ import logging
 import re
 import sqlite3
 from datetime import datetime as dt, timezone, datetime
-from typing import Callable, Optional, Tuple, Any, Union, Literal
+from typing import Callable, Optional, Tuple, Any, Union, Literal, List
 
 import bcrypt
 from quart_auth import AuthUser
@@ -96,6 +96,18 @@ class User(AuthUser):
             return None
         return Purchase(self.db, *list(r))
 
+    def get_coffees(self) -> Optional[List[Purchase]]:
+        r = self.db.connector.execute("""
+                                      SELECT id, user_id, date, nb_coffee, price
+                                      FROM purchase
+                                      WHERE user_id = :user
+                                      ORDER BY date DESC
+                                      """,
+                                      {"user": self.user_id})
+        if r is None:
+            return None
+        return [Purchase(self.db, *row[:5]) for row in r]
+
     def __str__(self):
         return f"{self.name} {self.surname}"
 
@@ -157,6 +169,25 @@ class User(AuthUser):
             return False
         return True
 
+    def buy_coffees(self, coffee_bought: int, date: Optional[datetime] = None) -> bool:
+        if date is None:
+            return self.db.edit_query("INSERT INTO purchase (user_id, date, nb_coffee, price) VALUES"
+                                      "(:user, DATETIME('now'), :coffee_bought, :price)",
+                                      {"user": self.user_id,
+                                       "coffee_bought": coffee_bought,
+                                       "price": self.db.coffee_price * coffee_bought})
+        else:
+            return self.db.edit_query("INSERT INTO purchase (user_id, date, nb_coffee, price) VALUES"
+                                      "(:user, :date, :coffee_bought, :price)",
+                                      {"user": self.user_id,
+                                       "coffee_bought": coffee_bought,
+                                       "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                       "price": self.db.coffee_price * coffee_bought})
+
+    def delete_coffee(self, purchase_id: int) -> bool:
+        return self.db.edit_query("DELETE FROM purchase WHERE id=:uid",
+                                  {"uid": purchase_id})
+
     def is_authorized(self, is_password: bool, login: str) -> bool:
         if is_password:
             if self.passcode is not None:
@@ -196,6 +227,12 @@ class Purchase:
                        """)
 
         db.exec_safely_at_once(create)
+
+    def __str__(self):
+        return f"[{self.user_id}#{self.nb_coffee}@{self.date.strftime('%Y-%m-%d %H:%M:%S')}={self.price}]"
+
+    def __repr__(self):
+        return str(self)
 
 
 class Repayment:
@@ -279,14 +316,8 @@ class Database:
                                         {"name": f"%{name}%"})
         return [User(self, *r) for r in result] if result is not None else []
 
-    def buy_coffees(self, user: User, coffee_bought: int) -> bool:
-        return self.edit_query("INSERT INTO purchase (user_id, date, nb_coffee, price) VALUES"
-                               "(:user, DATETIME('now'), :coffee_bought, :price)",
-                               {"user": user.user_id,
-                                "coffee_bought": coffee_bought,
-                                "price": self.coffee_price * coffee_bought})
-
-    def save_statistics(self, data: Tuple[datetime, Tuple[int, int, int, int, int, int, int]]) -> bool:
+    def save_statistics(self, data: Tuple[datetime, Tuple[Optional[int], Optional[int], Optional[int],
+    Optional[int], Optional[int], Optional[int], Optional[int]]]) -> bool:
         stat = data[1]
         return self.edit_query("INSERT INTO jura_count (date, tot_espresso, tot_2_espresso,"
                                "tot_ristretto, tot_2_ristretto, tot_coffee, tot_2_coffee, tot_special) VALUES"
@@ -431,17 +462,12 @@ class Database:
                                "WHERE id = :id",
                                {"id": repayment_id})
 
-    def get_last_coffees(self) -> list[Tuple[User, Purchase]]:
-        r = self.connector.execute("""
-                                   SELECT *
-                                   FROM users
-                                            JOIN purchase p on users.id = p.user_id
-                                   ORDER BY date DESC
-                                   LIMIT 26;
-                                   """)
+    def get_users(self) -> Optional[List[User]]:
+        r = self.connector.execute("""SELECT *
+                                      FROM users;""")
         if r is None:
-            return []
-        return [(User(self, *row[:14]), Purchase(self, *row[14:])) for row in r]
+            return None
+        return [User(self, *row[:14]) for row in r]
 
     def export(self) -> str:
         logger.info(f"Creating a sql dump file")

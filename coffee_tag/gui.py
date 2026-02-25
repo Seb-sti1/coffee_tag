@@ -6,6 +6,7 @@ import logging
 import os
 import random
 import tkinter as tk
+import unicodedata
 from asyncio import Future
 from datetime import datetime as dt, timezone
 from enum import Enum
@@ -451,6 +452,12 @@ class BrewCoffee(AbstractUI):
                                                                   self.on_closing(),
                                                                   self.gui.destroy()],
                                             x=5, y=5, px_width=50, px_height=50)  # TODO use logo
+        self.admin_btn = None
+        if user.permissions == "owner":
+            self.admin_btn = self.add_button(f"Admin", lambda: [self.future.set_result("admin"),
+                                                                self.on_closing(),
+                                                                self.gui.destroy()],
+                                             x=5, y=60, px_width=50, px_height=50)  # TODO use logo
 
         self.debug_txt = ""
         self.debug_label = self.add_label(self.debug_txt, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=120, fill=None)
@@ -665,6 +672,8 @@ class BrewCoffee(AbstractUI):
 
     def submit_callback(self):
         self.settings_btn.config(state="disabled")
+        if self.admin_btn is not None:
+            self.admin_btn.config(state="disabled")
         self.future.set_result((int(self.req_coffee_bean), int(self.req_water_volume)))
         self.cleanup_request_ui()
         self.progress_ui()
@@ -775,16 +784,153 @@ class AskPassword(AbstractUI):
         return self.future
 
 
-class AdminStatus(AbstractUI):
-    def __init__(self, main: MainGUI, last_coffees: list[Tuple[User, Purchase]]):
-        super().__init__(main, "Admin status", 220, 480, 0, 0)
-        for last_coffee in last_coffees:
-            name = str(last_coffee[0])
-            if len(name) > 19:
-                name = name[:18] + "..."
-            self.add_label(f"{name} {last_coffee[1].date.strftime('%d %H:%M')}"
-                           f" {last_coffee[1].nb_coffee}",
-                           font="Helvetica 10", pady=0, justify='left')
+class AdminGUI(AbstractUI):
+    def __init__(self, main: MainGUI, users: Optional[List[User]]):
+        super().__init__(main, "Admin GUI", 800, 480)
+        users = users if users is not None else []
+        self.users = sorted(users, key=lambda u: f"{u.name} {u.surname}")
+
+        self.search_bar = self.add_entry(x=10, y=10, width=30, on_text_change=self.search)
+        self.search_txt = ""
+        self.search_result = self.users
+
+        self.users_list = tk.Listbox(self.gui)
+        self.users_list.place(x=13, y=50, height=480 - 50 - 10, width=303)
+        self.users_list.bind("<<ListboxSelect>>", self.show_user)
+        self.current_user: Optional[User] = None
+
+        self.info_label = self.add_label("Select a user.", x=320, y=10, justify="left")
+        self.add_label("DD/MM/YY HH:MM:SS", x=320, y=180)
+        self.add_coffee_entry = self.add_entry(x=320, y=200, width=19)
+        self.add_coffee_btn = self.add_button("Add coffee", self.add_coffee, x=520, y=195, width=7, height=1)
+
+        self.coffee_list = tk.Listbox(self.gui)
+        self.coffee_list.place(x=320, y=235, height=200, width=300)
+        self.coffee_list.bind("<<ListboxSelect>>", self.select_coffee)
+        self.coffee_list.config(font=("Courier New", 11))
+        self.current_coffee_list: List[Purchase] = []
+        self.current_coffee: Optional[Purchase] = None
+        self.delete_coffee_btn = self.add_button(f"Delete coffee", self.delete_coffee, x=320, y=435,
+                                                 width=27, height=1)
+
+        self.perm_combobox = ttk.Combobox(self.gui, textvariable=tk.StringVar())
+        self.perm_combobox['values'] = ('user', 'maintainer', 'owner')
+        self.perm_combobox.place(x=320 + 5, y=152, height=25, width=145)
+        self.status_combobox = ttk.Combobox(self.gui)
+        self.status_combobox['values'] = ('active', 'banned', 'shadow_banned')
+        self.status_combobox.place(x=320 + 150 + 10 + 5, y=152, height=25, width=145)
+        self.save_btn = self.add_button(f"Save", self.save, x=320 + 2 * 150 + 2 * 10 + 5, y=145,
+                                        width=7, height=1)
+
+        self.draw_list()
+
+    def search(self, txt: tk.StringVar):
+        self.search_txt = txt.get()
+        self.draw_list()
+
+    def reset_btn(self):
+        self.add_coffee_btn.config(bg=LIGHT_BROWN)
+        self.delete_coffee_btn.config(bg=LIGHT_BROWN)
+        self.save_btn.config(bg=LIGHT_BROWN)
+
+    def draw_list(self):
+        def normalize(text):
+            return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
+
+        self.users_list.delete(0, tk.END)
+        self.search_result = list(filter(lambda u: any(map(lambda txt: txt is not None and
+                                                                       normalize(self.search_txt) in normalize(txt),
+                                                           [u.name, u.surname, u.nickname, u.mail])),
+                                         self.users)) if len(self.search_txt) > 0 else self.users
+        for user in self.search_result:
+            self.users_list.insert(tk.END, f"{user.name} {user.surname}")
+
+    def show_user(self, _):
+        self.reset_btn()
+        selection = self.users_list.curselection()
+        if not selection:
+            return
+        user = self.search_result[selection[0]]
+        self.current_user = user
+        departure_str = f"Departure {user.date_of_departure.strftime('%Y/%m/%d')}." if user.date_of_departure is not None else "No date of departure."
+        self.info_label.config(text=f"{user.user_id} {user.name} {user.surname} ({user.nickname})\n"
+                                    f"{user.mail}.\n"
+                                    f"Cascad: {user.cascad_username}. "
+                                    f"{'Password set' if user.passcode is not None else 'No password set'}.\n"
+                                    f"Badge {user.id_badge}.\n"
+                                    f"Balance: {user.get_user_balance()} (init {user.initial_balance}).\n"
+                                    f"{departure_str}\n"
+                                    f"Preset {user.water_v}ml {user.beans_q} beans.\n")
+        self.perm_combobox.set(user.permissions)
+        self.status_combobox.set(user.status)
+        self.coffee_list.delete(0, tk.END)
+        self.current_coffee_list = user.get_coffees()
+        for coffee in self.current_coffee_list:
+            self.coffee_list.insert(tk.END, f"{coffee.purchase_id:>6} {coffee.nb_coffee} {coffee.price}€ "
+                                            f"{coffee.date.strftime('%y/%m/%d %H:%M:%S')}")
+
+    def save(self):
+        if self.current_user is None:
+            logger.warning(f"Couldn't add coffee manually: no user selected.")
+            self.save_btn.config(bg="red")
+            return
+
+        self.current_user.permissions = self.perm_combobox.get()
+        self.current_user.status = self.status_combobox.get()
+
+        if self.current_user.update():
+            logger.warning(f"{self.current_user} status/permissions were updated:"
+                           f" {self.current_user.permissions}, {self.current_user.status}.")
+            self.save_btn.config(bg="green")
+        else:
+            logger.warning(f"Unknown database error occurred will updating status/permissions.")
+            self.save_btn.config(bg="red")
+
+    def add_coffee(self):
+        if self.current_user is None:
+            self.add_coffee_btn.config(bg="red")
+            logger.warning(f"Couldn't add coffee manually: no user selected.")
+            return
+        try:
+            date = dt.strptime(self.add_coffee_entry.get(), "%d/%m/%y %H:%M:%S").replace(tzinfo=timezone.utc)
+        except:
+            logger.warning(f"Couldn't add coffee manually: can't parse {self.add_coffee_entry.get()}.")
+            self.add_coffee_btn.config(bg="red")
+            return
+
+        if self.current_user.buy_coffees(1, date):
+            logger.warning(f"A coffee was added manually for {self.current_user} at {self.add_coffee_entry.get()}.")
+            self.show_user(None)
+            self.add_coffee_btn.config(bg="green")
+        else:
+            logger.warning(f"Unknown database error occurred will adding a coffee manually.")
+            self.add_coffee_btn.config(bg="red")
+
+    def select_coffee(self, _):
+        self.reset_btn()
+        if self.current_user is None:
+            self.current_coffee = None
+            return
+        selection = self.coffee_list.curselection()
+        if not selection:
+            self.current_coffee = None
+            return
+        self.current_coffee = self.current_coffee_list[selection[0]]
+
+    def delete_coffee(self):
+        if self.current_user is None or self.current_coffee is None:
+            logger.warning(f"Can't delete this coffee: no user ({self.current_user})"
+                           f" or coffee ({self.current_coffee}) selected.")
+            self.delete_coffee_btn.config(bg="red")
+            return
+
+        if self.current_user.delete_coffee(self.current_coffee.purchase_id):
+            logger.warning(f"A coffee was deleted for {self.current_user}: {self.current_coffee}.")
+            self.show_user(None)
+            self.delete_coffee_btn.config(bg="green")
+        else:
+            logger.warning(f"Unknown database error occurred will deleting a coffee.")
+            self.delete_coffee_btn.config(bg="red")
 
     def close(self):
         self.future.set_result(None)
@@ -907,7 +1053,7 @@ def show_gui(path: str, price: float):
         asyncio.set_event_loop(loop)
 
         loop.create_task(wrapper(ManualEntry, main=gui, search_user=db.search_by_name))
-        loop.create_task(wrapper(AdminStatus, main=gui, last_coffees=db.get_last_coffees()))
+        loop.create_task(wrapper(AdminGUI, main=gui, users=db.get_users()))
         loop.create_task(wrapper(AskPassword, main=gui, rfid=rfid, user=users[0]))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Sorry!",
                                  w=350, h=310,
