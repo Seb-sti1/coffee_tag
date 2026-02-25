@@ -70,11 +70,13 @@ class CoffeeManager:
                 if stat is not None:
                     self.last_stat = (datetime.now(tz=timezone.utc), stat)
                 else:
+                    self.last_stat = None
                     logger.warning("Couldn't fetch jura's statistics")
 
             self.coffee_maker.get_totals_statistics(cb=_cb)
             await asyncio.sleep(60 * 5)
-            self.db.save_statistics(self.last_stat)
+            if self.last_stat is not None:
+                self.db.save_statistics(self.last_stat)
             await asyncio.sleep(60 * 55)
 
     async def listen_to_card_reader(self) -> None:
