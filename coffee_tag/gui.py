@@ -452,10 +452,13 @@ class BrewCoffee(AbstractUI):
         if last_coffee is not None:
             self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
                            fg=LIGHT_BROWN, x=225, y=125)
-        self.settings_btn = self.add_button(f"Settings", lambda: [self.future.set_result("settings"),
+        self.settings_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                      "settings.png")).resize((50, 50)))
+        self.settings_btn = self.add_button("", lambda: [self.future.set_result("settings"),
                                                                   self.on_closing(),
                                                                   self.gui.destroy()],
-                                            x=5, y=5, px_width=50, px_height=50)  # TODO use logo
+                                            image=self.settings_icon,
+                                            x=5, y=5, px_width=50, px_height=50)
         self.admin_btn = None
         if user.permissions == "owner":
             self.admin_btn = self.add_button(f"Admin", lambda: [self.future.set_result("admin"),
