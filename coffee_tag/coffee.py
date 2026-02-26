@@ -144,11 +144,12 @@ class CoffeeManager:
 
     async def check_for_meme(self, user: User) -> None:
         meme_folder = Path("~/coffee/meme/").expanduser()
-        meme = [f"{meme_folder}/{name}" for name in os.listdir(meme_folder)
-                if name.startswith(f"meme{user.user_id}")]
-        if len(meme) == 0:
-            return None
-        await Meme(self.root_gui, meme).get_future_with_autoclosing()
+        if meme_folder.exists():
+            meme = [f"{meme_folder}/{name}" for name in os.listdir(meme_folder)
+                    if name.startswith(f"meme{user.user_id}")]
+            if len(meme) == 0:
+                return None
+            await Meme(self.root_gui, meme).get_future_with_autoclosing()
         return None
 
     async def open_user_account(self, user: User, is_authenticated: bool = False) -> None:
