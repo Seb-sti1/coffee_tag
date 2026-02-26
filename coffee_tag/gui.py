@@ -448,6 +448,10 @@ class BrewCoffee(AbstractUI):
                        font='Helvetica 15 bold italic', x=300, y=60, fill=None)
         self.balance_lbl = self.add_label(f"{-user.get_user_balance()} €",
                                           font='Helvetica 15 bold', x=360, y=100, fill=None)
+        last_coffee = user.get_last_coffee()
+        if last_coffee is not None:
+            self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
+                           fg=LIGHT_BROWN, x=225, y=125)
         self.settings_btn = self.add_button(f"Settings", lambda: [self.future.set_result("settings"),
                                                                   self.on_closing(),
                                                                   self.gui.destroy()],
