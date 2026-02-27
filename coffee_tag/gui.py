@@ -461,10 +461,13 @@ class BrewCoffee(AbstractUI):
                                             x=5, y=5, px_width=50, px_height=50)
         self.admin_btn = None
         if user.permissions == "owner":
-            self.admin_btn = self.add_button(f"Admin", lambda: [self.future.set_result("admin"),
+            self.admin_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                          "admin.png")).resize((50, 50)))
+            self.admin_btn = self.add_button("", lambda: [self.future.set_result("admin"),
                                                                 self.on_closing(),
                                                                 self.gui.destroy()],
-                                             x=5, y=60, px_width=50, px_height=50)  # TODO use logo
+                                             image=self.admin_icon,
+                                             x=5, y=60, px_width=50, px_height=50)
 
         self.debug_txt = ""
         self.debug_label = self.add_label(self.debug_txt, font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=120, fill=None)
