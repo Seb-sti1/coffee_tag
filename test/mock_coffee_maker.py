@@ -2,115 +2,80 @@ import logging
 import time
 from datetime import datetime
 from threading import Lock, Thread
-from typing import Callable, Optional, Tuple
+from typing import Optional, List
 
-from juracoffeemachine import CoffeeMaker, FullStatus, JuraCommand, Response, MakerStatus, JuraProtocol
+from juracoffeemachine import CoffeeMaker, JuraCommand, Response, JuraProtocol, HZ, CS
 
 logger = logging.getLogger(__name__)
+
+
+class MockJura(JuraProtocol):
+    def __init__(self):
+        self.cs_list = [CS("cs:03770000000ED000000000000006000017000000000"),
+                        CS("cs:03770000000ED000000000000006000017000000000"),
+                        CS("cs:03770000000ED000000000000006000017000000000"),
+                        CS("cs:03770000000ED000000000000006000000000000000"),
+                        CS("cs:03770000000ED000000000000006000000000000000"),
+                        CS("cs:03770000000ED000000000000006000000000000000"),
+                        CS("cs:03770000000ED000000000000006000000000000000"),
+                        CS("cs:03770000000ED000000000000006000000000000000"),
+                        CS("cs:03770000000ED000000000000006000000800000000"),
+                        CS("cs:03770000000ED000000000000006000000A00000000"),
+                        CS("cs:03770000000ED000000000000006000000F00000000"),
+                        CS("cs:03770000000ED000000000000006000011C00000000"),
+                        CS("cs:03770000000ED000000000000006000011C00000000"),
+                        CS("cs:03770000000ED000000000000006000011C00000000")]
+        self.cs_idx = 0
+
+        self.first_hz = True
+
+    def set_coffee_param(self, coffee_bean: int, water_volume: int) -> bool:
+        logger.info(f"setting param {coffee_bean} beans {water_volume}mL.")
+        return True
+
+    def write_with_response(self, data: str, timeout: float = 3) -> Optional[str]:
+        time.sleep(1)
+        logger.info(f"Writing '{data}', response will be 'ok:'")
+        return "ok:"
+
+    def get_and_parse_message(self, command: JuraCommand, raw: Optional[str] = None) -> Optional[Response]:
+        time.sleep(1)
+        if command == JuraCommand.CS:
+            logger.info(f"Returning cs value")
+            cs = self.cs_list[self.cs_idx]
+            self.cs_idx = (self.cs_idx + 1) % len(self.cs_list)
+            return cs
+        elif command == JuraCommand.HZ:
+            hz = HZ("hz:01010110000000,0288,00ED,0107,03E8,0000,0,0017,000100,12")
+            if self.first_hz:
+                self.first_hz = False
+                hz.is_draining_tray_present = True
+            else:
+                hz.is_draining_tray_present = False
+            return hz
+        return None
+
+    def read_eeprom(self, address: int, use_rt: bool = False) -> Optional[int]:
+        return 1000
 
 
 class MockCoffeeMaker(CoffeeMaker):
 
     def __init__(self):
-        self.__status__: FullStatus = FullStatus(None, datetime.now(), MakerStatus.IDLE, -1)
-        self.__brew_thread__ = None
-        self.__jura_lock__ = Lock()
+        self.jura = MockJura()
+        self.last_valid_contact: Optional[datetime] = None
+        self.jura_version_verified: bool = True
 
-    def __update_maker_status__(self, new_status: MakerStatus, version_checked: bool = False):
-        if self.get_last_status().maker_status == MakerStatus.NOT_CONNECTED and not version_checked:
-            return
-        if new_status != self.get_last_status().maker_status:
-            dt = str(datetime.now() - self.get_last_status().last_maker_status_change).split('.')[0]
-            logger.info(f"Status: {self.get_last_status().maker_status} -> {new_status}."
-                        f"It was in the previous status for {dt}")
-            self.__status__.maker_status = new_status
+        self.__comm_lock__ = Lock()
+        self.__brew_threads__: List[Thread] = []
 
-    def __update_brewing__(self, water_volume: float):
-        self.__status__.water_volume = water_volume
-
-    def __update_last_contact__(self):
-        self.__status__.last_valid_contact = datetime.now()
+        self.__brewing_status__ = None
 
     @staticmethod
     def create_from_uart(_: str) -> CoffeeMaker:
         return MockCoffeeMaker()
 
-    def get_last_status(self) -> FullStatus:
-        return self.__status__
-
-    def test_connection(self, cb: Callable[[bool], None]):
-        self.__update_maker_status__(MakerStatus.CHECKING_CONNECTION)
-        self.__jura_lock__.acquire()
-        if self.__brew_thread__ is not None:
-            self.__brew_thread__.join()
-            self.__brew_thread__ = None
-
-        def __exec__():
-            time.sleep(1)
-            cb(True)
-            self.__jura_lock__.release()
-
-        self.__brew_thread__ = Thread(target=__exec__)
-        self.__brew_thread__.start()
-
-    def ping(self, command: JuraCommand, cb: Callable[[Optional[Response]], None]):
-        self.__jura_lock__.acquire()
-        if self.__brew_thread__ is not None:
-            self.__brew_thread__.join()
-            self.__brew_thread__ = None
-
-        def __exec__():
-            # TODO can also fail with cb(None)
-            time.sleep(1)
-            if command == JuraCommand.HZ:
-                hz = JuraProtocol.get_and_parse_message(None,
-                                                      command,
-                                                      "hz:01010110000000,0288,00ED,0107,03E8,0000,0,0017,000000,12")
-                cb(hz)
-            elif command == JuraCommand.CS:
-                cb(JuraProtocol.get_and_parse_message(None,
-                                                      command,
-                                                      "cs:0377000FF00ED000000000000006000011C00000000"))
-            self.__jura_lock__.release()
-
-        self.__brew_thread__ = Thread(target=__exec__)
-        self.__brew_thread__.start()
-
-    def brew_coffee(self, coffee_bean: int, water_volume: int, cb: Callable[[bool], None]):
-
-        self.__jura_lock__.acquire()
-        if self.__brew_thread__ is not None:
-            self.__brew_thread__.join()
-            self.__brew_thread__ = None
-
-        def __exec__():
-            # TODO can also fail with cb(False)
-            time.sleep(0.5)
-            self.__update_maker_status__(MakerStatus.BREWING)
-            time.sleep(0.5)
-            self.__update_last_contact__()
-            time.sleep(0.5)
-            self.__update_last_contact__()
-            time.sleep(3)
-
-            wv_list = [120, 120, 120, 0, 0, 0, 0, 8, 10, 15] + list(range(0, water_volume, 10))
-            for wv in wv_list:
-                time.sleep(1)
-                self.__update_last_contact__()
-                self.__update_brewing__(wv)
-            self.__update_maker_status__(MakerStatus.IDLE)
-            cb(True)
-            self.__update_brewing__(0)
-            self.__jura_lock__.release()
-
-        self.__brew_thread__ = Thread(target=__exec__)
-        self.__brew_thread__.start()
-
-    def reset_coffee_param(self, cb: Callable[[bool], None]):
-        pass
-
-    def stop(self, cb: Callable[[bool], None]):
-        pass
-
-    def get_totals_statistics(self, cb: Callable[[Optional[Tuple[int, int, int, int, int, int, int]]], None]):
-        pass
+    def __check_connection__(self, is_invalid: bool = False, _tries_left: int = 3) -> bool:
+        time.sleep(1)
+        self.__update_last_contact__()
+        return True

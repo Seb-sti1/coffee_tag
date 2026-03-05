@@ -189,36 +189,25 @@ class CoffeeManager:
         if user.user_id in ([100] if self.args.beta is None else self.args.beta):
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
-                              self.coffee_maker.get_last_status,
+                              self.coffee_maker.get_brewing_status,
                               user.beans_q, user.water_v)
-            self.coffee_maker.test_connection(cb=brew.test_connection_cb)
-            r = await brew.get_checking_status_future()
-            if r != "connected":
+            r = None
+            while type(r) != tuple:
+                self.coffee_maker.can_brew(cb=brew.can_brew_sb)
+                r = await brew.get_request()
                 if r == "settings":
                     self.loop.create_task(self.add_or_update_user(user))
+                    return None
                 if r == "admin":
                     self.loop.create_task(self.open_admin_gui(user))
-                return None
-            self.coffee_maker.ping(JuraCommand.HZ, brew.status_cb)
-            r = await brew.get_checking_status_future()
-            if r != "status_ok":
-                if r == "settings":
-                    self.loop.create_task(self.add_or_update_user(user))
-                if r == "admin":
-                    self.loop.create_task(self.open_admin_gui(user))
-                return None
-            r = await brew.get_request()
-            if type(r) != tuple:
-                if r == "settings":
-                    self.loop.create_task(self.add_or_update_user(user))
-                if r == "admin":
-                    self.loop.create_task(self.open_admin_gui(user))
-                return None
+                    return None
+                if r is None:
+                    return None
             user.beans_q, user.water_v = r
             if not user.update():
                 logger.error(f"Could not save new coffee params.")
             self.coffee_maker.brew_coffee(user.beans_q, user.water_v, brew.jura_brew_cb)
-            await brew.update(self.coffee_maker)
+            await brew.update()
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
                 logger.info(f"{user} bought 1 coffees at {self.db.coffee_price} €.")

@@ -5,6 +5,7 @@ import importlib
 import logging
 import os
 import random
+import time
 import tkinter as tk
 import unicodedata
 from asyncio import Future
@@ -17,8 +18,8 @@ from typing import Tuple, Optional, Callable, Literal, List
 
 import bcrypt
 from PIL import Image, ImageTk
-from juracoffeemachine import HZ
-from juracoffeemachine.coffee_machine import CoffeeMaker, MakerStatus, FullStatus
+from juracoffeemachine import JuraProtocol, BrewingStatus
+from juracoffeemachine.coffee_machine import CoffeeMakerResult, BrewingStage
 
 from coffee_tag import media
 from coffee_tag.database import User, Database, Purchase
@@ -409,38 +410,38 @@ class Meme(AbstractUI):
 class BrewCoffee(AbstractUI):
     class Status(Enum):
         WAITING_CONNECTION = 0
-        CONNECTION_SUCCESSFUL = 1
-        CONNECTION_FAILED = 2
-        FETCHING_JURA_STATUS = 3
-        JURA_SLEEPING = 4
-        JURA_NO_WATER_TANK = 5
-        JURA_NO_DRAINING_TANK = 6
-        JURA_DRAINING_TANK_FULL = 7
-        JURA_STATUS_OK = 8
-        PENDING_USER_REQUEST = 9
-        WAITING_JURA_ACKNOWLEDGMENT = 10
-        JURA_RECEIVED_ACKNOWLEDGMENT = 11
-        JURA_PUMPING_WATER = 12
+        JURA_STATUS_OK = 1
+        JURA_STATUS_NOT_OK = 2
+        PENDING_USER_REQUEST = 3
+        WAITING_JURA_ACKNOWLEDGMENT = 4
+        JURA_RECEIVED_ACKNOWLEDGMENT = 5
+        JURA_PUMPING_WATER = 6
 
     ERROR_LBL = {
-        Status.JURA_SLEEPING: "The Jura is off. Please turn it on.",
-        Status.JURA_NO_WATER_TANK: "Please refill/put the water tank back.",
-        Status.JURA_NO_DRAINING_TANK: "The draining tank is absent. Please put it back.",
-        Status.JURA_DRAINING_TANK_FULL: "The draining tank is full. Please empty it.",
+        None: "An unknown error occurred. Please contact an admin.",
+        CoffeeMakerResult.CANNOT_COMMUNICATE: "Error can't communicate with jura. If it is off, turn it on.",
+        CoffeeMakerResult.CANNOT_FETCH_HZ: "Could not fetch Jura's status.",
+        CoffeeMakerResult.CANNOT_FETCH_GROUNDS_TANK: "Could not fetch Jura's status.",
+        CoffeeMakerResult.CANNOT_SET_PARAM: "Could not send your order.",
+        CoffeeMakerResult.CANNOT_PRESS_BTN: "Could not send your order.",
+        CoffeeMakerResult.SLEEPING: "The Jura is off. Please turn it on.",
+        CoffeeMakerResult.WATER_TANK_MISSING: "Please refill/put the water tank back.",
+        CoffeeMakerResult.DRAINING_TRAY_MISSING: "The draining tank is absent. Please put it back.",
+        CoffeeMakerResult.DRAINING_TRAY_FULL: "The draining tank is full. Please empty it.",
+        CoffeeMakerResult.GROUNDS_TANK_FULL: "The coffee grounds tank is full. Please empty it.",
     }
 
     def __init__(self, main: MainGUI,
                  user: User,
-                 get_maker_status: Callable[[], FullStatus],
-                 beans_q: int, water_v: int,
-                 with_arrows: bool = False):
+                 get_brewing_status: Callable[[], BrewingStatus],
+                 beans_q: int, water_v: int):
         super().__init__(main, "Brew a coffee", 800, 480)
         self.gui_status: BrewCoffee.Status = BrewCoffee.Status.WAITING_CONNECTION
+        self.jura_feedback: Optional[CoffeeMakerResult] = None
         self.user = user
-        self.get_maker_status = get_maker_status
+        self.get_brewing_status = get_brewing_status
         self.req_coffee_bean = beans_q
         self.req_water_volume = water_v
-        self.with_arrows = with_arrows
 
         # TOP PART OF THE GUI
         self.add_label(f"Hello {user}!", font='Helvetica 22 bold', pady=3, fill=None)
@@ -480,6 +481,7 @@ class BrewCoffee(AbstractUI):
         self.can_brew = False
         self.title_order_rect = None
         self.progress_label = None
+        self.retry_btn = None
 
         # ORDER A COFFEE UI
         self.presets_rect = None
@@ -492,7 +494,6 @@ class BrewCoffee(AbstractUI):
         self.submit_btn = None
 
         # PROGRESS UI
-        self.received_jura_cb = False
         self.brew_sent_with_success = False
         self.curr_water_volume = 0.
         self.progress_bar = None
@@ -511,55 +512,14 @@ class BrewCoffee(AbstractUI):
     def checking_status_ui(self):
         self.title_order_rect = self.add_label(text="Please wait...", gui=self.order_rect, font='Helvetica 20 bold',
                                                pady=30)
-        self.progress_label = self.add_label("Contacting the Jura coffee machine...", gui=self.order_rect)
+        self.progress_label = self.add_label("Checking if Jura is ready...", gui=self.order_rect)
 
-    def test_connection_cb(self, connected):
-        if connected:
-            self.gui_status = BrewCoffee.Status.CONNECTION_SUCCESSFUL
-        else:
-            self.gui_status = BrewCoffee.Status.CONNECTION_FAILED
-
-    def status_cb(self, hz: HZ):
-        logger.debug(f"Received feedback {hz}")
-        if hz.is_sleeping:
-            self.gui_status = BrewCoffee.Status.JURA_SLEEPING
-        elif not hz.is_water_tank_present:
-            self.gui_status = BrewCoffee.Status.JURA_NO_WATER_TANK
-        elif hz.is_draining_tray_full:
-            self.gui_status = BrewCoffee.Status.JURA_DRAINING_TANK_FULL
-        elif not hz.is_draining_tray_present:
-            self.gui_status = BrewCoffee.Status.JURA_NO_DRAINING_TANK
-        else:
+    def can_brew_sb(self, result: CoffeeMakerResult):
+        self.jura_feedback = result
+        if self.jura_feedback == CoffeeMakerResult.OK:
             self.gui_status = BrewCoffee.Status.JURA_STATUS_OK
-
-    async def get_checking_status_future(self) -> Optional[Literal["settings", "connected", "status_ok"]]:
-        if self.future.done():
-            # reset future for the status
-            self.future = asyncio.get_event_loop().create_future()
-        last_gui_status = None
-        while not self.future.done():
-            self.update_debug()
-            if last_gui_status != self.gui_status:
-                if self.gui_status == BrewCoffee.Status.CONNECTION_SUCCESSFUL:
-                    self.progress_label.config(text="Fetching machine status...")
-                    self.gui_status = BrewCoffee.Status.FETCHING_JURA_STATUS
-                    self.future.set_result("connected")
-                elif self.gui_status == BrewCoffee.Status.CONNECTION_FAILED:
-                    self.title_order_rect.config(text="Oops...")
-                    self.progress_label.config(text="Error can't communicate with jura. If it is off, turn it on.")
-                    # TODO retry btn
-                elif self.gui_status in [BrewCoffee.Status.JURA_SLEEPING, BrewCoffee.Status.JURA_NO_WATER_TANK,
-                                         BrewCoffee.Status.JURA_DRAINING_TANK_FULL,
-                                         BrewCoffee.Status.JURA_NO_DRAINING_TANK]:
-                    self.title_order_rect.config(text="Oops...")
-                    self.progress_label.config(text=BrewCoffee.ERROR_LBL[self.gui_status])
-                    # TODO retry btn
-                elif self.gui_status == BrewCoffee.Status.JURA_STATUS_OK:
-                    self.future.set_result("status_ok")
-                    self.cleanup_checking_status_ui()
-                    self.request_ui()
-            await asyncio.sleep(.1)
-        return await self.future
+        else:
+            self.gui_status = BrewCoffee.Status.JURA_STATUS_NOT_OK
 
     def cleanup_checking_status_ui(self):
         self.title_order_rect.pack_forget()
@@ -607,19 +567,12 @@ class BrewCoffee(AbstractUI):
             return lambda: self.change_coffee_bean(idx)
 
         for i in range(8):
-            img = self.coffee_icon if i <= self.req_coffee_bean else self.coffee_icon_gray
-            btn = self.add_button(gui=self.coffee_bean_rect, text="a", image=img, callback=_coffee_cb(i),
+            img = self.coffee_icon if i < self.req_coffee_bean else self.coffee_icon_gray
+            btn = self.add_button(gui=self.coffee_bean_rect, text="a", image=img, callback=_coffee_cb(i + 1),
                                   pady=None, bg=BROWN, fg=BROWN,
                                   highlightthickness=0, bd=0,
                                   x=i * 60 + 60 + 15, y=10, height=60, width=60)
             self.coffee_bean_btns.append(btn)
-        if self.with_arrows:
-            self.add_button("◄", self.wrapper_left_right(False, True),
-                            gui=self.coffee_bean_rect,
-                            font='Helvetica 25', height=1, width=1, x=15, y=10)
-            self.add_button("►", self.wrapper_left_right(True, True),
-                            gui=self.coffee_bean_rect,
-                            font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
         # ==== WATER VOLUME
         self.water_volume_rect = tk.LabelFrame(self.order_rect, text=f"Water volume: {self.req_water_volume} mL",
                                                font='Helvetica 12', bg=BROWN, fg=WHITE, relief='groove')
@@ -633,13 +586,6 @@ class BrewCoffee(AbstractUI):
                                         bd=0, highlightthickness=0,
                                         orient="horizontal")
         self.water_volume_scale.place(x=60 + 15, y=10)
-        if self.with_arrows:
-            self.add_button("◄", self.wrapper_left_right(False, False),
-                            gui=self.water_volume_rect,
-                            font='Helvetica 25', height=1, width=1, x=15, y=10)
-            self.add_button("►", self.wrapper_left_right(True, False),
-                            gui=self.water_volume_rect,
-                            font='Helvetica 25', height=1, width=1, x=9 * 60 + 9 + 15, y=10)
 
         # ==== SUBMIT REQUEST
         self.submit_btn = self.add_button("Brew!", self.submit_callback,
@@ -648,60 +594,72 @@ class BrewCoffee(AbstractUI):
                                           x=245 + 121, y=236)
 
     def cleanup_request_ui(self):
+        self.jura_feedback = None
         self.presets_rect.place_forget()
         self.coffee_bean_rect.place_forget()
         self.water_volume_rect.place_forget()
         self.submit_btn.place_forget()
 
     def change_coffee_bean(self, coffee: int):
-        self.req_coffee_bean = (max(CoffeeMaker.coffee_bean_param[0],
-                                    min(CoffeeMaker.coffee_bean_param[2], coffee))
-                                // CoffeeMaker.coffee_bean_param[3]
-                                * CoffeeMaker.coffee_bean_param[3])
+        self.req_coffee_bean = (max(JuraProtocol.coffee_param[0],
+                                    min(JuraProtocol.coffee_param[2], coffee))
+                                // JuraProtocol.coffee_param[3]
+                                * JuraProtocol.coffee_param[3])
         for i in range(8):
-            img = self.coffee_icon if i <= self.req_coffee_bean else self.coffee_icon_gray
+            img = self.coffee_icon if i < self.req_coffee_bean else self.coffee_icon_gray
             self.coffee_bean_btns[i].config(image=img)
 
     def change_water_volume(self, volume: int):
-        self.req_water_volume = (max(CoffeeMaker.water_volume_param[0],
-                                     min(CoffeeMaker.water_volume_param[2], volume))
-                                 // CoffeeMaker.water_volume_param[3]
-                                 * CoffeeMaker.water_volume_param[3])
+        self.req_water_volume = (max(JuraProtocol.water_param[0],
+                                     min(JuraProtocol.water_param[2], volume))
+                                 // JuraProtocol.water_param[3]
+                                 * JuraProtocol.water_param[3])
         self.water_volume_scale.set(self.req_water_volume)
         self.water_volume_rect.config(text=f"Water volume: {self.req_water_volume} mL")
-
-    def wrapper_left_right(self, is_more: bool, is_coffee: bool):
-        def _cb():
-            v = 1 if is_more else -1
-            if is_coffee:
-                self.change_coffee_bean(self.req_coffee_bean + v)
-            else:
-                self.change_water_volume(self.req_water_volume + v * 5)
-
-        return _cb
 
     def submit_callback(self):
         self.settings_btn.config(state="disabled")
         if self.admin_btn is not None:
             self.admin_btn.config(state="disabled")
+        self.close_btn.config(state="disabled")
         self.future.set_result((int(self.req_coffee_bean), int(self.req_water_volume)))
         self.cleanup_request_ui()
         self.progress_ui()
 
-    async def get_request(self) -> Optional[Tuple[int, int] | Literal["settings"]]:
+    async def get_request(self) -> Optional[Tuple[int, int] | Literal["settings", "admin", "retry"]]:
         # reset future for the request
         self.future = asyncio.get_event_loop().create_future()
+        last_gui_status = None
         while not self.future.done():
             self.update_debug()
+            if last_gui_status != self.gui_status:
+                if self.gui_status == BrewCoffee.Status.JURA_STATUS_OK:
+                    self.cleanup_checking_status_ui()
+                    self.request_ui()
+                elif self.gui_status == BrewCoffee.Status.JURA_STATUS_NOT_OK:
+                    self.title_order_rect.config(text="Oops...")
+                    self.progress_label.config(text=self.ERROR_LBL[self.jura_feedback])
+                    self.retry_btn = self.add_button("Retry",
+                                                     self.retry_callback,
+                                                     gui=self.order_rect)
+                    break
             await asyncio.sleep(0.3)
         return await self.future
+
+    def retry_callback(self):
+        self.gui_status = BrewCoffee.Status.WAITING_CONNECTION
+        self.cleanup_checking_status_ui()
+        self.retry_btn.pack_forget()
+        self.retry_btn = None
+        self.checking_status_ui()
+        self.future.set_result("retry")
 
     # ================================ COFFEE BREWING PROGRESS UI ================================
     def progress_ui(self):
         self.gui_status = BrewCoffee.Status.WAITING_JURA_ACKNOWLEDGMENT
         self.title_order_rect = self.add_label(text="Brewing...", gui=self.order_rect, font='Helvetica 20 bold',
                                                pady=30)
-        self.progress_label = self.add_label("Contacting the Jura coffee machine...", gui=self.order_rect)
+        self.progress_label = self.add_label("Checking if Jura is still ready...", gui=self.order_rect)
         s = ttk.Style()
         s.theme_use('clam')
         s.configure("bg.Horizontal.TProgressbar", foreground=LIGHT_BROWN, background=BROWN)
@@ -709,29 +667,37 @@ class BrewCoffee(AbstractUI):
                                             length=300, mode="determinate")
         self.progress_bar.pack()
 
-    def jura_brew_cb(self, success: bool):
-        self.received_jura_cb = True
-        self.brew_sent_with_success = success
+    def jura_brew_cb(self, result: CoffeeMakerResult):
+        self.jura_feedback = result
+        self.brew_sent_with_success = result == CoffeeMakerResult.OK
 
-    async def update(self, coffee_maker: CoffeeMaker):
-        while not self.received_jura_cb:
-            if coffee_maker.get_last_status().maker_status == MakerStatus.BREWING:
+    async def update(self):
+        start_time = time.time()
+        while self.jura_feedback is None and (time.time() - start_time) < 120:
+            status = self.get_brewing_status()
+            if status is None:
+                continue
+            if status.stage in [BrewingStage.SETTING_PARAM, BrewingStage.PRESSING_BTN]:
+                self.progress_label.config(text=f"Sending your order...")
+            elif status.stage == BrewingStage.BREWING:
                 if self.gui_status == BrewCoffee.Status.WAITING_JURA_ACKNOWLEDGMENT:
-                    if coffee_maker.get_last_status().water_volume == 0:
+                    if self.get_brewing_status().water_volume == 0:
                         self.gui_status = BrewCoffee.Status.JURA_RECEIVED_ACKNOWLEDGMENT
                         self.progress_label.config(text=f"Grinding the coffee beans...")
                 else:
-                    self.gui_status = BrewCoffee.Status.JURA_PUMPING_WATER
-                    self.progress_label.config(text=f"Pumping the water...")
-                    self.debug_label.config(text=f"wv {coffee_maker.get_last_status().water_volume}")
-                    self.curr_water_volume = max(self.curr_water_volume, coffee_maker.get_last_status().water_volume)
-                    self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
+                    if self.get_brewing_status().water_volume > 0:
+                        self.gui_status = BrewCoffee.Status.JURA_PUMPING_WATER
+                        self.progress_label.config(text=f"Pumping the water...")
+                        self.curr_water_volume = max(self.curr_water_volume, self.get_brewing_status().water_volume)
+                        self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
+                self.debug_label.config(text=f"wv {self.get_brewing_status().water_volume}")
             await asyncio.sleep(1)
         self.ui_before_exit()
 
     # ================================ COFFEE BREWING PROGRESS UI ================================
     def ui_before_exit(self):
         self.progress_bar.pack_forget()
+        self.close_btn.config(state="active")
         if self.brew_sent_with_success:
             self.title_order_rect.config(text="You're coffee is ready!")
             self.progress_label.config(text="Enjoy :)")
@@ -739,10 +705,11 @@ class BrewCoffee(AbstractUI):
                            gui=self.order_rect, font='Helvetica 12 italic', fg=LIGHT_BROWN)
             self.balance_lbl.config(text=f"{-self.user.get_user_balance()}")
         else:
-            self.title_order_rect.config(text="An unexpected event occurred...")
-            self.progress_label.config(text="Please try again...")
-            self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
-                           gui=self.order_rect, font='Helvetica 12 italic')
+            self.title_order_rect.config(text="Oops...")
+            self.progress_label.config(text=self.ERROR_LBL[self.jura_feedback])
+            if self.jura_feedback is None:
+                self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
+                               gui=self.order_rect, font='Helvetica 12 italic')
             self.add_label("Nothing will be debited from your account.", gui=self.order_rect,
                            font='Helvetica 13 bold')
             self.closing_delay = 15

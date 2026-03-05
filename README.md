@@ -30,8 +30,8 @@ Additional arguments and flags are described with the `-h` argument.
 |                    | 1   | 3V3 Power       | 5V Power          | 2   | PN532 (red)     |
 | PN532 SDA (yellow) | 3   | GPIO2 (SDA1)    | 5V Power          | 4   | SCREEN (red)    |
 | PN532 SCL (green)  | 5   | GPIO3 (SCL1)    | GND               | 6   | SCREEN (brown)  |
-|                    | 7   | GPIO4           | GPIO14 (TXD0)     | 8   | JURA RX (brown) |
-| JURA (black)       | 9   | GND             | GPIO15 (RXD0)     | 10  | JURA TX (blue)  |
+|                    | 7   | GPIO4           | GPIO14 (TXD0)     | 8   | JURA RX (blue)  |
+| JURA (black)       | 9   | GND             | GPIO15 (RXD0)     | 10  | JURA TX (brown) |
 |                    | 11  | GPIO17          | GPIO18 (PWM0)     | 12  |                 |
 |                    | 13  | GPIO27          | GND               | 14  | PN532 (brown)   |
 |                    | 15  | GPIO22          | GPIO23            | 16  | JURA  (white)   |
