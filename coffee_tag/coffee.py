@@ -6,11 +6,12 @@ import asyncio
 import logging
 import os
 from argparse import Namespace
+from asyncio import Event
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, List
 
-from juracoffeemachine import CoffeeMaker, JuraCommand
+from juracoffeemachine import CoffeeMaker, CoffeeStatistics
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
@@ -33,7 +34,6 @@ class CoffeeManager:
 
         self.loop.create_task(self.listen_to_card_reader())
         self.loop.create_task(self.monitor_statistics())
-        self.last_stat = None
         self.loop.create_task(self.tk_loop())
 
     def __main_gui_callback__(self):
@@ -66,18 +66,22 @@ class CoffeeManager:
 
     async def monitor_statistics(self) -> None:
         while self.rfid.run and not self.args.dev:
-            def _cb(stat: Optional[Tuple[int, int, int, int, int, int, int]]):
+            last_stat: List[Optional[CoffeeStatistics]] = [None]
+            done = Event()
+
+            def _cb(stat: Optional[CoffeeStatistics]):
                 if stat is not None:
-                    self.last_stat = (datetime.now(tz=timezone.utc), stat)
+                    last_stat[0] = stat
                 else:
-                    self.last_stat = None
                     logger.warning("Couldn't fetch jura's statistics")
+                done.set()
 
             self.coffee_maker.get_totals_statistics(cb=_cb)
-            await asyncio.sleep(60 * 5)
-            if self.last_stat is not None:
-                self.db.save_statistics(self.last_stat)
-            await asyncio.sleep(60 * 55)
+            await done.wait()
+            if last_stat[0] is not None:
+                self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0])
+
+            await asyncio.sleep(60 * 25)
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:

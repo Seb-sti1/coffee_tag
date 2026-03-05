@@ -9,6 +9,7 @@ from datetime import datetime as dt, timezone, datetime
 from typing import Callable, Optional, Tuple, Any, Union, Literal, List
 
 import bcrypt
+from juracoffeemachine import CoffeeStatistics
 from quart_auth import AuthUser
 
 logger = logging.getLogger(__name__)
@@ -316,18 +317,16 @@ class Database:
                                         {"name": f"%{name}%"})
         return [User(self, *r) for r in result] if result is not None else []
 
-    def save_statistics(self, data: Tuple[datetime, Tuple[Optional[int], Optional[int], Optional[int],
-    Optional[int], Optional[int], Optional[int], Optional[int]]]) -> bool:
-        stat = data[1]
+    def save_statistics(self, date: datetime, stat: CoffeeStatistics) -> bool:
         return self.edit_query("INSERT INTO jura_count (date, tot_espresso, tot_2_espresso,"
                                "tot_ristretto, tot_2_ristretto, tot_coffee, tot_2_coffee, tot_special) VALUES"
                                "(:date, :tot_espresso, :tot_2_espresso, :tot_ristretto,"
                                ":tot_2_ristretto, :tot_coffee, :tot_2_coffee, :tot_special)",
-                               {"date": data[0].strftime("%Y-%m-%d %H:%M:%S"),
-                                "tot_espresso": stat[0], "tot_2_espresso": stat[1],
-                                "tot_ristretto": stat[2], "tot_2_ristretto": stat[3],
-                                "tot_coffee": stat[4], "tot_2_coffee": stat[5],
-                                "tot_special": stat[6]})
+                               {"date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                "tot_espresso": stat.tot_espresso, "tot_2_espresso": stat.tot_2_espresso,
+                                "tot_ristretto": stat.tot_ristretto, "tot_2_ristretto": stat.tot_2_ristretto,
+                                "tot_coffee": stat.tot_coffee, "tot_2_coffee": stat.tot_2_coffee,
+                                "tot_special": stat.tot_special})
 
     def get_user_by_rfid(self, card: str):
         result = self.select_one("SELECT id, name, surname, nickname, "
