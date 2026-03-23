@@ -167,7 +167,7 @@ class CoffeeManager:
                                 button_one="Ok").get_future()
                 logger.warning(f"{user} avoided updating its profile.")
         # verify account status
-        if user.status == "banned":
+        if user.status == "banned" and user.permissions != "owner":
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
                             main_text="Your account has been blocked indefinitely.",
@@ -175,7 +175,7 @@ class CoffeeManager:
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None
-        if user.status == "shadow_banned":
+        if user.status == "shadow_banned" and user.permissions != "owner":
             await GeneralUI(self.root_gui, "Oops...",
                             320, 300,
                             main_text="An unexpected error occurred while opening your profile!",
