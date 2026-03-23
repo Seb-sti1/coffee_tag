@@ -549,13 +549,13 @@ class BrewCoffee(AbstractUI):
 
         shift = 60
         # TODO use logo
-        self.add_button("Ristretto", wrapper_preset_cb(7, 25), gui=self.presets_rect,
+        self.add_button("Ristretto", wrapper_preset_cb(8, 25), gui=self.presets_rect,
                         x=5, y=10, width=6, height=2)
-        self.add_button("Expresso", wrapper_preset_cb(5, 45), gui=self.presets_rect,
+        self.add_button("Expresso", wrapper_preset_cb(6, 45), gui=self.presets_rect,
                         x=5, y=10 + shift * 1, width=6, height=2)
-        self.add_button("Coffee", wrapper_preset_cb(3, 100), gui=self.presets_rect,
+        self.add_button("Coffee", wrapper_preset_cb(4, 100), gui=self.presets_rect,
                         x=5, y=10 + shift * 2, width=6, height=2)
-        self.add_button("Special", wrapper_preset_cb(7, 220), gui=self.presets_rect,
+        self.add_button("Special", wrapper_preset_cb(8, 220), gui=self.presets_rect,
                         x=5, y=10 + shift * 3, width=6, height=2)
         # ==== COFFEE BEAN QUANTITY
         self.coffee_bean_rect = tk.LabelFrame(self.order_rect, text="Coffee quantity:", font='Helvetica 12',
