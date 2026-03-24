@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 
 class MockJura(JuraProtocol):
     def __init__(self):
-        self.cs_list = [CS("cs:03770000000ED000000000000006000017000000000"),
-                        CS("cs:03770000000ED000000000000006000017000000000"),
-                        CS("cs:03770000000ED000000000000006000017000000000"),
-                        CS("cs:03770000000ED000000000000006000000000000000"),
+        self.cs_list = [CS("cs:03770000000ED000000000000006000000000000000"),
                         CS("cs:03770000000ED000000000000006000000000000000"),
                         CS("cs:03770000000ED000000000000006000000000000000"),
                         CS("cs:03770000000ED000000000000006000000000000000"),
@@ -46,12 +43,12 @@ class MockJura(JuraProtocol):
             self.cs_idx = (self.cs_idx + 1) % len(self.cs_list)
             return cs
         elif command == JuraCommand.HZ:
-            hz = HZ("hz:01010110000000,0288,00ED,0107,03E8,0000,0,0017,000100,12")
+            hz = HZ("hz:01010110000000,0288,00ED,0000,03E8,0000,0,0017,000100,12")
             if self.first_hz:
                 self.first_hz = False
                 hz.is_draining_tray_present = True
             else:
-                hz.is_draining_tray_present = False
+                hz.is_draining_tray_present = True
             return hz
         return None
 
