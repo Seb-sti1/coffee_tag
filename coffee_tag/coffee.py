@@ -257,27 +257,28 @@ class CoffeeManager:
         else:
             tmp_user = current_user
 
+        LBL_ERRORS = {
+            'missing_name': ("Fill all the required field", "You must provide your name."),
+            'missing_surname': ("Fill all the required field", "You must provide your surname."),
+            'missing_mail': ("Fill all the required field", "You must provide your mail."),
+            'missing_password': ("Fill all the required field", "You must provide your password."
+                                                                " It needs to be at least 4 characters."),
+            'missing_date_of_departure': ("Fill all the required field", "You must provide your date of departure."
+                                                                         " Mind the format YYYY/MM/DD."),
+            'mail_format': ("Your mail is not valid", "Please provide a valid mail."),
+            'duplicate': ("Account already exists",
+                          "An account with this name and surname or mail or badge id already exists."),
+        }
+
         while valid is not True:
             tmp_user = await UserProperties(self.root_gui, self.rfid, current_user is None, tmp_user).get_future()
             if tmp_user is None:
                 return False
             valid = tmp_user.is_valid()
-            if valid == "missing_field":
-                await GeneralUI(self.root_gui, "Fill all the required field.",
-                                320, 290,
-                                main_text="You must provide at least your name, surname, mail, passcode"
-                                          " and date of departure.",
-                                button_one="Ok").get_future()
-            elif valid == "mail_format":
-                await GeneralUI(self.root_gui, "Your mail is not valid.",
-                                320, 250,
-                                main_text="Please provide a valid mail.",
-                                button_one="Ok").get_future()
-            elif valid == "duplicate":
-                await GeneralUI(self.root_gui, "Account already exists.",
-                                320, 250,
-                                main_text="An account with this name and surname or mail or badge id already exists.",
-                                button_one="Ok").get_future()
+            if valid is True:
+                break
+            error = LBL_ERRORS.get(valid, ("Unknown error", "Please check the fields of the form."))
+            await GeneralUI(self.root_gui, error[0], 320, 290, main_text=error[1], button_one="Ok").get_future()
         if (current_user is None and tmp_user.register()) or (current_user is not None and tmp_user.update()):
             logger.info(f"Creating profile '{tmp_user}'" if current_user is None else f"Updating profile '{tmp_user}'")
             await GeneralUI(self.root_gui, f"Welcome {str(tmp_user)}!",

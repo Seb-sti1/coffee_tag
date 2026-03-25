@@ -115,13 +115,21 @@ class User(AuthUser):
     def __repr__(self):
         return str(self)
 
-    def is_valid(self) -> Union[True, Literal['missing_field', 'mail_format', 'duplicate']]:
-        if self.name == "" or self.surname == "" or self.mail == "" \
-                or self.passcode is None or self.date_of_departure is None:
-            return "missing_field"
-        elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.mail):
+    def is_valid(self) -> Union[True, Literal['missing_name', 'missing_surname', 'missing_mail', 'missing_password',
+        'missing_date_of_departure', 'mail_format', 'duplicate']]:
+        if self.name == "":
+            return "missing_name"
+        if self.surname == "":
+            return "missing_surname"
+        if self.mail == "":
+            return "missing_mail"
+        if self.passcode is None:
+            return "missing_password"
+        if self.date_of_departure is None:
+            return "missing_date_of_departure"
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.mail):
             return "mail_format"
-        elif self.db.check_duplicate(self.name, self.surname, self.mail, self.id_badge, self.user_id):
+        if self.db.check_duplicate(self.name, self.surname, self.mail, self.id_badge, self.user_id):
             return "duplicate"
         return True
 
@@ -164,7 +172,8 @@ class User(AuthUser):
                                    "name": self.name, "surname": self.surname, "nickname": self.nickname,
                                    "cascad": self.cascad_username, "initial_balance": self.initial_balance,
                                    "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
-                                   "date_of_departure": None if self.date_of_departure is None else self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
+                                   "date_of_departure": None if self.date_of_departure is None else self.date_of_departure.strftime(
+                                       "%Y-%m-%d %H:%M:%S"),
                                    "mail": self.mail, "badge": self.id_badge,
                                    "beans_q": self.beans_q, "water_v": self.water_v}):
             return False
