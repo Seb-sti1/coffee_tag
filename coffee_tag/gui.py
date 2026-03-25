@@ -77,7 +77,7 @@ class AbstractUI:
     def add_label(self, text: str, **kwargs) -> tk.Label:
         defaults = {"font": "Helvetica 14", "fg": WHITE, "bg": BROWN,
                     "justify": "center", "side": "top", "pady": 10, "fill": "x", "x": 0,
-                    "wraplength": self.w - 20, "text": text, "gui": self.content}
+                    "wraplength": self.w - 100, "text": text, "gui": self.content}
         exclude_keys = ["x", "y", "side", "pady", "fill", "gui"]
         kwargs = {**defaults, **kwargs}
         lbl = tk.Label(kwargs["gui"], **{k: kwargs[k] for k in kwargs.keys() if k not in exclude_keys})
@@ -703,7 +703,7 @@ class BrewCoffee(AbstractUI):
                         self.progress_label.config(text=f"Pumping the water...")
                         self.curr_water_volume = max(self.curr_water_volume, self.get_brewing_status().water_volume)
                         self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
-                if type(self.get_brewing_status().last_msg) == HZ:
+                if type(self.get_brewing_status().last_msg) == HZ and self.user.permissions == "owner":
                     self.debug_label.config(text=f"{self.get_brewing_status().last_msg.unknown_c}")
             await asyncio.sleep(1)
         self.ui_before_exit()
@@ -752,7 +752,7 @@ class BrewCoffee(AbstractUI):
 
 class AskPassword(AbstractUI):
     def __init__(self, main: MainGUI, rfid: RFIDReader, user: User):
-        super().__init__(main, "Login", 320, 250)
+        super().__init__(main, "Login", 370, 250)
         self.rfid = rfid
         self.add_label(f"Hello {user}!", font='Helvetica 22 bold')
         self.add_label("Please enter your password", font='Helvetica 15', fg=LIGHT_BROWN, pady=None, fill=None)
@@ -947,7 +947,9 @@ def get_driver_version():
 
 class MainGUI:
 
-    def __init__(self, callback: Callable[[], None], coffee_price: float):
+    def __init__(self, main_callback: Callable[[], None],
+                 create_user_callback: Callable[[], None],
+                 coffee_price: float):
         self.opened_popup = []
         self.tk = tk.Tk()
         self.tk.geometry('800x480')
@@ -970,10 +972,16 @@ class MainGUI:
         txt_lbl2.pack(side="top", fill='x')
 
         # Button label to manually check identity
-        bt_lbl = tk.Button(self.tk, text="Can't read my badge ?", font='Helvetica 15 bold', fg=DARK_BROWN,
-                           bg=LIGHT_BROWN, height=2, width=24,
-                           command=callback)
-        bt_lbl.pack(side="bottom", pady=20)
+        search_btn = tk.Button(self.tk, text="Use manual search", font='Helvetica 15 bold', fg=DARK_BROWN,
+                           bg=LIGHT_BROWN, height=2, width=20,
+                           command=main_callback)
+        search_btn.place(x=120, y=410)
+
+        # Button to add new user
+        new_btn = tk.Button(self.tk, text="Create new account", font='Helvetica 15 bold', fg=DARK_BROWN,
+                           bg=LIGHT_BROWN, height=2, width=20,
+                           command=create_user_callback)
+        new_btn.place(x=430, y=410)
 
         # Version label
         version_lbl = tk.Label(self.tk, text=f"{get_app_version()} - {get_driver_version()}",

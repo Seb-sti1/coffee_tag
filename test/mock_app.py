@@ -24,13 +24,14 @@ def main():
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--debug-gui', action='store_true', help='Show all configured windows')
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
-    parser.add_argument('--no-monitor', action='store_true', help='Don\'t monitor jura machine.')
     parser.add_argument('--no-authentication', '-a', action='store_true',
                         help='Should the authentication be deactivated')
     parser.add_argument('--install-autoboot', action='store_true',
                         help='To ensure the app starts at boot')
     parser.add_argument('--uninstall-autoboot', action='store_true',
                         help='To disable autoboot')
+    parser.add_argument('--authoritative', action='store_true',
+                        help='It activates the ordering via this app for all the users.')
     parser.add_argument('--beta', '-b', action="append", type=int,
                         help="List of account that are beta testers")
     args = parser.parse_args()

@@ -27,7 +27,7 @@ class CoffeeManager:
         self.rfid = rfid
         self.args = args
         self.coffee_maker = coffee_maker
-        self.root_gui = MainGUI(self.__main_gui_callback__, self.db.coffee_price)
+        self.root_gui = MainGUI(self.__main_gui_callback__, self.__main_gui_create_user__, self.db.coffee_price)
 
         self.loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -38,6 +38,9 @@ class CoffeeManager:
 
     def __main_gui_callback__(self):
         self.loop.create_task(self.manual_search_and_open_account())
+
+    def __main_gui_create_user__(self):
+        self.loop.create_task(self.add_or_update_user())
 
     async def __check_authentication__(self, user) -> bool:
         if self.args.no_authentication:
@@ -157,15 +160,6 @@ class CoffeeManager:
         return None
 
     async def open_user_account(self, user: User, is_authenticated: bool = False) -> None:
-        # before anything else ask missing infos
-        if user.is_valid() is not True:
-            was_updated = await self.add_or_update_user(user)
-            if was_updated is False or was_updated is None:
-                await GeneralUI(self.root_gui, "Please update your profile.",
-                                320, 250,
-                                main_text="To access your account please update your profile.",
-                                button_one="Ok").get_future()
-                logger.warning(f"{user} avoided updating its profile.")
         # verify account status
         if user.status == "banned" and user.permissions != "owner":
             await GeneralUI(self.root_gui, "Your account is deactivated.",
@@ -186,7 +180,16 @@ class CoffeeManager:
         # verify access rights
         if not is_authenticated and not await self.__check_authentication__(user):
             return None
-        if user.user_id in ([100] if self.args.beta is None else self.args.beta):
+        # ask missing infos
+        if user.is_valid() is not True:
+            was_updated = await self.add_or_update_user(user)
+            if was_updated is False or was_updated is None:
+                await GeneralUI(self.root_gui, "Please update your profile.",
+                                320, 250,
+                                main_text="To access your account please update your profile.",
+                                button_one="Ok").get_future()
+                logger.warning(f"{user} avoided updating its profile.")
+        if self.args.authoritative or user.user_id in ([100] if self.args.beta is None else self.args.beta):
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
                               self.coffee_maker.get_brewing_status,
