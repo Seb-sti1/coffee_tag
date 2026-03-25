@@ -455,10 +455,10 @@ class BrewCoffee(AbstractUI):
             self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
                            fg=LIGHT_BROWN, x=225, y=125)
         self.settings_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
-                                                                      "settings.png")).resize((50, 50)))
+                                                                        "settings.png")).resize((50, 50)))
         self.settings_btn = self.add_button("", lambda: [self.future.set_result("settings"),
-                                                                  self.on_closing(),
-                                                                  self.gui.destroy()],
+                                                         self.on_closing(),
+                                                         self.gui.destroy()],
                                             image=self.settings_icon,
                                             x=5, y=5, px_width=50, px_height=50)
         self.admin_btn = None
@@ -973,14 +973,14 @@ class MainGUI:
 
         # Button label to manually check identity
         search_btn = tk.Button(self.tk, text="Use manual search", font='Helvetica 15 bold', fg=DARK_BROWN,
-                           bg=LIGHT_BROWN, height=2, width=20,
-                           command=main_callback)
+                               bg=LIGHT_BROWN, height=2, width=20,
+                               command=main_callback)
         search_btn.place(x=120, y=410)
 
         # Button to add new user
         new_btn = tk.Button(self.tk, text="Create new account", font='Helvetica 15 bold', fg=DARK_BROWN,
-                           bg=LIGHT_BROWN, height=2, width=20,
-                           command=create_user_callback)
+                            bg=LIGHT_BROWN, height=2, width=20,
+                            command=create_user_callback)
         new_btn.place(x=430, y=410)
 
         # Version label
