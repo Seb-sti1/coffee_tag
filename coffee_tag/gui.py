@@ -869,7 +869,7 @@ class AdminGUI(AbstractUI):
         self.current_user.permissions = self.perm_combobox.get()
         self.current_user.status = self.status_combobox.get()
 
-        if self.current_user.update():
+        if self.current_user.update(True):
             logger.warning(f"{self.current_user} status/permissions were updated:"
                            f" {self.current_user.permissions}, {self.current_user.status}.")
             self.save_btn.config(bg="green")

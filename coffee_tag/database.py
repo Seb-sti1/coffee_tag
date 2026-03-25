@@ -149,8 +149,8 @@ class User(AuthUser):
         self.user_id = user.user_id
         return True
 
-    def update(self) -> bool:
-        if self.is_valid() is not True:
+    def update(self, force: bool = False) -> bool:
+        if not force and self.is_valid() is not True:
             return False
 
         if not self.db.edit_query("UPDATE users SET "
@@ -164,7 +164,7 @@ class User(AuthUser):
                                    "name": self.name, "surname": self.surname, "nickname": self.nickname,
                                    "cascad": self.cascad_username, "initial_balance": self.initial_balance,
                                    "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
-                                   "date_of_departure": self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
+                                   "date_of_departure": None if self.date_of_departure is None else self.date_of_departure.strftime("%Y-%m-%d %H:%M:%S"),
                                    "mail": self.mail, "badge": self.id_badge,
                                    "beans_q": self.beans_q, "water_v": self.water_v}):
             return False
