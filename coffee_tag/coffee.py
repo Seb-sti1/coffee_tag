@@ -116,7 +116,7 @@ class CoffeeManager:
                 if await self.__check_authentication__(user):
                     self.db.sync_badge(user, card)
                     await GeneralUI(self.root_gui, title="Welcome back!",
-                                    w=320, h=250,
+                                    w=320, h=270,
                                     main_text="Your badge has been successfully linked to your account",
                                     button_one="Ok").get_future()
             elif should_sync is False:
@@ -231,7 +231,7 @@ class CoffeeManager:
             if coffee_bought > 9:
                 validate = await GeneralUI(self.root_gui, "Wow, are you sure?",
                                            w=320, h=320,
-                                           main_text=f"Do you confirm buying {coffee_bought} coffee?",
+                                           main_text=f"Do you confirm buying {coffee_bought} coffees?",
                                            button_one="Yes", button_two="Oops").get_future()
                 if validate is None or validate is False:
                     return None
@@ -241,7 +241,7 @@ class CoffeeManager:
                 if user.buy_coffees(coffee_bought):
                     logger.info("This was saved in db.")
                     await GeneralUI(self.root_gui, title=f"Thank you {user}!",
-                                    w=320, h=250,
+                                    w=490, h=230,
                                     sub_text="Your balance is now",
                                     main_text=f"{-user.get_user_balance()} €",
                                     should_close_in_5=True).get_future_with_autoclosing()

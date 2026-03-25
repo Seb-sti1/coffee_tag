@@ -77,7 +77,7 @@ class AbstractUI:
     def add_label(self, text: str, **kwargs) -> tk.Label:
         defaults = {"font": "Helvetica 14", "fg": WHITE, "bg": BROWN,
                     "justify": "center", "side": "top", "pady": 10, "fill": "x", "x": 0,
-                    "wraplength": self.w - 100, "text": text, "gui": self.content}
+                    "wraplength": self.w - 20, "text": text, "gui": self.content}
         exclude_keys = ["x", "y", "side", "pady", "fill", "gui"]
         kwargs = {**defaults, **kwargs}
         lbl = tk.Label(kwargs["gui"], **{k: kwargs[k] for k in kwargs.keys() if k not in exclude_keys})
@@ -213,7 +213,7 @@ class GeneralUI(AbstractUI):
                  button_two: Optional[str] = None,
                  should_close_in_5: bool = False):
         super().__init__(main, title, w, h)
-        self.add_label(title, font='Helvetica 22 bold', wraplength=self.w - 120)
+        self.add_label(title, font='Helvetica 22 bold', wraplength=self.w - 140)
         if sub_text and not sub_after_main:
             self.add_label(sub_text, fg=LIGHT_BROWN, font='Helvetica 12 bold italic', pady=None)
         if main_text:
@@ -255,8 +255,8 @@ class GeneralUI(AbstractUI):
 
 class UserMenu(AbstractUI):
     def __init__(self, main: MainGUI, user: User):
-        super().__init__(main, "Your account", 420, 370)
-        self.add_label(f"Hello {user}!", font='Helvetica 22 bold')
+        super().__init__(main, "Your account", 490, 370)
+        self.add_label(f"Hello {user}!", font='Helvetica 22 bold', wraplength=self.w - 140)
         self.add_label("Your balance is currently", font='Helvetica 15', fg=LIGHT_BROWN,
                        pady=None, fill=None)
         self.add_label(f"{-user.get_user_balance()} €", font='Helvetica 22 bold')
@@ -265,12 +265,12 @@ class UserMenu(AbstractUI):
             self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
                            font='Helvetica 15', fg=LIGHT_BROWN, pady=None)
         self.add_label("How many coffees will you take ?", font='Helvetica 15', fg=LIGHT_BROWN, pady=None, fill=None)
-        self.entry = self.add_entry(width=3, font='Helvetica 15 bold', x=193, y=227)
+        self.entry = self.add_entry(width=3, font='Helvetica 15 bold', x=228, y=237)
         self.entry.delete(0, tk.END)
         self.entry.insert(0, "1")
-        self.add_button("►", lambda: self.update_entry(True), font='Helvetica 25', height=1, width=1, x=255, y=215)
-        self.add_button("◄", lambda: self.update_entry(False), font='Helvetica 25', height=1, width=1, x=115, y=215)
-        self.add_button("OK", self.validate_entry, font='Helvetica 14 bold', height=2, width=2, x=185, y=275)
+        self.add_button("►", lambda: self.update_entry(True), font='Helvetica 25', height=1, width=1, x=290, y=225)
+        self.add_button("◄", lambda: self.update_entry(False), font='Helvetica 25', height=1, width=1, x=150, y=225)
+        self.add_button("OK", self.validate_entry, font='Helvetica 14 bold', height=2, width=2, x=220, y=285)
 
     def get_current_entry_value(self) -> Optional[int]:
         if self.entry.get().isdigit() and int(self.entry.get()) > 0:
@@ -1041,8 +1041,8 @@ class ImageLabel(tk.Label):
 def show_gui(path: str, price: float):
     rfid = RFIDReader(True)
     db = Database(path, True, price)
-    users = db.search_by_name("ale")
-    gui = MainGUI(lambda: None, 0.25)
+    users = db.search_by_name("dit-")
+    gui = MainGUI(lambda: None, lambda: None, 0.25)
 
     async def wrapper(entity, **args):
         return await entity(**args).get_future()
@@ -1088,28 +1088,33 @@ def show_gui(path: str, price: float):
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Wow, are you sure?",
                                  w=320, h=320,
-                                 main_text=f"Do you confirm buying {5} coffee?",
+                                 main_text=f"Do you confirm buying {5} coffees?",
                                  button_one="Yes", button_two="Oops"))
         loop.create_task(wrapper(GeneralUI, main=gui, title=f"Thank you {users[0]}!",
-                                 w=320, h=250,
+                                 w=490, h=230,
                                  sub_text="Your balance is now",
                                  main_text=f"{-users[0].get_user_balance()} €",
                                  should_close_in_5=True))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Fill all the required field.",
                                  w=320, h=290,
-                                 main_text="You must provide at least your name, surname, mail, passcode"
-                                           " and date of departure.",
+                                 main_text="You must provide your password."
+                                           " It needs to be at least 4 characters.",
+                                 button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Fill all the required field.",
+                                 w=320, h=290,
+                                 main_text="You must provide your date of departure."
+                                           " Mind the format YYYY/MM/DD.",
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Your mail is not valid.",
-                                 w=320, h=250,
+                                 w=320, h=290,
                                  main_text="Please provide a valid mail.",
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Account already exists.",
-                                 w=320, h=250,
+                                 w=320, h=290,
                                  main_text="An account with this name and surname or mail or badge id already exists.",
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title=f"Welcome {str(users[0])}!",
-                                 w=320, h=250,
+                                 w=320, h=270,
                                  main_text="Your profile is now created!" if users[0] is None \
                                      else "Your profile was updated!",
                                  button_one="Ok"))
@@ -1120,7 +1125,7 @@ def show_gui(path: str, price: float):
         loop.create_task(wrapper(UserMenu, main=gui, user=users[0]))
         loop.create_task(wrapper(UserProperties, main=gui, rfid=rfid, is_creation=False, user=users[0]))
         loop.create_task(wrapper(BrewCoffee, main=gui, user=users[0],
-                                 get_maker_status=lambda: None, beans_q=2, water_v=80))
+                                 get_brewing_status=lambda: None, beans_q=2, water_v=80))
 
         while True:
             gui.tk.update()
