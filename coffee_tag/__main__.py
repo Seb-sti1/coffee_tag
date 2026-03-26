@@ -30,6 +30,8 @@ def setup():
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
     parser.add_argument('--no-authentication', '-a', action='store_true',
                         help='Should the authentication be deactivated')
+    parser.add_argument('--monitor-delay', '-d', type=int, default=0,
+                        help='The duration in minutes between each monitor of the jura totals. 0 to deactivate.')
     parser.add_argument('--install-autoboot', action='store_true',
                         help='To ensure the app starts at boot')
     parser.add_argument('--uninstall-autoboot', action='store_true',
