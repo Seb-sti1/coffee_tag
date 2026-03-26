@@ -18,7 +18,7 @@ from coffee_tag.website.app import Website
 logger = logging.getLogger(__name__)
 
 
-def main():
+def setup():
     parser = argparse.ArgumentParser(prog="coffee_tag")
     parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
     parser.add_argument('path', default="coffee.db", type=Path, help='Path to the db')
@@ -80,6 +80,12 @@ def main():
     db = Database(str(path), args.read_only, args.price)
     rfid = RFIDReader(args.dev)
     website = Website(db)
+
+    return args, db, rfid, website
+
+
+def main():
+    args, db, rfid, website = setup()
 
     async def asyncio_main():
         CoffeeManager(db, rfid, CoffeeMaker.create_from_uart(args.tty) if not args.dev else None, args)
