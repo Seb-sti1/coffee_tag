@@ -70,7 +70,7 @@ def setup():
         exit(0)
 
     fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
-    rotating_handler = RotatingFileHandler(path.parent / "debug.log", maxBytes=10485760, backupCount=3)
+    rotating_handler = RotatingFileHandler(path.parent / "debug.log", maxBytes=1048576, backupCount=5)
     rotating_handler.setFormatter(fmt)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(fmt)
