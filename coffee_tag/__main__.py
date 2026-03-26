@@ -72,8 +72,10 @@ def setup():
     rotating_handler.setFormatter(fmt)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(fmt)
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
-                        handlers=[rotating_handler, console_handler])
+    logging.getLogger("coffee_tag").setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.getLogger("__main__").setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.getLogger().handlers = [rotating_handler, console_handler]
     logger.info(f"PID is {os.getpid()}. App version is {get_app_version()}."
                 f" Jura driver version is {get_driver_version()}.")
 
