@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import logging
 import os
-import subprocess
+import shutil
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -22,48 +22,34 @@ def setup():
     parser = argparse.ArgumentParser(prog="coffee_tag")
     parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
     parser.add_argument('path', default="coffee.db", type=Path, help='Path to the db')
-    parser.add_argument('--tty', default="/dev/ttyUSB0", type=str,
+    # prod related arguments regarding how the app should behave
+    parser.add_argument('--tty', default="/dev/ttyAMA0", type=str,
                         help='Path to the tty of the machin\'s uart')
+    parser.add_argument('--no-authentication', '-a', action='store_true',
+                        help='Should the authentication be deactivated')
+    parser.add_argument('--authoritative', action='store_true',
+                        help='It activates the ordering via this app for all the users.')
+    parser.add_argument('--monitor-delay', '-d', type=int, default=0,
+                        help='The duration in minutes between each monitor of the jura totals. 0 to deactivate.')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
+    # dev related arguments
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--debug-gui', action='store_true', help='Show all configured windows')
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
-    parser.add_argument('--no-authentication', '-a', action='store_true',
-                        help='Should the authentication be deactivated')
-    parser.add_argument('--monitor-delay', '-d', type=int, default=0,
-                        help='The duration in minutes between each monitor of the jura totals. 0 to deactivate.')
-    parser.add_argument('--install-autoboot', action='store_true',
-                        help='To ensure the app starts at boot')
-    parser.add_argument('--uninstall-autoboot', action='store_true',
-                        help='To disable autoboot')
-    parser.add_argument('--authoritative', action='store_true',
-                        help='It activates the ordering via this app for all the users.')
-    parser.add_argument('--beta', '-b', action="append", type=int,
-                        help="List of account that are beta testers")
+    parser.add_argument('--beta', '-b', action="append", type=int, help="List of account that are beta testers")
     args = parser.parse_args()
     path = Path(args.path).expanduser()
     user_home = Path("~/").expanduser()
 
-    if args.install_autoboot:
-        if not os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
-            os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
-            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.desktop"),
-                       f"{user_home}/.local/share/applications/coffee-tag.desktop")
+    if not args.dev or True:
+        os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
+        shutil.copy(str(os.path.join(str(os.path.dirname(__file__)), "coffee-tag.desktop")),
+                    f"{user_home}/.local/share/applications/coffee-tag.desktop")
+        os.makedirs(f"{user_home}/.config/autostart/", exist_ok=True)
         if not os.path.exists(f"{user_home}/.config/autostart/coffee-tag.desktop"):
-            os.makedirs(f"{user_home}/.config/autostart/", exist_ok=True)
-            os.symlink(os.path.join(os.path.dirname(__file__), "coffee-tag.desktop"),
+            os.symlink(f"{user_home}/.local/share/applications/coffee-tag.desktop",
                        f"{user_home}/.config/autostart/coffee-tag.desktop")
-        subprocess.run(["gtk-launch", "coffee-tag"])
-        logging.info("Desktop file was installed, the app should start at boot.")
-        exit(0)
-
-    if args.uninstall_autoboot:
-        if os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
-            os.remove(f"{user_home}/.local/share/applications/coffee-tag.desktop")
-        if os.path.exists(f"{user_home}/.config/autostart/coffee-tag.desktop"):
-            os.remove(f"{user_home}/.config/autostart/coffee-tag.desktop")
-        logging.info("Desktop file was uninstalled.")
-        exit(0)
+        logging.info("Desktop file was updated.")
 
     if args.debug_gui:
         show_gui(str(path), args.price)

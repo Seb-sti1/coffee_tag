@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Coffee Tag
-Exec=/home/coffee/.local/bin/coffee_tag --no-authentication --no-monitor 0.25 /home/coffee/coffee/coffee.db
+Exec=/home/coffee/.local/bin/coffee_tag 0.25 /home/coffee/coffee/coffee.db --tty /dev/ttyAMA0 --no-authentication --verbose -b 100
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
