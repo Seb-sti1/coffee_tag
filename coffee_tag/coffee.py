@@ -68,22 +68,23 @@ class CoffeeManager:
             await asyncio.sleep(1 / 60)
 
     async def monitor_statistics(self) -> None:
-        while not self.args.dev and self.args.monitor_delay > 0 and self.rfid.run:
-            last_stat: List[Optional[CoffeeStatistics]] = [None]
-            done = Event()
+        while not self.args.dev and self.args.monitor_delay > 0 and self.rfid.run and self.coffee_maker is not None:
+            d = datetime.now()
+            if d.weekday() < 5 and 7 <= d.hour <= 20:
+                last_stat: List[Optional[CoffeeStatistics]] = [None]
+                done = Event()
 
-            def _cb(stat: Optional[CoffeeStatistics]):
-                if stat is not None:
-                    last_stat[0] = stat
-                else:
-                    logger.warning("Couldn't fetch jura's statistics")
-                done.set()
+                def _cb(stat: Optional[CoffeeStatistics]):
+                    if stat is not None:
+                        last_stat[0] = stat
+                    else:
+                        logger.warning("Couldn't fetch jura's statistics")
+                    done.set()
 
-            self.coffee_maker.get_totals_statistics(cb=_cb)
-            await done.wait()
-            if last_stat[0] is not None:
-                self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0])
-
+                self.coffee_maker.get_totals_statistics(cb=_cb)
+                await done.wait()
+                if last_stat[0] is not None:
+                    self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0])
             await asyncio.sleep(60 * self.args.monitor_delay)
 
     async def listen_to_card_reader(self) -> None:
