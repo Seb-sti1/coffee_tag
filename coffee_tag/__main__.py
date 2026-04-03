@@ -43,7 +43,7 @@ def setup():
     path = Path(args.path).expanduser()
     user_home = Path("~/").expanduser()
 
-    if not args.dev or True:
+    if not args.dev:
         os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
         shutil.copy(str(os.path.join(str(os.path.dirname(__file__)), "coffee-tag.desktop")),
                     f"{user_home}/.local/share/applications/coffee-tag.desktop")
