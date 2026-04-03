@@ -29,8 +29,10 @@ def setup():
                         help='Should the authentication be deactivated')
     parser.add_argument('--authoritative', action='store_true',
                         help='It activates the ordering via this app for all the users.')
-    parser.add_argument('--monitor-delay', '-d', type=int, default=0,
-                        help='The duration in minutes between each monitor of the jura totals. 0 to deactivate.')
+    parser.add_argument('--power-gpio', type=int, default=None,
+                        help='The GPIO number turning on the jura power.')
+    parser.add_argument('--monitor-snap-delay', '-d', type=int, default=0,
+                        help='Query Jura totals at clock-synced intervals in minutes (e.g., 30 = :00, :30). 0 to disable.')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
     # dev related arguments
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
@@ -78,7 +80,7 @@ def main():
     args, db, rfid, website = setup()
 
     async def asyncio_main():
-        CoffeeManager(db, rfid, CoffeeMaker.create_from_uart(args.tty) if not args.dev else None, args)
+        CoffeeManager(db, rfid, CoffeeMaker.create_from_uart(args.tty, args.power_gpio) if not args.dev else None, args)
         await website.app.run_task(host="0.0.0.0", port=8080)
 
     asyncio.run(asyncio_main())
