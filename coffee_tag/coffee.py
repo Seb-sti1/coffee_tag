@@ -67,27 +67,39 @@ class CoffeeManager:
             self.root_gui.tk.update()
             await asyncio.sleep(1 / 60)
 
+    async def __save_statistics__(self):
+        if self.coffee_maker is None:
+            return
+        last_stat: List[Optional[CoffeeStatistics]] = [None]
+        done = Event()
+
+        def _cb(stat: Optional[CoffeeStatistics]):
+            if stat is not None:
+                last_stat[0] = stat
+            else:
+                logger.warning("Couldn't fetch jura's statistics")
+            done.set()
+
+        self.coffee_maker.get_totals_statistics(cb=_cb)
+        await done.wait()
+        if last_stat[0] is not None:
+            if self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0]):
+                logger.info("Statistics were saved.")
+            else:
+                logger.info("An error occurred while saving statistics in db.")
+
     async def monitor_statistics(self) -> None:
         while not self.args.dev and self.args.monitor_snap_delay > 0 and self.coffee_maker is not None \
                 and self.rfid.run:
+            delay = (self.args.monitor_snap_delay - (datetime.now().minute % self.args.monitor_snap_delay))
+            logger.debug(f"Next statistics monitoring in {delay} min.")
+            await asyncio.sleep(60 * delay)
             d = datetime.now()
-            if d.weekday() < 5 and 7 <= d.hour <= 23:
-                last_stat: List[Optional[CoffeeStatistics]] = [None]
-                done = Event()
-
-                def _cb(stat: Optional[CoffeeStatistics]):
-                    if stat is not None:
-                        last_stat[0] = stat
-                    else:
-                        logger.warning("Couldn't fetch jura's statistics")
-                    done.set()
-
-                self.coffee_maker.get_totals_statistics(cb=_cb)
-                await done.wait()
-                if last_stat[0] is not None:
-                    self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0])
-            await asyncio.sleep(60 * (self.args.monitor_snap_delay
-                                      - (datetime.now().minute % self.args.monitor_snap_delay)))
+            if d.weekday() < 5:
+                if 7 <= d.hour <= 20:
+                    await self.__save_statistics__()
+                elif d.hour == 23 and d.minute >= 60 - self.args.monitor_snap_delay:
+                    await self.__save_statistics__()
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
