@@ -68,7 +68,8 @@ class CoffeeManager:
             await asyncio.sleep(1 / 60)
 
     async def monitor_statistics(self) -> None:
-        while not self.args.dev and self.args.monitor_delay > 0 and self.rfid.run and self.coffee_maker is not None:
+        while not self.args.dev and self.args.monitor_snap_delay > 0 and self.coffee_maker is not None \
+                and self.rfid.run:
             d = datetime.now()
             if d.weekday() < 5 and 7 <= d.hour <= 23:
                 last_stat: List[Optional[CoffeeStatistics]] = [None]
