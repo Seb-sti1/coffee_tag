@@ -430,6 +430,8 @@ class BrewCoffee(AbstractUI):
         CoffeeMakerResult.DRAINING_TRAY_MISSING: "The draining tank is absent. Please put it back.",
         CoffeeMakerResult.DRAINING_TRAY_FULL: "The draining tank is full. Please empty it.",
         CoffeeMakerResult.GROUNDS_TANK_FULL: "The coffee grounds tank is full. Please empty it.",
+        CoffeeMakerResult.MISSING_COFFEE: "There is no coffee left in the machine. Please refill it.",
+        CoffeeMakerResult.CANNOT_CONFIRM_SUCCESSFUL_COFFEE: "It appears the Jura could not brewed your coffee.",
     }
 
     def __init__(self, main: MainGUI,
@@ -645,7 +647,7 @@ class BrewCoffee(AbstractUI):
                     break
                 elif self.gui_status == BrewCoffee.Status.JURA_STATUS_NOT_OK:
                     self.title_order_rect.config(text="Oops...")
-                    self.progress_label.config(text=self.ERROR_LBL[self.jura_feedback])
+                    self.progress_label.config(text=self.ERROR_LBL.get(self.jura_feedback, "Unknown error"))
                     self.retry_btn = self.add_button("Retry",
                                                      self.retry_callback,
                                                      gui=self.order_rect)
@@ -720,7 +722,7 @@ class BrewCoffee(AbstractUI):
             self.balance_lbl.config(text=f"{-self.user.get_user_balance() - self.user.db.coffee_price} €")
         else:
             self.title_order_rect.config(text="Oops...")
-            self.progress_label.config(text=self.ERROR_LBL[self.jura_feedback])
+            self.progress_label.config(text=self.ERROR_LBL.get(self.jura_feedback, "Unknown error"))
             if self.jura_feedback is None:
                 self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
                                gui=self.order_rect, font='Helvetica 12 italic')
