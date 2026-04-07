@@ -67,7 +67,7 @@ class CoffeeManager:
             self.root_gui.tk.update()
             await asyncio.sleep(1 / 60)
 
-    async def __save_statistics__(self):
+    async def __save_statistics__(self, use_power_gpio: bool):
         if self.coffee_maker is None:
             return
         last_stat: List[Optional[CoffeeStatistics]] = [None]
@@ -80,7 +80,7 @@ class CoffeeManager:
                 logger.warning("Couldn't fetch jura's statistics")
             done.set()
 
-        self.coffee_maker.get_totals_statistics(cb=_cb)
+        self.coffee_maker.get_totals_statistics(cb=_cb, use_power_gpio=use_power_gpio)
         await done.wait()
         if last_stat[0] is not None:
             if self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0]):
@@ -89,17 +89,19 @@ class CoffeeManager:
                 logger.info("An error occurred while saving statistics in db.")
 
     async def monitor_statistics(self) -> None:
-        while not self.args.dev and self.args.monitor_snap_delay > 0 and self.coffee_maker is not None \
-                and self.rfid.run:
+        if self.args.dev or self.args.monitor_snap_delay <= 0 or self.coffee_maker is None:
+            return None
+        while self.rfid.run:
             delay = (self.args.monitor_snap_delay - (datetime.now().minute % self.args.monitor_snap_delay))
             logger.debug(f"Next statistics monitoring in {delay} min.")
             await asyncio.sleep(60 * delay)
             d = datetime.now()
             if d.weekday() < 5:
                 if 7 <= d.hour <= 20:
-                    await self.__save_statistics__()
+                    await self.__save_statistics__(False)
                 elif d.hour == 23 and d.minute >= 60 - self.args.monitor_snap_delay:
-                    await self.__save_statistics__()
+                    await self.__save_statistics__(True)
+        return None
 
     async def listen_to_card_reader(self) -> None:
         while self.rfid.run:
