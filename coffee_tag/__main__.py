@@ -45,6 +45,8 @@ def setup():
 
     if not args.dev:
         os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
+        if os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
+            os.remove(f"{user_home}/.local/share/applications/coffee-tag.desktop")
         shutil.copy(str(os.path.join(str(os.path.dirname(__file__)), "coffee-tag.desktop")),
                     f"{user_home}/.local/share/applications/coffee-tag.desktop")
         os.makedirs(f"{user_home}/.config/autostart/", exist_ok=True)
