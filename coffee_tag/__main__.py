@@ -25,10 +25,10 @@ def setup():
     # prod related arguments regarding how the app should behave
     parser.add_argument('--tty', default="/dev/ttyAMA0", type=str,
                         help='Path to the tty of the machin\'s uart')
-    parser.add_argument('--no-authentication', '-a', action='store_true',
+    parser.add_argument('--no-authentication', action='store_true',
                         help='Should the authentication be deactivated')
-    parser.add_argument('--authoritative', action='store_true',
-                        help='It activates the ordering via this app for all the users.')
+    parser.add_argument('--not-authoritative', action='store_true',
+                        help='It deactivates ordering via this app for all the users.')
     parser.add_argument('--power-gpio', type=int, default=None,
                         help='The GPIO number turning on the jura power.')
     parser.add_argument('--monitor-snap-delay', '-d', type=int, default=0,
@@ -38,7 +38,6 @@ def setup():
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--debug-gui', action='store_true', help='Show all configured windows')
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
-    parser.add_argument('--beta', '-b', action="append", type=int, help="List of account that are beta testers")
     args = parser.parse_args()
     path = Path(args.path).expanduser()
     user_home = Path("~/").expanduser()

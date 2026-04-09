@@ -53,7 +53,7 @@ class CoffeeManager:
             logger.info(f"Someone authenticate as {user} with a {'password' if is_password else 'badge'}.")
             return True
         logger.warning(f"Someone failed to authenticate as {user}"
-                       f"with a {'password' if is_password else 'badge'}.")
+                       f" with a {'password' if is_password else 'badge'}.")
         await GeneralUI(self.root_gui, "Wrong password!",
                         320, 300,
                         main_text="The provided password is not correct!",
@@ -206,7 +206,7 @@ class CoffeeManager:
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
                 logger.warning(f"{user} avoided updating its profile.")
-        if self.args.authoritative or user.user_id in ([100] if self.args.beta is None else self.args.beta):
+        if not self.args.not_authoritative:
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
                               self.coffee_maker.get_brewing_status,
