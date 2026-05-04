@@ -432,6 +432,8 @@ class BrewCoffee(AbstractUI):
         CoffeeMakerResult.GROUNDS_TANK_FULL: "The coffee grounds tank is full. Please empty it.",
         CoffeeMakerResult.MISSING_COFFEE: "There is no coffee left in the machine. Please refill it.",
         CoffeeMakerResult.CANNOT_CONFIRM_SUCCESSFUL_COFFEE: "It appears the Jura could not brewed your coffee.",
+        CoffeeMakerResult.WARMING_UP: "The Jura is warming up! Please check Jura's screen.",
+        CoffeeMakerResult.BOWL_MOVING: "The Jura seems to be cleaning! Please check Jura's screen.",
     }
 
     def __init__(self, main: MainGUI,
