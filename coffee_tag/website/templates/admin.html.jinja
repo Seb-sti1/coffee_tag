@@ -1,0 +1,548 @@
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/html">
+<head>
+    <title>The U2IS Coffee Machine</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link href="{{ url_for('static', filename='admin.css') }}" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header class="navbar sticky-top bg-dark flex-md-nowrap p-0 shadow" data-bs-theme="dark">
+    <p class="navbar-brand col-md-3 col-lg-2 m-0 me-0 px-3 fs-6 text-white">☕ The U2IS Coffee Machine ☕</p>
+</header>
+<div class="container-fluid">
+    <div class="row" style="height: calc(100vh - 48px);">
+        <div class="sidebar border border-right col-md-3 col-lg-2 p-0 bg-body-tertiary">
+            <div class="offcanvas-md offcanvas-end bg-body-tertiary" tabindex="-1" id="sidebarMenu"
+                 aria-labelledby="sidebarMenuLabel">
+                <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 active" data-bs-toggle="tab"
+                               href="#dashboard">
+                                <i class="bi bi-house-fill"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#users">
+                                <i class="bi bi-people-fill"></i>
+                                Users
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#repayments">
+                                <i class="bi bi-coin"></i>
+                                Repayments
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#purchases">
+                                <i class="bi bi-cart3"></i>
+                                Purchases
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#stocks">
+                                <i class="bi bi-box-seam"></i>
+                                Stocks
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#reports">
+                                <i class="bi bi-graph-up"></i>
+                                Reports
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#exports">
+                                <i class="bi bi-download"></i>
+                                Exports
+                            </a>
+                        </li>
+                    </ul>
+
+                    <hr class="my-3">
+
+                    <ul class="nav flex-column mb-auto">
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" href="/logout">
+                                <i class="bi bi-door-closed"></i>
+                                Sign out
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 h-100 overflow-y-auto">
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="dashboard">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Dashboard</h1>
+                    </div>
+                    <p>Dashboard content...</p>
+                </div>
+
+                <div class="tab-pane fade" id="users">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Users</h1>
+                        <div class="dropdown mb-3">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                <i class="bi bi-layout-three-columns"></i> Columns
+                            </button>
+                            <ul class="dropdown-menu p-2" id="colMenu"
+                                style="min-width:200px; max-height:400px; overflow-y:auto;"></ul>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="userList" class="table table-bordered table-hover table-sm align-middle">
+                            <thead class="table-dark">
+                            <tr>
+                                <th class="sortable" onclick="sortTable(0, true)">id<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(1)">name<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(2)">surname<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(3)">nickname<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(4)">cascad username<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(5, true)">initial balance<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(6)">passcode set<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(7)">permissions<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(8)">status<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(9)">departure<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(10)">mail<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(11)">id badge<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(12, true)">beans<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(13, true)">water (ml)<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(14, true)">purchased<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(15, true)">paid<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(16, true)">balance<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    {% for property in user %}
+                                        {% if loop.index == 7 %}
+                                            <td>
+                                                {% if property != None %}
+                                                    <span class="badge text-bg-success">Yes</span>
+                                                {% else %}
+                                                    <span class="badge text-bg-danger">No</span>
+                                                {% endif %}
+                                            </td>
+                                        {% elif loop.index == 17 %}
+                                            <td class="{% if property > 0 %}text-danger fw-semibold{% elif property < 0 %}text-success fw-semibold{% endif %}">
+                                                {{ property }}
+                                            </td>
+                                        {% else %}
+                                            <td>{{ property }}</td>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="repayments">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Repayments</h1>
+                    </div>
+
+                    {# ERROR #}
+                    {% if "add_repayment" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['add_repayment'] else 'alert-danger' }} alert-dismissible fade show"
+                             role="alert">
+                            {{ 'Repayment added successfully.' if returned_form_values['add_repayment'] else 'An error occurred while adding the repayment.' }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                    {% if "remove_repayment" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['remove_repayment'] else 'alert-danger' }} alert-dismissible fade show"
+                             role="alert">
+                            {{ 'Repayment removed successfully.' if returned_form_values['remove_repayment'] else 'An error occurred while removing the repayment.' }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+
+                    {# FORM #}
+                    <div class="card mb-4">
+                        <div class="card-header fw-semibold">
+                            <i class="bi bi-plus-circle me-1"></i> Add a repayment
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="#repayments">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="user">User</label>
+                                        <select name="user" id="user" class="form-select">
+                                            {% for user in users | sort(attribute='2') %}
+                                                <option value="{{ user[0] }}">{{ user[2] }} {{ user[1] }} ({{ user[0] }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="date">Date</label>
+                                        <input name="date" id="date" type="date" class="form-control"/>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="credit">Credit</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="bi bi-coin"></i></span>
+                                            <input name="credit" id="credit" type="number" class="form-control"
+                                                   placeholder="0.00" step=".01" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="label">Label</label>
+                                        <input name="label" id="label" type="text" class="form-control"
+                                               placeholder="Label" required/>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end gap-4 pb-1">
+                                        <div class="form-check">
+                                            <input name="is_cash" type="checkbox" class="form-check-input" id="isCash"
+                                                   checked/>
+                                            <label class="form-check-label" for="isCash">Cash?</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input name="in_balance" type="checkbox" class="form-check-input"
+                                                   id="inBalance" checked/>
+                                            <label class="form-check-label" for="inBalance">Include in balance?</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <input name="type" type="text" value="add_repayment" required readonly hidden/>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="bi bi-plus-lg me-1"></i> Add repayment
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {# Repayments #}
+                    <div class="table-responsive">
+                        <table id="repaymentList" class="table table-bordered table-hover table-sm align-middle">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>id</th>
+                                <th>Name</th>
+                                <th>Date</th>
+                                <th>Credit</th>
+                                <th>Label</th>
+                                <th>Cash?</th>
+                                <th>In balance?</th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for repayment in repayments | reverse %}
+                                <tr>
+                                    <td class="text-muted small">{{ repayment[0] }}</td>
+                                    <td>{{ repayment[1] }}</td>
+                                    <td class="text-nowrap">{{ repayment[2] }}</td>
+                                    <td class="fw-semibold {{ 'text-success' if repayment[3] > 0 else 'text-danger' }}">
+                                        {{ repayment[3] }}
+                                    </td>
+                                    <td>{{ repayment[4] }}</td>
+                                    <td class="text-center">
+                                        {% if repayment[5] %}
+                                            <span class="badge text-bg-success">Yes</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if repayment[6] %}
+                                            <span class="badge text-bg-success">Yes</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="post">
+                                            <input name="repayment" type="number" value="{{ repayment[0] }}" required
+                                                   readonly hidden/>
+                                            <input name="type" type="text" value="remove_repayment" required readonly
+                                                   hidden/>
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="purchases">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Purchases</h1>
+                    </div>
+                    <p>Purchases content...</p>
+                </div>
+
+                <div class="tab-pane fade" id="stocks">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Stocks</h1>
+                    </div>
+                    <p>Stocks content...</p>
+                </div>
+
+                <div class="tab-pane fade" id="reports">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Reports</h1>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Total brewed</p>
+                                    <p class="fs-4 fw-medium mb-0" id="m-brewed">—</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Total purchased</p>
+                                    <p class="fs-4 fw-medium mb-0" id="m-purchased">—</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Total lost</p>
+                                    <p class="fs-4 fw-medium mb-0" id="m-lost">—</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Total stolen</p>
+                                    <p class="fs-4 fw-medium mb-0" id="m-stolen">—</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 bg-white shadow-sm">
+                                <div class="card-body">
+                                    <canvas id="pctChart" role="img"
+                                            aria-label="Stacked 100% bar chart of coffee fate per period">Share
+                                        breakdown per period.
+                                    </canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 bg-white shadow-sm">
+                                <div class="card-body">
+                                    <canvas id="rawChart" role="img"
+                                            aria-label="Stacked bar chart of raw coffee counts per period">Raw
+                                        counts per period.
+                                    </canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="card border-0 bg-white shadow-sm">
+                            <div class="card-body">
+                                <div class="table-responsive">
+
+                                    <table class="table table-bordered table-hover table-sm align-middle">
+                                        <thead class="table-dark">
+                                        <tr>
+                                            <th>Interval start</th>
+                                            <th>Interval end</th>
+                                            <th>Brewed</th>
+                                            <th>Purchased/Loss</th>
+                                            <th>Stolen</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for error_count in error_counts | reverse %}
+                                            <tr>
+                                                <td>{{ error_count[0] }}</td>
+                                                <td>{{ error_count[1] }}</td>
+                                                <td>{{ error_count[2] }}</td>
+                                                <td>{{ error_count[3] }}</td>
+                                                <td class="text-danger">{{ error_count[2] - error_count[3] }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="exports">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Exports</h1>
+                    </div>
+                    <div>
+                        <a href="/export_sql">Export SQL DB to SQL File</a><br/>
+                        <a href="/export_csv">Export SQL DB to CSV File</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='admin.js') }}"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO"
+        crossorigin="anonymous"></script>
+<script>
+    // --- Restore active tab from URL hash on page load ---
+    document.addEventListener("DOMContentLoaded", () => {
+        const hash = window.location.hash;
+        if (hash) {
+            const tab = document.querySelector(`.nav-link[href="${hash}"]`);
+            if (tab) bootstrap.Tab.getOrCreateInstance(tab).show();
+        }
+
+        // Update hash when switching tabs
+        document.querySelectorAll('.nav-link[data-bs-toggle="tab"]').forEach(tab => {
+            tab.addEventListener("shown.bs.tab", e => {
+                history.replaceState(null, null, e.target.getAttribute("href"));
+            });
+        });
+    });
+</script>
+<script>
+    let daily_counts = {{ daily_counts | tojson }};
+    daily_counts = daily_counts.filter(r => r[2] > 0);
+    const labels = daily_counts.map(r => {
+        const [datePart] = r[0].split(' ');
+        const d = new Date(datePart);
+        return d.getDate() + '/' + (d.getMonth() + 1);
+    });
+
+    const pct = (v, t) => t === 0 ? 0 : parseFloat((v / t * 100).toFixed(2));
+    const stolen = r => Math.max(0, r[2] - r[3] - r[4]);
+
+    const purchasedPct = daily_counts.map(r => pct(r[3], r[2]));
+    const lostPct = daily_counts.map(r => pct(r[4], r[2]));
+    const stolenPct = daily_counts.map(r => pct(stolen(r), r[2]));
+
+    const purchasedRaw = daily_counts.map(r => r[3]);
+    const lostRaw = daily_counts.map(r => r[4]);
+    const stolenRaw = daily_counts.map(r => stolen(r));
+
+    document.getElementById('m-brewed').textContent = daily_counts.reduce((a, r) => a + r[2], 0);
+    document.getElementById('m-purchased').textContent = daily_counts.reduce((a, r) => a + r[3], 0);
+    document.getElementById('m-lost').textContent = daily_counts.reduce((a, r) => a + r[4], 0);
+    document.getElementById('m-stolen').textContent = daily_counts.reduce((a, r) => a + stolen(r), 0);
+
+    const tooltipTitle = items => {
+        const lbl = items[0].label;
+        const i = active.findIndex(r => {
+            const [datePart] = r[0].split(' ');
+            const d = new Date(datePart);
+            return (d.getMonth() + 1) + '/' + d.getDate() === lbl;
+        });
+        const r = active[i];
+        return r[0] + '  →  ' + r[1] + '  (' + r[2] + ' brewed)';
+    };
+
+    const tooltipLabel = (ctx, isPct) => {
+        const lbl = ctx.label;
+        const i = active.findIndex(r => {
+            const [datePart] = r[0].split(' ');
+            const d = new Date(datePart);
+            return (d.getMonth() + 1) + '/' + d.getDate() === lbl;
+        });
+        const r = active[i];
+        const val = ctx.dataset.label === 'Purchased' ? r[3]
+            : ctx.dataset.label === 'Lost' ? r[4]
+                : stolen(r);
+        return isPct
+            ? ' ' + ctx.dataset.label + ': ' + val + '  (' + ctx.parsed.y.toFixed(1) + '%)'
+            : ' ' + ctx.dataset.label + ': ' + val;
+    };
+
+    const makeDatasets = (pArr, lArr, sArr) => [
+        {label: 'Purchased', data: pArr, backgroundColor: '#008000', stack: 's', borderRadius: 0, borderSkipped: false},
+        {label: 'Lost', data: lArr, backgroundColor: '#ffa500', stack: 's', borderRadius: 0, borderSkipped: false},
+        {label: 'Stolen', data: sArr, backgroundColor: '#FF0000', stack: 's', borderRadius: 0, borderSkipped: false}
+    ];
+
+    const commonOptions = (title, isPct) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {display: true},
+            title: {
+                display: true,
+                text: title
+            },
+            tooltip: {
+                callbacks: {
+                    title: tooltipTitle,
+                    label: ctx => tooltipLabel(ctx, isPct)
+                }
+            }
+        },
+        scales: {
+            x: {
+                stacked: true,
+                ticks: {autoSkip: true, maxRotation: 45, font: {size: 10}},
+                grid: {display: false}
+            },
+            y: {
+                stacked: true,
+                ...(isPct
+                    ? {min: 0, max: 100, ticks: {callback: v => v + '%', stepSize: 25}}
+                    : {beginAtZero: true})
+            }
+        }
+    });
+
+    new Chart(document.getElementById('pctChart'), {
+        type: 'bar',
+        data: {labels, datasets: makeDatasets(purchasedPct, lostPct, stolenPct)},
+        options: commonOptions('Share of brewed', true)
+    });
+
+    new Chart(document.getElementById('rawChart'), {
+        type: 'bar',
+        data: {labels, datasets: makeDatasets(purchasedRaw, lostRaw, stolenRaw)},
+        options: commonOptions('Raw counts', false)
+    });
+</script>
+</body>
+</html>

@@ -395,6 +395,71 @@ class Database:
                                            GROUP BY week;""")
         return None if result is None else list(result)
 
+    def get_daily_counts(self, loss_user_id: int = 121) -> Optional[list[Tuple[str, str, int, int, int]]]:
+        result = self.connector.execute("""
+                                        WITH intervals AS (WITH counts
+                                                                    AS (SELECT row_number() OVER (ORDER BY date) as rowid, *
+                                                                        FROM jura_count
+                                                                        WHERE TIME(date) >= "21:00:00"
+                                                                          AND date > "2026-04-07 09:00:30")
+                                                           SELECT j1.date                           AS start_date,
+                                                                  j2.date                           AS end_date,
+                                                                  (j2.tot_coffee - j1.tot_coffee) +
+                                                                  2 * (j2.tot_2_coffee - j1.tot_2_coffee) +
+                                                                  (j2.tot_espresso - j1.tot_espresso) +
+                                                                  2 * (j2.tot_2_espresso - j1.tot_2_espresso) +
+                                                                  (j2.tot_ristretto - j1.tot_ristretto) +
+                                                                  2 * (j2.tot_2_ristretto - j1.tot_2_ristretto) +
+                                                                  (j2.tot_special - j1.tot_special) AS delta_juracount
+                                                           FROM counts AS j1
+                                                                    JOIN counts AS j2 ON j1.rowid = j2.rowid - 1)
+                                        SELECT i.start_date,
+                                               i.end_date,
+                                               COALESCE(i.delta_juracount, 0) AS brewed,
+                                               COALESCE(SUM(CASE WHEN p.user_id != :loss_user_id THEN p.nb_coffee END),
+                                                        0)                    AS purchased,
+                                               COALESCE(SUM(CASE WHEN p.user_id = :loss_user_id THEN p.nb_coffee END),
+                                                        0)                    AS loss
+                                        FROM intervals i
+                                                 LEFT JOIN purchase p
+                                                           ON p.date > i.start_date
+                                                               AND p.date <= i.end_date
+                                        GROUP BY i.start_date, i.end_date
+                                        ORDER BY i.start_date;
+                                        """, {"loss_user_id": loss_user_id})
+        return None if result is None else list(result)
+
+    def get_error_counts(self) -> Optional[list[Tuple[str, str, int, int]]]:
+        result = self.connector.execute("""
+                                        WITH intervals AS (SELECT j1.date                           AS start_date,
+                                                                  j2.date                           AS end_date,
+                                                                  (j2.tot_coffee - j1.tot_coffee) +
+                                                                  2 * (j2.tot_2_coffee - j1.tot_2_coffee) +
+                                                                  (j2.tot_espresso - j1.tot_espresso) +
+                                                                  2 * (j2.tot_2_espresso - j1.tot_2_espresso) +
+                                                                  (j2.tot_ristretto - j1.tot_ristretto) +
+                                                                  2 * (j2.tot_2_ristretto - j1.tot_2_ristretto) +
+                                                                  (j2.tot_special - j1.tot_special) AS delta_juracount
+                                                           FROM jura_count j1
+                                                                    JOIN jura_count j2
+                                                                         ON j2.id = (SELECT MIN(id)
+                                                                                     FROM jura_count
+                                                                                     WHERE j1.date < date
+                                                                                       AND j1.date > "2026-04-07 09:00:30"))
+                                        SELECT i.start_date,
+                                               i.end_date,
+                                               i.delta_juracount             as brewed,
+                                               COALESCE(SUM(p.nb_coffee), 0) AS purchased
+                                        FROM intervals i
+                                                 LEFT JOIN purchase p
+                                                           ON p.date > i.start_date
+                                                               AND p.date <= i.end_date
+                                        GROUP BY i.start_date, i.end_date
+                                        HAVING purchased != delta_juracount
+                                        ORDER BY i.start_date;
+                                        """)
+        return None if result is None else list(result)
+
     async def auth_user(self, mail: str, password: str) -> Optional[User]:
         result = self.select_one("SELECT id, name, surname, nickname, "
                                  "cascad_username, initial_balance, passcode,"

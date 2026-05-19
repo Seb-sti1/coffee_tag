@@ -91,12 +91,12 @@ class Website:
                 logger.info(f"Removing new repayment {form_repayment_id}")
                 returned_form_values["remove_repayment"] = self.db.delete_repayment(form_repayment_id)
 
-        users_info = self.db.get_users_balance()
-        repayments_info = self.db.get_repayments()
-        return await render_template("admin.html",
+        return await render_template("admin.html.jinja",
                                      user=current_user,
-                                     users=users_info,
-                                     repayments=repayments_info,
+                                     users=self.db.get_users_balance(),
+                                     repayments=self.db.get_repayments(),
+                                     daily_counts=self.db.get_daily_counts(),
+                                     error_counts=self.db.get_error_counts(),
                                      returned_form_values=returned_form_values)
 
     async def export_sql(self):
