@@ -9,5 +9,5 @@ include coffee_tag/media/cup2.gif
 include coffee_tag/website/templates/index.html.jinja
 include coffee_tag/website/templates/login.html
 include coffee_tag/website/templates/user.html
-include coffee_tag/website/templates/admin.html
+include coffee_tag/website/templates/admin.html.jinja
 include coffee_tag/website/static/cup.gif
