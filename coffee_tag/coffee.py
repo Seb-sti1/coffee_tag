@@ -15,7 +15,7 @@ from juracoffeemachine import CoffeeMaker, CoffeeStatistics
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
-    BrewCoffee, Meme, AdminGUI
+    BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -148,6 +148,16 @@ class CoffeeManager:
             await AdminGUI(self.root_gui, self.db.get_users()).get_future()
         return None
 
+    async def open_admin_feed_gui(self, user: User) -> None:
+        if user.permissions == "owner":
+            await AdminFeedGui(self.root_gui, self.db.get_recent_users(), self.db.get_recent_coffees()).get_future()
+        return None
+
+    async def open_admin_jura_gui(self, user: User) -> None:
+        if user.permissions == "owner":
+            await AdminJuraGui(self.root_gui, self.coffee_maker).get_future()
+        return None
+
     async def get_user_by_manual_search(self) -> Optional[User]:
         user = await ManualEntry(self.root_gui, self.db.search_by_name).get_future()
         if user is None:
@@ -220,6 +230,12 @@ class CoffeeManager:
                     return None
                 if r == "admin":
                     self.loop.create_task(self.open_admin_gui(user))
+                    return None
+                if r == "feed":
+                    self.loop.create_task(self.open_admin_feed_gui(user))
+                    return None
+                if r == "jura_btn":
+                    self.loop.create_task(self.open_admin_jura_gui(user))
                     return None
                 if r is None:
                     return None

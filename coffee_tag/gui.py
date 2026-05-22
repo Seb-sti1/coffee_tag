@@ -18,8 +18,8 @@ from typing import Tuple, Optional, Callable, Literal, List
 
 import bcrypt
 from PIL import Image, ImageTk
-from juracoffeemachine import JuraProtocol, BrewingStatus, HZ
-from juracoffeemachine.coffee_machine import CoffeeMakerResult, BrewingStage
+from juracoffeemachine import JuraProtocol, BrewingStatus, HZ, JuraCommand
+from juracoffeemachine.coffee_machine import CoffeeMakerResult, BrewingStage, CoffeeMaker
 
 from coffee_tag import media
 from coffee_tag.database import User, Database, Purchase
@@ -473,7 +473,15 @@ class BrewCoffee(AbstractUI):
                                                           self.on_closing(),
                                                           self.gui.destroy()],
                                              image=self.admin_icon,
-                                             x=5, y=60, px_width=50, px_height=50)
+                                             x=740, y=100, px_width=50, px_height=50)
+            self.feed_btn = self.add_button("feed", lambda: [self.future.set_result("feed"),
+                                                             self.on_closing(),
+                                                             self.gui.destroy()],
+                                            x=680, y=100, px_width=50, px_height=50)
+            self.jura_btn = self.add_button("jura btn", lambda: [self.future.set_result("jura_btn"),
+                                                                 self.on_closing(),
+                                                                 self.gui.destroy()],
+                                            x=620, y=100, px_width=50, px_height=50)
 
         self.debug_label = self.add_label("", font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=120, fill=None)
 
@@ -630,7 +638,8 @@ class BrewCoffee(AbstractUI):
         self.cleanup_request_ui()
         self.progress_ui()
 
-    async def get_request(self) -> Optional[Tuple[int, int] | Literal["settings", "admin", "retry"]]:
+    async def get_request(self) -> Optional[Tuple[int, int]
+                                            | Literal["settings", "admin", "retry", "feed", "jura_btn"]]:
         # reset future for the request
         self.future = asyncio.get_event_loop().create_future()
         last_gui_status = None
@@ -926,6 +935,154 @@ class AdminGUI(AbstractUI):
         else:
             logger.warning(f"Unknown database error occurred will deleting a coffee.")
             self.delete_coffee_btn.config(bg="red")
+
+    def close(self):
+        self.future.set_result(None)
+        self.gui.destroy()
+
+    def get_future(self) -> Future[None]:
+        return self.future
+
+
+class AdminFeedGui(AbstractUI):
+    def __init__(self, main: MainGUI, new_users: Optional[List[User]],
+                 last_coffees: Optional[List[Purchase]]):
+        super().__init__(main, "Admin Feed", 800, 480)
+
+        # === Last coffees
+        self.coffees = [] if last_coffees is None else last_coffees
+        self.coffee_list = tk.Listbox(self.gui)
+        self.coffee_list.place(x=13, y=10, height=480 - 50 - 10, width=303)
+        self.coffee_list.bind("<<ListboxSelect>>", self.select_coffee)
+        self.current_coffee: Optional[Purchase] = None
+        self.delete_btn = self.add_button(f"Delete", self.delete_coffee, x=10, y=430,
+                                          width=7, height=1)
+        self.to_loss_btn = self.add_button(f"To loss", self.coffee_to_loss, x=120, y=430,
+                                           width=7, height=1)
+
+        # === New users
+        self.users = [] if new_users is None else new_users
+        self.users_list = tk.Listbox(self.gui)
+        self.users_list.place(x=390, y=10, height=480 - 50 - 10, width=303)
+        self.users_list.bind("<<ListboxSelect>>", self.select_user)
+        self.current_user: Optional[User] = None
+
+        self.status_combobox = ttk.Combobox(self.gui)
+        self.status_combobox['values'] = ('active', 'banned', 'shadow_banned')
+        self.status_combobox.place(x=390, y=440, height=25, width=115)
+        self.save_btn = self.add_button(f"Save", self.save, x=520, y=430,
+                                        width=7, height=1)
+
+        self.draw_list()
+
+    def reset_btn(self):
+        self.delete_btn.config(bg=LIGHT_BROWN)
+        self.to_loss_btn.config(bg=LIGHT_BROWN)
+        self.save_btn.config(bg=LIGHT_BROWN)
+
+    def draw_list(self):
+        self.users_list.delete(0, tk.END)
+        for user in self.users:
+            self.users_list.insert(tk.END, f"{user.name} {user.surname}")
+        self.coffee_list.delete(0, tk.END)
+        for coffee in self.coffees:
+            self.coffee_list.insert(tk.END, f"{coffee.purchase_id:>6} {coffee.nb_coffee} {coffee.price}€ "
+                                            f"{coffee.date.strftime('%y/%m/%d %H:%M:%S')}")
+
+    def select_user(self, _):
+        selection: Optional[Tuple[int]] = self.users_list.curselection()
+        if not selection:
+            return
+        user = self.users[selection[0]]
+        self.current_user = user
+        self.status_combobox.set(user.status)
+        self.reset_btn()
+
+    def save(self):
+        if self.current_user is None:
+            logger.warning(f"Couldn't update user manually: no user selected.")
+            self.save_btn.config(bg="red")
+            return
+        self.current_user.status = self.status_combobox.get()
+        if self.current_user.update(True):
+            logger.warning(f"{self.current_user} status/permissions were updated:"
+                           f" {self.current_user.permissions}, {self.current_user.status}.")
+            self.save_btn.config(bg="green")
+        else:
+            logger.warning(f"Unknown database error occurred will updating status/permissions.")
+            self.save_btn.config(bg="red")
+
+    def select_coffee(self, _):
+        selection: Optional[Tuple[int]] = self.coffee_list.curselection()
+        if not selection:
+            return
+        coffee = self.coffees[selection[0]]
+        self.current_coffee = coffee
+
+    def delete_coffee(self):
+        if self.current_coffee is None:
+            logger.warning(f"Couldn't delete coffee manually: no coffee selected.")
+            self.delete_btn.config(bg="red")
+            return
+        if self.current_coffee.delete():
+            logger.warning(f"{self.current_coffee.purchase_id:>6} {self.current_coffee.nb_coffee} "
+                           f"{self.current_coffee.price}€ {self.current_coffee.date.strftime('%y/%m/%d %H:%M:%S')}"
+                           f" was deleted.")
+            self.delete_btn.config(bg="green")
+        else:
+            logger.warning(f"Unknown database error occurred will deleting coffee.")
+            self.delete_btn.config(bg="red")
+
+    def coffee_to_loss(self):
+        if self.current_coffee is None:
+            logger.warning(f"Couldn't change coffee to loss manually: no coffee selected.")
+            self.to_loss_btn.config(bg="red")
+            return
+        if self.current_coffee.to_loss():
+            logger.warning(f"{self.current_coffee.purchase_id:>6} {self.current_coffee.nb_coffee} "
+                           f"{self.current_coffee.price}€ {self.current_coffee.date.strftime('%y/%m/%d %H:%M:%S')}"
+                           f" changed to loss.")
+            self.to_loss_btn.config(bg="green")
+        else:
+            logger.warning(f"Unknown database error occurred will updating coffee (to loss).")
+            self.to_loss_btn.config(bg="red")
+
+    def close(self):
+        self.future.set_result(None)
+        self.gui.destroy()
+
+    def get_future(self) -> Future[None]:
+        return self.future
+
+
+class AdminJuraGui(AbstractUI):
+    def __init__(self, main: MainGUI, coffee_maker: Optional[CoffeeMaker]):
+        super().__init__(main, "Admin Jura", 370, 220)
+
+        self.coffee_maker = coffee_maker
+
+        if self.coffee_maker is None:
+            self.lbl = self.add_label("No Jura is configured.")
+        else:
+            self.jura_btn = [JuraCommand.BUTTON_1, JuraCommand.BUTTON_2, JuraCommand.BUTTON_3,
+                             JuraCommand.BUTTON_4, JuraCommand.BUTTON_5, JuraCommand.BUTTON_6]
+            self.btn = [
+                self.add_button(f"Left Up", self.wrapper_press_jura_btn(1), x=10, y=10, width=7, height=1),
+                self.add_button(f"Left Mid", self.wrapper_press_jura_btn(2), x=10, y=70, width=7, height=1),
+                self.add_button(f"Left Down", self.wrapper_press_jura_btn(3), x=10, y=130, width=7, height=1),
+                self.add_button(f"Right Up", self.wrapper_press_jura_btn(4), x=170, y=10, width=7, height=1),
+                self.add_button(f"Right Mid", self.wrapper_press_jura_btn(5), x=170, y=70, width=7, height=1),
+                self.add_button(f"Right Down", self.wrapper_press_jura_btn(6), x=170, y=130, width=7, height=1)
+            ]
+
+    def wrapper_press_jura_btn(self, btn_id: int):
+        def press_jura_btn():
+            if self.coffee_maker.jura.write_with_response(self.jura_btn[btn_id]) == "ok:":
+                self.btn[btn_id].config(bg="green")
+            else:
+                self.btn[btn_id].config(bg="red")
+
+        return press_jura_btn
 
     def close(self):
         self.future.set_result(None)

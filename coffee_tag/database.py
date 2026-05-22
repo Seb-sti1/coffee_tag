@@ -14,6 +14,8 @@ from quart_auth import AuthUser
 
 logger = logging.getLogger(__name__)
 
+LOSS_USER_ID = 121
+
 
 class User(AuthUser):
 
@@ -116,7 +118,7 @@ class User(AuthUser):
         return str(self)
 
     def is_valid(self) -> Union[True, Literal['missing_name', 'missing_surname', 'missing_mail', 'missing_password',
-        'missing_date_of_departure', 'mail_format', 'duplicate']]:
+    'missing_date_of_departure', 'mail_format', 'duplicate']]:
         if self.name == "":
             return "missing_name"
         if self.surname == "":
@@ -243,6 +245,14 @@ class Purchase:
 
     def __repr__(self):
         return str(self)
+
+    def delete(self) -> bool:
+        return self.db.edit_query("DELETE FROM purchase WHERE id=:uid",
+                                  {"uid": self.purchase_id})
+
+    def to_loss(self, loss_user_id: int = LOSS_USER_ID) -> bool:
+        return self.db.edit_query("UPDATE purchase SET user_id = :user_id WHERE id=:uid",
+                                  {"user_id": loss_user_id, "uid": self.purchase_id})
 
 
 class Repayment:
@@ -395,7 +405,7 @@ class Database:
                                            GROUP BY week;""")
         return None if result is None else list(result)
 
-    def get_daily_counts(self, loss_user_id: int = 121) -> Optional[list[Tuple[str, str, int, int, int]]]:
+    def get_daily_counts(self, loss_user_id: int = LOSS_USER_ID) -> Optional[list[Tuple[str, str, int, int, int]]]:
         result = self.connector.execute("""
                                         WITH intervals AS (WITH counts
                                                                     AS (SELECT row_number() OVER (ORDER BY date) as rowid, *
@@ -541,6 +551,25 @@ class Database:
         if r is None:
             return None
         return [User(self, *row[:14]) for row in r]
+
+    def get_recent_users(self) -> Optional[List[User]]:
+        r = self.connector.execute("""SELECT *
+                                      FROM users;""")
+        # TODO add creation date
+        if r is None:
+            return None
+        return [User(self, *row[:14]) for row in r]
+
+    def get_recent_coffees(self) -> Optional[List[Purchase]]:
+        r = self.connector.execute("""
+                                   SELECT id, user_id, date, nb_coffee, price
+                                   FROM purchase
+                                   ORDER BY date DESC
+                                   LIMIT 100;
+                                   """)
+        if r is None:
+            return None
+        return [Purchase(self, *row[:5]) for row in r]
 
     def export(self) -> str:
         logger.info(f"Creating a sql dump file")
