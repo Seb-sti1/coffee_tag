@@ -24,7 +24,7 @@ class User(AuthUser):
                  initial_balance: float, passcode: Optional[str], permissions: str, status: str,
                  date_of_departure: Optional[str],
                  mail: str, id_badge: Optional[str],
-                 beans_q: int, water_v: int):
+                     beans_q: int, water_v: int, creation_date: Optional[str]):
         super().__init__(str(user_id))
         self.db: Database = db
         self.user_id: int = user_id
@@ -43,6 +43,9 @@ class User(AuthUser):
         self.id_badge: Optional[str] = id_badge
         self.beans_q: int = beans_q
         self.water_v: int = water_v
+        self.creation_date: Optional[datetime] = (dt.strptime(creation_date, "%Y-%m-%d %H:%M:%S")
+        .replace(
+            tzinfo=timezone.utc)) if creation_date is not None else None
 
     @staticmethod
     def create_table(db: Database):
@@ -59,11 +62,12 @@ class User(AuthUser):
                            passcode          TEXT,
                            permissions       TEXT,
                            banned            INTEGER,
-                           date_of_departure TEXT,
+                           date_of_departure DATETIME,
                            mail              TEXT,
                            id_badge          TEXT,
                            beans_q           INTEGER default 3,
                            water_v           INTEGER default 100,
+                           creation_date     DATETIME,
                            CHECK (permissions IN ('user', 'maintainer', 'owner'))
                        );
                        """)
@@ -142,9 +146,9 @@ class User(AuthUser):
         if not self.db.edit_query("INSERT INTO users (name, surname, nickname, "
                                   "cascad_username, initial_balance, passcode, permissions,"
                                   "status, date_of_departure, mail, id_badge,"
-                                  "beans_q, water_v) VALUES (:name, :surname, :nickname, :cascad,"
+                                  "beans_q, water_v, creation_date) VALUES (:name, :surname, :nickname, :cascad,"
                                   ":initial_balance, :passcode, :permissions, :status, :date_of_departure,"
-                                  ":mail, :badge, :beans_q, :water_v)",
+                                  ":mail, :badge, :beans_q, :water_v, DATETIME())",
                                   {"name": self.name, "surname": self.surname, "nickname": self.nickname,
                                    "cascad": self.cascad_username, "initial_balance": self.initial_balance,
                                    "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
@@ -326,15 +330,12 @@ class Database:
         return False, c
 
     def search_by_name(self, name) -> list[User]:
-        result = self.connector.execute("SELECT id, name, surname, nickname, "
-                                        "cascad_username, initial_balance, passcode,"
-                                        "permissions, status, date_of_departure, mail,"
-                                        "id_badge, beans_q, water_v FROM users "
+        result = self.connector.execute("SELECT * FROM users "
                                         "WHERE name LIKE :name "
                                         "OR surname LIKE :name "
                                         "OR nickname LIKE :name;",
                                         {"name": f"%{name}%"})
-        return [User(self, *r) for r in result] if result is not None else []
+        return [User(self, *r[:15]) for r in result] if result is not None else []
 
     def save_statistics(self, date: datetime, stat: CoffeeStatistics) -> bool:
         return self.edit_query("INSERT INTO jura_count (date, tot_espresso, tot_2_espresso,"
@@ -348,13 +349,10 @@ class Database:
                                 "tot_special": stat.tot_special})
 
     def get_user_by_rfid(self, card: str):
-        result = self.select_one("SELECT id, name, surname, nickname, "
-                                 "cascad_username, initial_balance, passcode,"
-                                 "permissions, status, date_of_departure, mail,"
-                                 "id_badge, beans_q, water_v FROM users "
+        result = self.select_one("SELECT * FROM users "
                                  "WHERE id_badge IS NOT NULL AND id_badge LIKE :card;",
                                  {"card": card})
-        return None if result is None else User(self, *result)
+        return None if result is None else User(self, *list(result)[:15])
 
     def sync_badge(self, user, card):
         return self.edit_query("UPDATE users SET id_badge = :card "
@@ -376,22 +374,16 @@ class Database:
         return r is not None
 
     def get_user_by_mail(self, mail: str) -> Optional[User]:
-        result = self.select_one("SELECT id, name, surname, nickname, "
-                                 "cascad_username, initial_balance, passcode,"
-                                 "permissions, status, date_of_departure, mail,"
-                                 "id_badge, beans_q, water_v FROM users "
+        result = self.select_one("SELECT * FROM users "
                                  "WHERE mail = :mail",
                                  {"mail": mail})
-        return None if result is None else User(self, *result)
+        return None if result is None else User(self, *list(result)[:15])
 
     def get_user_by_id(self, user_id) -> Optional[User]:
-        result = self.select_one("SELECT id, name, surname, nickname, "
-                                 "cascad_username, initial_balance, passcode,"
-                                 "permissions, status, date_of_departure, mail,"
-                                 "id_badge, beans_q, water_v FROM users "
+        result = self.select_one("SELECT * FROM users "
                                  "WHERE id = :user_id",
                                  {"user_id": user_id})
-        return None if result is None else User(self, *result)
+        return None if result is None else User(self, *list(result)[:15])
 
     def get_total_number_of_coffees(self) -> Optional[int]:
         result = self.select_one("SELECT sum(nb_coffee) FROM purchase;", {})
@@ -471,15 +463,12 @@ class Database:
         return None if result is None else list(result)
 
     async def auth_user(self, mail: str, password: str) -> Optional[User]:
-        result = self.select_one("SELECT id, name, surname, nickname, "
-                                 "cascad_username, initial_balance, passcode,"
-                                 "permissions, status, date_of_departure, mail,"
-                                 "id_badge, beans_q, water_v FROM users "
+        result = self.select_one("SELECT * FROM users "
                                  "WHERE mail = :mail AND mail IS NOT NULL AND passcode IS NOT NULL",
                                  {"mail": mail})
         if result is None:
             return None
-        u = User(self, *result)
+        u = User(self, *list(result)[:15])
         return u if bcrypt.checkpw(password.encode(), u.passcode.encode()) else None
 
     def get_users_balance(self) -> Optional[list]:
@@ -493,6 +482,7 @@ class Database:
                                           passcode,
                                           permissions,
                                           status,
+                                          creation_date,
                                           date_of_departure,
                                           mail,
                                           id_badge,
@@ -550,15 +540,15 @@ class Database:
                                       FROM users;""")
         if r is None:
             return None
-        return [User(self, *row[:14]) for row in r]
+        return [User(self, *row[:15]) for row in r]
 
     def get_recent_users(self) -> Optional[List[User]]:
         r = self.connector.execute("""SELECT *
-                                      FROM users;""")
-        # TODO add creation date
+                                      FROM users
+                                      ORDER BY creation_date DESC;""")
         if r is None:
             return None
-        return [User(self, *row[:14]) for row in r]
+        return [User(self, *row[:15]) for row in r]
 
     def get_recent_coffees(self) -> Optional[List[Purchase]]:
         r = self.connector.execute("""

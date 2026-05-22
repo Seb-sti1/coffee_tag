@@ -560,7 +560,6 @@ class BrewCoffee(AbstractUI):
             return _cb
 
         shift = 60
-        # TODO use logo
         self.add_button("Ristretto", wrapper_preset_cb(8, 25), gui=self.presets_rect,
                         x=5, y=10, width=6, height=2)
         self.add_button("Expresso", wrapper_preset_cb(6, 45), gui=self.presets_rect,

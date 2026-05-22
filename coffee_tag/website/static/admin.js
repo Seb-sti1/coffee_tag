@@ -1,6 +1,6 @@
 // --- Column toggle ---
 
-const DEFAULT_VISIBLE = [0, 1, 2, 5, 7, 8, 9, 10, 14, 15, 16];
+const DEFAULT_VISIBLE = [0, 1, 2, 5, 7, 8, 9, 10, 11, 15, 16, 17];
 
 document.addEventListener("DOMContentLoaded", () => {
     const table = document.getElementById("userList");

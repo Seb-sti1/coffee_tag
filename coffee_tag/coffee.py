@@ -286,7 +286,8 @@ class CoffeeManager:
         valid = False
         if current_user is None:
             tmp_user = User(self.db, -1, "", "", None, None, 0,
-                            None, "user", "active", None, "", None, 3, 100)
+                            None, "user", "active", None, "", None,
+                            3, 100, None)
         else:
             tmp_user = current_user
 
