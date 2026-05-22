@@ -1067,12 +1067,12 @@ class AdminJuraGui(AbstractUI):
             self.jura_btn = [JuraCommand.BUTTON_1, JuraCommand.BUTTON_2, JuraCommand.BUTTON_3,
                              JuraCommand.BUTTON_4, JuraCommand.BUTTON_5, JuraCommand.BUTTON_6]
             self.btn = [
-                self.add_button(f"Left Up", self.wrapper_press_jura_btn(1), x=10, y=10, width=7, height=1),
-                self.add_button(f"Left Mid", self.wrapper_press_jura_btn(2), x=10, y=70, width=7, height=1),
-                self.add_button(f"Left Down", self.wrapper_press_jura_btn(3), x=10, y=130, width=7, height=1),
-                self.add_button(f"Right Up", self.wrapper_press_jura_btn(4), x=170, y=10, width=7, height=1),
-                self.add_button(f"Right Mid", self.wrapper_press_jura_btn(5), x=170, y=70, width=7, height=1),
-                self.add_button(f"Right Down", self.wrapper_press_jura_btn(6), x=170, y=130, width=7, height=1)
+                self.add_button(f"Left Up", self.wrapper_press_jura_btn(0), x=10, y=10, width=7, height=1),
+                self.add_button(f"Left Mid", self.wrapper_press_jura_btn(1), x=10, y=70, width=7, height=1),
+                self.add_button(f"Left Down", self.wrapper_press_jura_btn(2), x=10, y=130, width=7, height=1),
+                self.add_button(f"Right Up", self.wrapper_press_jura_btn(3), x=170, y=10, width=7, height=1),
+                self.add_button(f"Right Mid", self.wrapper_press_jura_btn(4), x=170, y=70, width=7, height=1),
+                self.add_button(f"Right Down", self.wrapper_press_jura_btn(5), x=170, y=130, width=7, height=1)
             ]
 
     def wrapper_press_jura_btn(self, btn_id: int):
