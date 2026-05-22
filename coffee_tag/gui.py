@@ -466,6 +466,8 @@ class BrewCoffee(AbstractUI):
                                             image=self.settings_icon,
                                             x=5, y=5, px_width=50, px_height=50)
         self.admin_btn = None
+        self.feed_btn = None
+        self.jura_btn = None
         if user.permissions == "owner":
             self.admin_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                          "admin.png")).resize((50, 50)))
@@ -632,6 +634,10 @@ class BrewCoffee(AbstractUI):
         self.settings_btn.config(state="disabled")
         if self.admin_btn is not None:
             self.admin_btn.config(state="disabled")
+        if self.feed_btn is not None:
+            self.feed_btn.config(state="disabled")
+        if self.jura_btn is not None:
+            self.jura_btn.config(state="disabled")
         self.close_btn.config(state="disabled")
         self.future.set_result((int(self.req_coffee_bean), int(self.req_water_volume)))
         self.cleanup_request_ui()

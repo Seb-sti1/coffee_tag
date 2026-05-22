@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 license = "GPL-3.0"
 license-files = ["LICENSE"]
 name = "coffee_tag"
-version = "0.26.3"
+version = "0.26.4"
 requires-python = ">=3.10"
 readme = "README.md"
 dependencies = [
