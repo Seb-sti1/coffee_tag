@@ -960,6 +960,7 @@ class AdminFeedGui(AbstractUI):
         self.coffee_list.place(x=13, y=10, height=480 - 50 - 10, width=303)
         self.coffee_list.bind("<<ListboxSelect>>", self.select_coffee)
         self.current_coffee: Optional[Purchase] = None
+        self.users_index = {u.user_id: u for u in new_users} if new_users else {}
         self.delete_btn = self.add_button(f"Delete", self.delete_coffee, x=10, y=430,
                                           width=7, height=1)
         self.to_loss_btn = self.add_button(f"To loss", self.coffee_to_loss, x=120, y=430,
@@ -991,8 +992,9 @@ class AdminFeedGui(AbstractUI):
             self.users_list.insert(tk.END, f"{user.name} {user.surname}")
         self.coffee_list.delete(0, tk.END)
         for coffee in self.coffees:
+            u = self.users_index.get(coffee.user_id, None)
             self.coffee_list.insert(tk.END, f"{coffee.purchase_id:>6} {coffee.nb_coffee} {coffee.price}€ "
-                                            f"{coffee.date.strftime('%y/%m/%d %H:%M:%S')}")
+                                            f"{coffee.date.strftime('%y/%m/%d %H:%M:%S')} {u.name} {u.surname}")
 
     def select_user(self, _):
         selection: Optional[Tuple[int]] = self.users_list.curselection()
