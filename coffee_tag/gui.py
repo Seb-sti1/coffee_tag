@@ -484,6 +484,11 @@ class BrewCoffee(AbstractUI):
                                                                  self.on_closing(),
                                                                  self.gui.destroy()],
                                             x=620, y=100, px_width=50, px_height=50)
+            self.maintenance_btn = self.add_button("maintenance",
+                                                   lambda: [self.future.set_result("maintenance"),
+                                                            self.on_closing(),
+                                                            self.gui.destroy()],
+                                                   x=560, y=100, px_width=50, px_height=50)
 
         self.debug_label = self.add_label("", font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=120, fill=None)
 
@@ -512,6 +517,7 @@ class BrewCoffee(AbstractUI):
         self.brew_sent_with_success = False
         self.curr_water_volume = 0.
         self.progress_bar = None
+        self.stop_btn = None
 
         # EXIT UI
         self.closing_delay = 5
@@ -644,7 +650,7 @@ class BrewCoffee(AbstractUI):
         self.progress_ui()
 
     async def get_request(self) -> Optional[Tuple[int, int]
-                                            | Literal["settings", "admin", "retry", "feed", "jura_btn"]]:
+                                            | Literal["settings", "admin", "retry", "feed", "jura_btn", "maintenance"]]:
         # reset future for the request
         self.future = asyncio.get_event_loop().create_future()
         last_gui_status = None
@@ -1096,6 +1102,35 @@ class AdminJuraGui(AbstractUI):
         self.gui.destroy()
 
     def get_future(self) -> Future[None]:
+        return self.future
+
+
+class MaintenanceScreen(AbstractUI):
+    def __init__(self, main: MainGUI, rfid: RFIDReader, get_user_by_rfid: Callable[[str], Optional[User]]):
+        super().__init__(main, "Maintenance", 800, 480)
+        self.close_btn.place_forget()
+        self.get_user_by_rfid = get_user_by_rfid
+        self.rfid = rfid
+        self.card_future = rfid.get_rfid()
+        self.card_future.add_done_callback(self.read_card_callback)
+
+        self.add_label("The coffee machine is under maintenance!", font='Helvetica 20 bold',
+                       pady=80)
+        self.add_label("It will be back as soon as possible.")
+        self.add_label("Cafément votre,")
+        self.add_label("The U2IS Coffee Team.")
+
+    def read_card_callback(self, f: Future[str]):
+        badge = f.result()
+        user = self.get_user_by_rfid(badge)
+        if user is None or user.permissions != "owner":
+            self.card_future = self.rfid.get_rfid()
+            self.card_future.add_done_callback(self.read_card_callback)
+            return
+        self.future.set_result(user)
+        self.gui.destroy()
+
+    def get_future(self) -> Future[Optional[User]]:
         return self.future
 
 

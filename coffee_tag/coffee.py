@@ -15,7 +15,7 @@ from juracoffeemachine import CoffeeMaker, CoffeeStatistics
 
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
-    BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui
+    BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui, MaintenanceScreen
 from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
@@ -237,6 +237,9 @@ class CoffeeManager:
                 if r == "jura_btn":
                     self.loop.create_task(self.open_admin_jura_gui(user))
                     return None
+                if r == "maintenance":
+                    self.loop.create_task(self.open_maintenance(user))
+                    return None
                 if r is None:
                     return None
             user.beans_q, user.water_v = r
@@ -328,6 +331,15 @@ class CoffeeManager:
                             main_text="An unexpected error occurred while creating your profile!",
                             button_one="Ok").get_future()
             return False
+
+    async def open_maintenance(self, user:User):
+        logger.info(f"{user} started the maintenance")
+        user = await MaintenanceScreen(self.root_gui, self.rfid, self.db.get_user_by_rfid).get_future()
+        if user is None:
+            logger.info(f"The maintenance was stopped")
+        else:
+            logger.info(f"{user} stopped the maintenance")
+            self.loop.create_task(self.open_user_account(user, True))
 
     def stop(self):
         self.rfid.stop()
