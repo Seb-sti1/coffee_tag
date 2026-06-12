@@ -178,3 +178,4 @@ cython_debug/
 *.sql
 *.sqlite
 *.db
+config.json

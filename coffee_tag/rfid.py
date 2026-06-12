@@ -4,14 +4,16 @@ import threading
 from asyncio import Future
 from typing import Optional
 
+from coffee_tag.config import Config
+
 logger = logging.getLogger(__name__)
 
 
 class RFIDReader:
 
-    def __init__(self, dev_mode: bool):
-        self.dev_mode = dev_mode
-        if not self.dev_mode:
+    def __init__(self, config: Config):
+        self.config = config
+        if not self.config.dev:
             from coffee_tag.pn532 import PN532_I2C
             self.pn532 = PN532_I2C(debug=False, reset=20, req=16)
             ic, ver, rev, support = self.pn532.get_firmware_version()
@@ -29,7 +31,7 @@ class RFIDReader:
 
     def read_tag_thread(self):
         while self.run:
-            if self.dev_mode:
+            if self.config.dev:
                 card = input("card tag:")
             else:
                 try:

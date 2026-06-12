@@ -1,0 +1,28 @@
+{
+  "price": 0.25,
+  "price_description": "Price of each coffee.",
+  "database": "/home/coffee/coffee.db",
+  "database_description": "Path to the db.",
+  "tty": "/dev/ttyAMA0",
+  "tty_description": "Path to the tty of the machine's uart.",
+  "power_gpio": 23,
+  "power_gpio_description": "The GPIO number turning on the jura power.",
+  "monitor_snap_delay": 20,
+  "monitor_snap_delay_description": "Query Jura totals at clock-synced intervals in minutes (e.g., 30 = :00, :30). 0 to disable.",
+  "email": {
+    "host": "server-mail.example.com",
+    "host_description": "The host of the SMTP server.",
+    "port": 0,
+    "port_description": "The port of the SMTP server.",
+    "username": null,
+    "username_description": "The username to use to authenticate.",
+    "password": null,
+    "password_description": "The password to use to authenticate.",
+    "sender": "sender@example.com",
+    "sender_description": "The sender mail to use.",
+    "reply_to": null,
+    "reply_to_description": "The mail to specify as replyTo.",
+    "bcc": [],
+    "bcc_description": "The list of blind carbon copy to use."
+  }
+}

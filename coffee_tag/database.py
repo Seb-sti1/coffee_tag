@@ -12,6 +12,8 @@ import bcrypt
 from juracoffeemachine import CoffeeStatistics
 from quart_auth import AuthUser
 
+from coffee_tag.config import Config
+
 logger = logging.getLogger(__name__)
 
 LOSS_USER_ID = 121
@@ -191,14 +193,14 @@ class User(AuthUser):
                                       "(:user, DATETIME('now'), :coffee_bought, :price)",
                                       {"user": self.user_id,
                                        "coffee_bought": coffee_bought,
-                                       "price": self.db.coffee_price * coffee_bought})
+                                       "price": self.db.config.price * coffee_bought})
         else:
             return self.db.edit_query("INSERT INTO purchase (user_id, date, nb_coffee, price) VALUES"
                                       "(:user, :date, :coffee_bought, :price)",
                                       {"user": self.user_id,
                                        "coffee_bought": coffee_bought,
                                        "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                                       "price": self.db.coffee_price * coffee_bought})
+                                       "price": self.db.config.price * coffee_bought})
 
     def delete_coffee(self, purchase_id: int) -> bool:
         return self.db.edit_query("DELETE FROM purchase WHERE id=:uid",
@@ -294,10 +296,9 @@ class Repayment:
 
 class Database:
 
-    def __init__(self, path: str, read_only: bool, coffee_price: float):
-        self.connector = sqlite3.connect(path)
-        self.read_only = read_only
-        self.coffee_price = coffee_price
+    def __init__(self, config: Config):
+        self.connector = sqlite3.connect(config.database)
+        self.config = config
 
     def select_one(self, query, option) -> Optional[Any]:
         def func(c: sqlite3.Cursor):
@@ -319,7 +320,7 @@ class Database:
         c = self.connector.cursor()
         try:
             func(c)
-            if self.read_only:
+            if self.config.read_only:
                 self.connector.rollback()
             else:
                 self.connector.commit()

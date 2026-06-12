@@ -1,15 +1,18 @@
 import argparse
 import asyncio
+import json
 import logging
 import os
 import shutil
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Tuple
 
 from juracoffeemachine import CoffeeMaker
 
 from coffee_tag.coffee import CoffeeManager
+from coffee_tag.config import Config
 from coffee_tag.database import Database
 from coffee_tag.gui import show_gui, get_app_version, get_driver_version
 from coffee_tag.rfid import RFIDReader
@@ -18,31 +21,42 @@ from coffee_tag.website.app import Website
 logger = logging.getLogger(__name__)
 
 
-def setup():
+def setup() -> Tuple[Config, Database, RFIDReader, Website]:
     parser = argparse.ArgumentParser(prog="coffee_tag")
-    parser.add_argument('price', default=0.25, type=float, help='Price of each coffee')
-    parser.add_argument('path', default="coffee.db", type=Path, help='Path to the db')
+    parser.add_argument('config', default="config.json", type=Path, help='Path to the config file.')
     # prod related arguments regarding how the app should behave
-    parser.add_argument('--tty', default="/dev/ttyAMA0", type=str,
-                        help='Path to the tty of the machin\'s uart')
     parser.add_argument('--no-authentication', action='store_true',
                         help='Should the authentication be deactivated')
     parser.add_argument('--not-authoritative', action='store_true',
                         help='It deactivates ordering via this app for all the users.')
-    parser.add_argument('--power-gpio', type=int, default=None,
-                        help='The GPIO number turning on the jura power.')
-    parser.add_argument('--monitor-snap-delay', '-d', type=int, default=0,
-                        help='Query Jura totals at clock-synced intervals in minutes (e.g., 30 = :00, :30). 0 to disable.')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
     # dev related arguments
     parser.add_argument('--dev', action='store_true', help='Enable development mode')
     parser.add_argument('--debug-gui', action='store_true', help='Show all configured windows')
     parser.add_argument('--read-only', '-r', action='store_true', help='Enable read only mode for the database')
     args = parser.parse_args()
-    path = Path(args.path).expanduser()
-    user_home = Path("~/").expanduser()
+    with open(args.config) as f:
+        json_content = json.load(f)
+        config = Config(not args.no_authentication,
+                        not args.not_authoritative,
+                        args.verbose,
+                        json_content["price"],
+                        Path(json_content["database"]).expanduser().resolve(),
+                        json_content["tty"],
+                        json_content["power_gpio"],
+                        json_content["monitor_snap_delay"],
+                        json_content["email_host"],
+                        json_content["email_port"],
+                        json_content["email_username"],
+                        json_content["email_password"],
+                        json_content["email_sender"],
+                        json_content["email_reply_to"],
+                        json_content["email_bcc"],
+                        args.dev,
+                        args.read_only)
 
-    if not args.dev:
+    if not config.dev:
+        user_home = Path("~/").expanduser()
         os.makedirs(f"{user_home}/.local/share/applications", exist_ok=True)
         if os.path.exists(f"{user_home}/.local/share/applications/coffee-tag.desktop"):
             os.remove(f"{user_home}/.local/share/applications/coffee-tag.desktop")
@@ -55,33 +69,34 @@ def setup():
         logging.info("Desktop file was updated.")
 
     if args.debug_gui:
-        show_gui(str(path), args.price)
+        show_gui(str(config.database), config.price)
         exit(0)
 
     fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
-    rotating_handler = RotatingFileHandler(path.parent / "debug.log", maxBytes=1048576, backupCount=5)
+    rotating_handler = RotatingFileHandler(config.database.parent / "debug.log", maxBytes=1048576, backupCount=5)
     rotating_handler.setFormatter(fmt)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(fmt)
-    logging.getLogger("coffee_tag").setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
-    logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
-    logging.getLogger("__main__").setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.getLogger("coffee_tag").setLevel(level=logging.DEBUG if config.verbose else logging.INFO)
+    logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if config.verbose else logging.INFO)
+    logging.getLogger("__main__").setLevel(level=logging.DEBUG if config.verbose else logging.INFO)
     logging.getLogger().handlers = [rotating_handler, console_handler]
     logger.info(f"PID is {os.getpid()}. App version is {get_app_version()}."
                 f" Jura driver version is {get_driver_version()}.")
 
-    db = Database(str(path), args.read_only, args.price)
-    rfid = RFIDReader(args.dev)
+    db = Database(config)
+    rfid = RFIDReader(config)
     website = Website(db)
 
-    return args, db, rfid, website
+    return config, db, rfid, website
 
 
 def main():
-    args, db, rfid, website = setup()
+    config, db, rfid, website = setup()
 
     async def asyncio_main():
-        CoffeeManager(db, rfid, CoffeeMaker.create_from_uart(args.tty, args.power_gpio) if not args.dev else None, args)
+        CoffeeManager(db, rfid,
+                      CoffeeMaker.create_from_uart(config.tty, config.power_gpio) if not config.dev else None, config)
         await website.app.run_task(host="0.0.0.0", port=8080)
 
     asyncio.run(asyncio_main())

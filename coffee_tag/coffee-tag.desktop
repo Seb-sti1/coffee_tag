@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Coffee Tag
-Exec=/home/coffee/.local/bin/coffee_tag 0.25 /home/coffee/coffee/coffee.db --power-gpio 23 -d 20 --verbose
+Exec=/home/coffee/.local/bin/coffee_tag /home/coffee/coffee/config.json --verbose
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true

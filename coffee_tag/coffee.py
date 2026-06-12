@@ -5,7 +5,6 @@ It triggers the display of GUI and reactive depending on the user inputs.
 import asyncio
 import logging
 import os
-from argparse import Namespace
 from asyncio import Event
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +12,7 @@ from typing import Optional, List
 
 from juracoffeemachine import CoffeeMaker, CoffeeStatistics
 
+from coffee_tag.config import Config
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
     BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui, MaintenanceScreen
@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 class CoffeeManager:
-    def __init__(self, db: Database, rfid: RFIDReader, coffee_maker: Optional[CoffeeMaker], args: Namespace):
+    def __init__(self, db: Database, rfid: RFIDReader, coffee_maker: Optional[CoffeeMaker], config: Config):
         self.db = db
         self.rfid = rfid
-        self.args = args
+        self.config = config
         self.coffee_maker = coffee_maker
-        self.root_gui = MainGUI(self.__main_gui_callback__, self.__main_gui_create_user__, self.db.coffee_price)
+        self.root_gui = MainGUI(self.__main_gui_callback__, self.__main_gui_create_user__, self.db.config.price)
 
         self.loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -43,7 +43,7 @@ class CoffeeManager:
         self.loop.create_task(self.add_or_update_user())
 
     async def __check_authentication__(self, user) -> bool:
-        if self.args.no_authentication:
+        if not self.config.authentication:
             return True
         result = await AskPassword(self.root_gui, self.rfid, user).get_future()
         if result is None:
@@ -89,17 +89,17 @@ class CoffeeManager:
                 logger.info("An error occurred while saving statistics in db.")
 
     async def monitor_statistics(self) -> None:
-        if self.args.dev or self.args.monitor_snap_delay <= 0 or self.coffee_maker is None:
+        if self.config.dev or self.config.monitor_snap_delay <= 0 or self.coffee_maker is None:
             return None
         while self.rfid.run:
-            delay = (self.args.monitor_snap_delay - (datetime.now().minute % self.args.monitor_snap_delay))
+            delay = (self.config.monitor_snap_delay - (datetime.now().minute % self.config.monitor_snap_delay))
             logger.debug(f"Next statistics monitoring in {delay} min.")
             await asyncio.sleep(60 * delay)
             d = datetime.now()
             if d.weekday() < 5:
                 if 7 <= d.hour <= 20:
                     await self.__save_statistics__(False)
-                elif d.hour == 23 and d.minute >= 60 - self.args.monitor_snap_delay:
+                elif d.hour == 23 and d.minute >= 60 - self.config.monitor_snap_delay:
                     await self.__save_statistics__(True)
         return None
 
@@ -188,6 +188,7 @@ class CoffeeManager:
 
     async def open_user_account(self, user: User, is_authenticated: bool = False) -> None:
         # verify account status
+        # TODO bypass if admin badge
         if user.status == "banned" and user.permissions != "owner":
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
@@ -216,12 +217,13 @@ class CoffeeManager:
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
                 logger.warning(f"{user} avoided updating its profile.")
-        if not self.args.not_authoritative:
+        if self.config.authoritative:
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
                               self.coffee_maker.get_brewing_status,
                               user.beans_q, user.water_v)
             r = None
+            # TODO popup warning when no more coffee
             while type(r) != tuple:
                 self.coffee_maker.can_brew(cb=brew.can_brew_sb)
                 r = await brew.get_request()
@@ -249,7 +251,7 @@ class CoffeeManager:
             await brew.update()
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
-                logger.info(f"{user} bought 1 coffees at {self.db.coffee_price} €.")
+                logger.info(f"{user} bought 1 coffees at {self.db.config.price} €.")
                 if user.buy_coffees(1):
                     logger.info("This was saved in db.")
                 else:
@@ -273,7 +275,7 @@ class CoffeeManager:
                     return None
             # if coffee was bought, saves it
             if coffee_bought > 0:
-                logger.info(f"{user} bought {coffee_bought} coffees at {self.db.coffee_price} €.")
+                logger.info(f"{user} bought {coffee_bought} coffees at {self.db.config.price} €.")
                 if user.buy_coffees(coffee_bought):
                     logger.info("This was saved in db.")
                     await GeneralUI(self.root_gui, title=f"Thank you {user}!",
@@ -332,7 +334,7 @@ class CoffeeManager:
                             button_one="Ok").get_future()
             return False
 
-    async def open_maintenance(self, user:User):
+    async def open_maintenance(self, user: User):
         logger.info(f"{user} started the maintenance")
         user = await MaintenanceScreen(self.root_gui, self.rfid, self.db.get_user_by_rfid).get_future()
         if user is None:
