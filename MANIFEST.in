@@ -1,11 +1,6 @@
 include coffee_tag/coffee-tag.desktop
-include coffee_tag/media/bg.png
-include coffee_tag/media/settings.png
-include coffee_tag/media/admin.png
-include coffee_tag/media/coffee_icon.png
-include coffee_tag/media/coffee_icon_gray.png
-include coffee_tag/media/cup.gif
-include coffee_tag/media/cup2.gif
+include coffee_tag/media/*.png
+include coffee_tag/media/*.gif
 include coffee_tag/website/templates/index.html.jinja
 include coffee_tag/website/templates/login.html
 include coffee_tag/website/templates/user.html

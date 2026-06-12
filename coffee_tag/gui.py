@@ -332,9 +332,18 @@ class UserProperties(AbstractUI):
         date_str = user.date_of_departure.strftime("%Y/%m/%d") if user.date_of_departure is not None else None
         self.entries.append(self.add_entry(value=date_str, width=20, font='Helvetica 12',
                                            suggestion="YYYY/MM/DD", x=250, y=170))
+        self.initial_id_badge = user.id_badge
         self.add_label("Swipe your ENSTA badge or a RFID tag", font='Helvetica 12 bold italic', x=250, y=200)
-        self.badge_lbl = self.add_label(user.id_badge, width=35, font='Helvetica 12',
+        self.badge_lbl = self.add_label(self.initial_id_badge, width=33, font='Helvetica 12',
                                         borderwidth=1, highlightthickness=1, x=250, y=220)
+        self.rollback_image = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                           "rollback.png")).resize((30, 30)))
+        self.add_button(text="", image=self.rollback_image, x=560, y=214, px_width=30, px_height=30,
+                        callback=lambda : self.badge_lbl.config(text=self.initial_id_badge))
+        self.clear_image = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                           "clear.png")).resize((30, 30)))
+        self.add_button(text="", image=self.clear_image, x=605, y=214, px_width=30, px_height=30,
+                        callback=lambda : self.badge_lbl.config(text=""))
         self.card_future = rfid.get_rfid()
         self.card_future.add_done_callback(self.read_card_callback)
         self.add_label("Required fields are marked with an *", font='Helvetica 10 italic', fg=LIGHT_BROWN, x=220, y=255)
