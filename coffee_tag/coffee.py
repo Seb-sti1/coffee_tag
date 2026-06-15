@@ -219,6 +219,7 @@ class CoffeeManager:
                                 320, 250,
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
+                return None
         if self.config.authoritative:
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
