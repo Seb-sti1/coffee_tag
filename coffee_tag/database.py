@@ -123,8 +123,8 @@ class User(AuthUser):
     def __repr__(self):
         return str(self)
 
-    def is_valid(self) -> Union[True, Literal['missing_name', 'missing_surname', 'missing_mail', 'missing_password',
-    'missing_date_of_departure', 'mail_format', 'duplicate']]:
+    def is_valid(self) -> Literal[True, 'missing_name', 'missing_surname', 'missing_mail', 'missing_password',
+    'missing_date_of_departure', 'mail_format', 'duplicate']:
         if self.name == "":
             return "missing_name"
         if self.surname == "":
