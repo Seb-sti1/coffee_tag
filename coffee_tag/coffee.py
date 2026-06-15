@@ -77,23 +77,27 @@ class CoffeeManager:
             if stat is not None:
                 last_stat[0] = stat
             else:
-                logger.warning("Couldn't fetch jura's statistics")
+                logger.warning(f"Couldn't fetch jura's statistics."
+                               f" Next statistics monitoring in {self.config.monitor_snap_delay} min.")
             done.set()
 
+        logging.getLogger("juracoffeemachine").setLevel(level=logging.FATAL)
         self.coffee_maker.get_totals_statistics(cb=_cb, use_power_gpio=use_power_gpio)
+        logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if self.config.verbose else logging.INFO)
         await done.wait()
         if last_stat[0] is not None:
             if self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0]):
-                logger.info("Statistics were saved.")
+                logger.info(f"Statistics were saved."
+                            f" Next statistics monitoring in {self.config.monitor_snap_delay} min.")
             else:
-                logger.info("An error occurred while saving statistics in db.")
+                logger.info(f"An error occurred while saving statistics in db."
+                            f" Next statistics monitoring in {self.config.monitor_snap_delay} min.")
 
     async def monitor_statistics(self) -> None:
         if self.config.dev or self.config.monitor_snap_delay <= 0 or self.coffee_maker is None:
             return None
         while self.rfid.run:
             delay = (self.config.monitor_snap_delay - (datetime.now().minute % self.config.monitor_snap_delay))
-            logger.debug(f"Next statistics monitoring in {delay} min.")
             await asyncio.sleep(60 * delay)
             d = datetime.now()
             if d.weekday() < 5:
@@ -112,7 +116,6 @@ class CoffeeManager:
             if card is None:
                 continue
             if any(map(lambda w: w and w.is_opened(), self.root_gui.opened_popup)):
-                logger.info(f"GUI already opened ignoring tag {card}...")
                 continue
             else:
                 logger.info(f"Read rfid tag {card}...")
@@ -216,7 +219,6 @@ class CoffeeManager:
                                 320, 250,
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
-                logger.warning(f"{user} avoided updating its profile.")
         if self.config.authoritative:
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
