@@ -653,6 +653,8 @@ class BrewCoffee(AbstractUI):
             self.feed_btn.config(state="disabled")
         if self.jura_btn is not None:
             self.jura_btn.config(state="disabled")
+        if self.jura_btn is not None:
+            self.maintenance_btn.config(state="disabled")
         self.close_btn.config(state="disabled")
         self.future.set_result((int(self.req_coffee_bean), int(self.req_water_volume)))
         self.cleanup_request_ui()
