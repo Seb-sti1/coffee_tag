@@ -216,7 +216,7 @@ class CoffeeManager:
                             button_one="Ok").get_future()
             return None
         # ask missing infos
-        if user.is_valid() is not True and not signed_in_by_admin:
+        if user.is_valid() not in [True, "date_of_departure_in_the_past"] and not signed_in_by_admin:
             was_updated = await self.add_or_update_user(user)
             if was_updated is False or was_updated is None:
                 await GeneralUI(self.root_gui, "Please update your profile.",
@@ -224,6 +224,16 @@ class CoffeeManager:
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
                 return None
+        # check date_of_departure
+        if (user.date_of_departure is None or user.date_of_departure <= datetime.now(tz=timezone.utc)) \
+                and not signed_in_by_admin:
+            await GeneralUI(self.root_gui, "Your account is deactivated.",
+                            320, 300,
+                            main_text="Your account is past its date of departure.",
+                            sub_text="Please contact an admin or email us at cafe.u2is@gmail.com.",
+                            sub_after_main=True,
+                            button_one="Ok").get_future()
+            return None
         if self.config.authoritative:
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user,
@@ -311,6 +321,8 @@ class CoffeeManager:
                                                                 " It needs to be at least 4 characters."),
             'missing_date_of_departure': ("Fill all the required field", "You must provide your date of departure."
                                                                          " Mind the format YYYY/MM/DD."),
+            'date_of_departure_in_the_past': ("Have you already left?", "You must provide your date of departure "
+                                                                        "in the future."),
             'mail_format': ("Your mail is not valid", "Please provide a valid mail."),
             'duplicate': ("Account already exists",
                           "An account with this name and surname or mail or badge id already exists."),

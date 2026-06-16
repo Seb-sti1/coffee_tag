@@ -124,7 +124,7 @@ class User(AuthUser):
         return str(self)
 
     def is_valid(self) -> Literal[True, 'missing_name', 'missing_surname', 'missing_mail', 'missing_password',
-    'missing_date_of_departure', 'mail_format', 'duplicate']:
+    'missing_date_of_departure', 'date_of_departure_in_the_past', 'mail_format', 'duplicate']:
         if self.name == "":
             return "missing_name"
         if self.surname == "":
@@ -135,6 +135,8 @@ class User(AuthUser):
             return "missing_password"
         if self.date_of_departure is None:
             return "missing_date_of_departure"
+        if self.date_of_departure <= datetime.now(tz=timezone.utc):
+            return "date_of_departure_in_the_past"
         if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.mail):
             return "mail_format"
         if self.db.check_duplicate(self.name, self.surname, self.mail, self.id_badge, self.user_id):

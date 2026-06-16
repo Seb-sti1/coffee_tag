@@ -1330,6 +1330,12 @@ def show_gui(config: Config):
                                  w=320, h=290,
                                  main_text="An account with this name and surname or mail or badge id already exists.",
                                  button_one="Ok"))
+        loop.create_task(wrapper(GeneralUI, main=gui, title="Your account is deactivated.",
+                                 w=320, h=300,
+                                 main_text="Your account is past its date of departure.",
+                                 sub_text="Please contact an admin or email us at cafe.u2is@gmail.com.",
+                                 sub_after_main=True,
+                                 button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title=f"Welcome {str(users[0])}!",
                                  w=320, h=270,
                                  main_text="Your profile is now created!" if users[0] is None \
