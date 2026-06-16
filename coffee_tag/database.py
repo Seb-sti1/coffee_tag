@@ -6,7 +6,7 @@ import logging
 import re
 import sqlite3
 from datetime import datetime as dt, timezone, datetime
-from typing import Callable, Optional, Tuple, Any, Union, Literal, List
+from typing import Callable, Optional, Tuple, Any, Literal, List
 
 import bcrypt
 from juracoffeemachine import CoffeeStatistics
@@ -26,7 +26,7 @@ class User(AuthUser):
                  initial_balance: float, passcode: Optional[str], permissions: str, status: str,
                  date_of_departure: Optional[str],
                  mail: str, id_badge: Optional[str],
-                     beans_q: int, water_v: int, creation_date: Optional[str]):
+                 beans_q: int, water_v: int, creation_date: Optional[str]):
         super().__init__(str(user_id))
         self.db: Database = db
         self.user_id: int = user_id
@@ -206,16 +206,22 @@ class User(AuthUser):
         return self.db.edit_query("DELETE FROM purchase WHERE id=:uid",
                                   {"uid": purchase_id})
 
-    def is_authorized(self, is_password: bool, login: str) -> bool:
+    def is_maintainer(self) -> bool:
+        return self.permissions in ["maintainer", "owner"]
+
+    def is_owner(self) -> bool:
+        return self.permissions in ["owner"]
+
+    def is_authorized(self, is_password: bool, login: str) -> Tuple[bool, bool]:
         if is_password:
             if self.passcode is not None:
-                return bcrypt.checkpw(login.encode(), self.passcode.encode())
-            return False
+                return bcrypt.checkpw(login.encode(), self.passcode.encode()), False
+            return False, False
         else:
             u = self.db.get_user_by_rfid(login)
             if u is not None:
-                return self.user_id == u.user_id or u.permissions == "owner"
-        return False
+                return self.user_id == u.user_id or u.is_maintainer(), u.is_maintainer()
+        return False, False
 
 
 class Purchase:

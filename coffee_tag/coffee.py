@@ -8,7 +8,7 @@ import os
 from asyncio import Event
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from juracoffeemachine import CoffeeMaker, CoffeeStatistics
 
@@ -42,16 +42,17 @@ class CoffeeManager:
     def __main_gui_create_user__(self):
         self.loop.create_task(self.add_or_update_user())
 
-    async def __check_authentication__(self, user) -> bool:
+    async def __check_authentication__(self, user) -> Tuple[bool, bool]:
         if not self.config.authentication:
-            return True
+            return True, False
         result = await AskPassword(self.root_gui, self.rfid, user).get_future()
         if result is None:
-            return False
+            return False, False
         is_password, login = result
-        if user.is_authorized(is_password, login):
+        is_authorized, is_admin = user.is_authorized(is_password, login)
+        if is_authorized:
             logger.info(f"Someone authenticate as {user} with a {'password' if is_password else 'badge'}.")
-            return True
+            return True, is_admin
         logger.warning(f"Someone failed to authenticate as {user}"
                        f" with a {'password' if is_password else 'badge'}.")
         await GeneralUI(self.root_gui, "Wrong password!",
@@ -60,7 +61,7 @@ class CoffeeManager:
                         sub_text="Please contact an admin if you're having trouble login in.",
                         sub_after_main=True,
                         button_one="Ok").get_future()
-        return False
+        return False, False
 
     async def tk_loop(self):
         while self.rfid.run:
@@ -133,7 +134,8 @@ class CoffeeManager:
                 user = await self.get_user_by_manual_search()
                 if user is None:
                     return None
-                if await self.__check_authentication__(user):
+                is_authorized, _ = await self.__check_authentication__(user)
+                if is_authorized:
                     self.db.sync_badge(user, card)
                     await GeneralUI(self.root_gui, title="Welcome back!",
                                     w=320, h=270,
@@ -147,17 +149,17 @@ class CoffeeManager:
         return None
 
     async def open_admin_gui(self, user: User) -> None:
-        if user.permissions == "owner":
+        if user.is_maintainer():
             await AdminGUI(self.root_gui, self.db.get_users()).get_future()
         return None
 
     async def open_admin_feed_gui(self, user: User) -> None:
-        if user.permissions == "owner":
+        if user.is_maintainer():
             await AdminFeedGui(self.root_gui, self.db.get_recent_users(), self.db.get_recent_coffees()).get_future()
         return None
 
     async def open_admin_jura_gui(self, user: User) -> None:
-        if user.permissions == "owner":
+        if user.is_maintainer():
             await AdminJuraGui(self.root_gui, self.coffee_maker).get_future()
         return None
 
@@ -190,9 +192,14 @@ class CoffeeManager:
         return None
 
     async def open_user_account(self, user: User, is_authenticated: bool = False) -> None:
+        # verify access rights
+        signed_in_by_admin = user.is_maintainer()
+        if not is_authenticated:
+            is_authorized, signed_in_by_admin = await self.__check_authentication__(user)
+            if not is_authorized:
+                return None
         # verify account status
-        # TODO bypass if admin badge
-        if user.status == "banned" and user.permissions != "owner":
+        if user.status == "banned" and not signed_in_by_admin:
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
                             main_text="Your account has been blocked indefinitely.",
@@ -200,7 +207,7 @@ class CoffeeManager:
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None
-        if user.status == "shadow_banned" and user.permissions != "owner":
+        if user.status == "shadow_banned" and not signed_in_by_admin:
             await GeneralUI(self.root_gui, "Oops...",
                             320, 300,
                             main_text="An unexpected error occurred while opening your profile!",
@@ -208,11 +215,8 @@ class CoffeeManager:
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None
-        # verify access rights
-        if not is_authenticated and not await self.__check_authentication__(user):
-            return None
         # ask missing infos
-        if user.is_valid() is not True:
+        if user.is_valid() is not True and not signed_in_by_admin:
             was_updated = await self.add_or_update_user(user)
             if was_updated is False or was_updated is None:
                 await GeneralUI(self.root_gui, "Please update your profile.",
@@ -338,13 +342,14 @@ class CoffeeManager:
             return False
 
     async def open_maintenance(self, user: User):
-        logger.info(f"{user} started the maintenance")
-        user = await MaintenanceScreen(self.root_gui, self.rfid, self.db.get_user_by_rfid).get_future()
-        if user is None:
-            logger.info(f"The maintenance was stopped")
-        else:
-            logger.info(f"{user} stopped the maintenance")
-            self.loop.create_task(self.open_user_account(user, True))
+        if user.is_maintainer():
+            logger.info(f"{user} started the maintenance")
+            user = await MaintenanceScreen(self.root_gui, self.rfid, self.db.get_user_by_rfid).get_future()
+            if user is None:
+                logger.info(f"The maintenance was stopped")
+            else:
+                logger.info(f"{user} stopped the maintenance")
+                self.loop.create_task(self.open_user_account(user, True))
 
     def stop(self):
         self.rfid.stop()

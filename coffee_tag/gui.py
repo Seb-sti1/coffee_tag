@@ -477,7 +477,7 @@ class BrewCoffee(AbstractUI):
         self.admin_btn = None
         self.feed_btn = None
         self.jura_btn = None
-        if user.permissions == "owner":
+        if user.is_maintainer():
             self.admin_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                          "admin.png")).resize((50, 50)))
             self.admin_btn = self.add_button("", lambda: [self.future.set_result("admin"),
@@ -485,10 +485,14 @@ class BrewCoffee(AbstractUI):
                                                           self.gui.destroy()],
                                              image=self.admin_icon,
                                              x=740, y=100, px_width=50, px_height=50)
+            if not user.is_owner():
+                self.admin_btn.config(state="disabled")
             self.feed_btn = self.add_button("feed", lambda: [self.future.set_result("feed"),
                                                              self.on_closing(),
                                                              self.gui.destroy()],
                                             x=680, y=100, px_width=50, px_height=50)
+            if not user.is_owner():
+                self.admin_btn.config(state="disabled")
             self.jura_btn = self.add_button("jura btn", lambda: [self.future.set_result("jura_btn"),
                                                                  self.on_closing(),
                                                                  self.gui.destroy()],
@@ -738,8 +742,6 @@ class BrewCoffee(AbstractUI):
                         self.progress_label.config(text=f"Pumping the water...")
                         self.curr_water_volume = max(self.curr_water_volume, self.get_brewing_status().water_volume)
                         self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
-                if type(self.get_brewing_status().last_msg) == HZ and self.user.permissions == "owner":
-                    self.debug_label.config(text=f"{self.get_brewing_status().last_msg.unknown_c}")
             await asyncio.sleep(1)
         self.ui_before_exit()
 
@@ -1134,7 +1136,7 @@ class MaintenanceScreen(AbstractUI):
     def read_card_callback(self, f: Future[str]):
         badge = f.result()
         user = self.get_user_by_rfid(badge)
-        if user is None or user.permissions != "owner":
+        if user is None or not user.is_maintainer():
             self.card_future = self.rfid.get_rfid()
             self.card_future.add_done_callback(self.read_card_callback)
             return
