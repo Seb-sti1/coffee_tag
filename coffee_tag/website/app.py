@@ -11,8 +11,6 @@ from coffee_tag.database import Database, User
 logger = logging.getLogger(__name__)
 
 
-# TODO https://www.chartjs.org/
-
 class Website:
     def __init__(self, db: Database):
         self.db = db
