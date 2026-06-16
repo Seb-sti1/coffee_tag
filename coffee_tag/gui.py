@@ -18,10 +18,11 @@ from typing import Tuple, Optional, Callable, Literal, List
 
 import bcrypt
 from PIL import Image, ImageTk
-from juracoffeemachine import JuraProtocol, BrewingStatus, HZ, JuraCommand
+from juracoffeemachine import JuraProtocol, BrewingStatus, JuraCommand
 from juracoffeemachine.coffee_machine import CoffeeMakerResult, BrewingStage, CoffeeMaker
 
 from coffee_tag import media
+from coffee_tag.config import Config
 from coffee_tag.database import User, Database, Purchase
 from coffee_tag.rfid import RFIDReader
 
@@ -337,13 +338,13 @@ class UserProperties(AbstractUI):
         self.badge_lbl = self.add_label(self.initial_id_badge, width=33, font='Helvetica 12',
                                         borderwidth=1, highlightthickness=1, x=250, y=220)
         self.rollback_image = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
-                                                                           "rollback.png")).resize((30, 30)))
+                                                                         "rollback.png")).resize((30, 30)))
         self.add_button(text="", image=self.rollback_image, x=560, y=214, px_width=30, px_height=30,
-                        callback=lambda : self.badge_lbl.config(text=self.initial_id_badge))
+                        callback=lambda: self.badge_lbl.config(text=self.initial_id_badge))
         self.clear_image = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
-                                                                           "clear.png")).resize((30, 30)))
+                                                                      "clear.png")).resize((30, 30)))
         self.add_button(text="", image=self.clear_image, x=605, y=214, px_width=30, px_height=30,
-                        callback=lambda : self.badge_lbl.config(text=""))
+                        callback=lambda: self.badge_lbl.config(text=""))
         self.card_future = rfid.get_rfid()
         self.card_future.add_done_callback(self.read_card_callback)
         self.add_label("Required fields are marked with an *", font='Helvetica 10 italic', fg=LIGHT_BROWN, x=220, y=255)
@@ -1254,9 +1255,9 @@ class ImageLabel(tk.Label):
             self.after(self.delay, self.next_frame)
 
 
-def show_gui(path: str, price: float):
-    rfid = RFIDReader(True)
-    db = Database(path, True, price)
+def show_gui(config: Config):
+    rfid = RFIDReader(config)
+    db = Database(config)
     users = db.search_by_name("dit-")
     gui = MainGUI(lambda: None, lambda: None, 0.25)
 

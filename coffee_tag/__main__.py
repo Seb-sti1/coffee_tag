@@ -45,13 +45,13 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website]:
                         json_content["tty"],
                         json_content["power_gpio"],
                         json_content["monitor_snap_delay"],
-                        json_content["email_host"],
-                        json_content["email_port"],
-                        json_content["email_username"],
-                        json_content["email_password"],
-                        json_content["email_sender"],
-                        json_content["email_reply_to"],
-                        json_content["email_bcc"],
+                        json_content["email"]["host"],
+                        json_content["email"]["port"],
+                        json_content["email"]["username"],
+                        json_content["email"]["password"],
+                        json_content["email"]["sender"],
+                        json_content["email"]["reply_to"],
+                        json_content["email"]["bcc"],
                         args.dev,
                         args.read_only)
 
@@ -69,7 +69,7 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website]:
         logging.info("Desktop file was updated.")
 
     if args.debug_gui:
-        show_gui(str(config.database), config.price)
+        show_gui(config)
         exit(0)
 
     fmt = logging.Formatter("%(levelname)s:%(asctime)s:%(name)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
