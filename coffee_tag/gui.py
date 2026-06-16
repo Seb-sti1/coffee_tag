@@ -447,13 +447,14 @@ class BrewCoffee(AbstractUI):
     }
 
     def __init__(self, main: MainGUI,
-                 user: User,
+                 user: User, price: float,
                  get_brewing_status: Callable[[], BrewingStatus],
                  beans_q: int, water_v: int):
         super().__init__(main, "Brew a coffee", 800, 480)
         self.gui_status: BrewCoffee.Status = BrewCoffee.Status.WAITING_CONNECTION
         self.jura_feedback: Optional[CoffeeMakerResult] = None
         self.user = user
+        self.price = price
         self.get_brewing_status = get_brewing_status
         self.req_coffee_bean = beans_q
         self.req_water_volume = water_v
@@ -621,7 +622,7 @@ class BrewCoffee(AbstractUI):
         self.water_volume_scale.place(x=60 + 15, y=10)
 
         # ==== SUBMIT REQUEST
-        self.submit_btn = self.add_button("Brew!", self.submit_callback,
+        self.submit_btn = self.add_button(f"Brew! ({self.price}€)", self.submit_callback,
                                           gui=self.order_rect,
                                           font='Helvetica 16 bold', width=10, height=2,
                                           x=245 + 121, y=236)

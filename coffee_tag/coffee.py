@@ -236,7 +236,7 @@ class CoffeeManager:
             return None
         if self.config.authoritative:
             await self.check_for_meme(user)
-            brew = BrewCoffee(self.root_gui, user,
+            brew = BrewCoffee(self.root_gui, user, self.config.price,
                               self.coffee_maker.get_brewing_status,
                               user.beans_q, user.water_v)
             r = None
