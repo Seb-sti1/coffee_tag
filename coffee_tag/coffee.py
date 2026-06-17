@@ -149,12 +149,12 @@ class CoffeeManager:
         return None
 
     async def open_admin_gui(self, user: User) -> None:
-        if user.is_maintainer():
+        if user.is_owner():
             await AdminGUI(self.root_gui, self.db.get_users()).get_future()
         return None
 
     async def open_admin_feed_gui(self, user: User) -> None:
-        if user.is_maintainer():
+        if user.is_owner():
             await AdminFeedGui(self.root_gui, self.db.get_recent_users(), self.db.get_recent_coffees()).get_future()
         return None
 

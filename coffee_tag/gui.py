@@ -494,7 +494,7 @@ class BrewCoffee(AbstractUI):
                                                              self.gui.destroy()],
                                             x=680, y=100, px_width=50, px_height=50)
             if not user.is_owner():
-                self.admin_btn.config(state="disabled")
+                self.feed_btn.config(state="disabled")
             self.jura_btn = self.add_button("jura btn", lambda: [self.future.set_result("jura_btn"),
                                                                  self.on_closing(),
                                                                  self.gui.destroy()],
