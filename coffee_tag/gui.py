@@ -756,7 +756,7 @@ class BrewCoffee(AbstractUI):
             self.progress_label.config(text="Enjoy :)")
             self.add_label("One coffee will be debited from your account.",
                            gui=self.order_rect, font='Helvetica 12 italic', fg=LIGHT_BROWN)
-            self.balance_lbl.config(text=f"{-self.user.get_user_balance() - self.user.db.coffee_price} €")
+            self.balance_lbl.config(text=f"{-self.user.get_user_balance() - self.user.db.config.price} €")
         else:
             self.title_order_rect.config(text="Oops...")
             self.progress_label.config(text=self.ERROR_LBL.get(self.jura_feedback, "Unknown error"))
