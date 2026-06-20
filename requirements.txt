@@ -7,3 +7,4 @@ bcrypt
 spidev
 pyserial
 juracoffeemachine
+jinja2

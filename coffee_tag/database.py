@@ -6,7 +6,7 @@ import logging
 import re
 import sqlite3
 from datetime import datetime as dt, timezone, datetime
-from typing import Callable, Optional, Tuple, Any, Literal, List
+from typing import Callable, Optional, Tuple, Any, Literal, List, Dict
 
 import bcrypt
 from juracoffeemachine import CoffeeStatistics
@@ -204,6 +204,21 @@ class User(AuthUser):
                                        "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                                        "price": self.db.config.price * coffee_bought})
 
+    def log_email(self, date: datetime, subject: str, template_name: str, template_args: Dict,
+                  bcc: List[str], success: bool) -> bool:
+        return self.db.edit_query("INSERT INTO emaillog (user_id, date, subject, template_name, template_args,"
+                                  " bcc, success) VALUES (:user, :date, :subject, :template_name, :template_args,"
+                                  ":bcc, :success)",
+                                  {
+                                      "user": self.user_id,
+                                      "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                      "subject": subject,
+                                      "template_name": template_name,
+                                      "template_args": ";".join(map(str, template_args.values())),
+                                      "bcc": ";".join(bcc),
+                                      "success": success,
+                                  })
+
     def delete_coffee(self, purchase_id: int) -> bool:
         return self.db.edit_query("DELETE FROM purchase WHERE id=:uid",
                                   {"uid": purchase_id})
@@ -300,6 +315,40 @@ class Repayment:
         db.exec_safely_at_once(create)
 
 
+class EmailLog:
+
+    def __init__(self, db: Database, repayment_id: int, user_id: int, date: str,
+                 credit: float, label: str, is_cash: int, in_balance: int):
+        self.db: Database = db
+        self.repayment_id: int = repayment_id
+        self.user_id: int = user_id
+        self.date: str = date
+        self.credit: float = credit
+        self.label: str = label
+        self.is_cash: int = is_cash
+        self.in_balance: int = in_balance
+
+    @staticmethod
+    def create_table(db: Database):
+        def create(db: sqlite3.Cursor):
+            db.execute("""
+                       CREATE TABLE IF NOT EXISTS emaillog
+                       (
+                           id            INTEGER primary key,
+                           user_id       INTEGER,
+                           date          TEXT,
+                           subject       TEXT,
+                           template_name TEXT,
+                           template_args TEXT,
+                           bcc           TEXT,
+                           success       boolean,
+                           FOREIGN KEY (user_id) REFERENCES users (id)
+                       );
+                       """)
+
+        db.exec_safely_at_once(create)
+
+
 class Database:
 
     def __init__(self, config: Config):
@@ -312,6 +361,7 @@ class Database:
         User.create_table(self)
         Purchase.create_table(self)
         Repayment.create_table(self)
+        EmailLog.create_table(self)
 
         def create(db: sqlite3.Cursor):
             db.execute("""
@@ -418,6 +468,17 @@ class Database:
                                  "WHERE id = :user_id",
                                  {"user_id": user_id})
         return None if result is None else User(self, *list(result)[:15])
+
+    def get_owners(self) -> Optional[List[User]]:
+        rows = self.connector.execute("SELECT * FROM users "
+                                      'WHERE permissions = "owner"')
+        return None if rows is None else [User(self, *list(row)[:15]) for row in rows]
+
+    def get_user_leaving_in(self, days: int) -> Optional[List[User]]:
+        rows = self.connector.execute("SELECT * FROM users "
+                                      " WHERE date_of_departure - DATE() == :days",
+                                      {"days": days})
+        return None if rows is None else [User(self, *list(row)[:15]) for row in rows]
 
     def get_total_number_of_coffees(self) -> Optional[int]:
         result = self.select_one("SELECT sum(nb_coffee) FROM purchase;", {})

@@ -8,3 +8,4 @@ include coffee_tag/website/templates/admin.html.jinja
 include coffee_tag/website/static/cup.gif
 include coffee_tag/website/static/admin.css
 include coffee_tag/website/static/admin.js
+include coffee_tag/email/template/*.html.jinja

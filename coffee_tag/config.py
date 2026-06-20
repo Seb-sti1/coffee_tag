@@ -18,6 +18,13 @@ class Config:
 
     contact_email: str
 
+    debt_default_ceiling: float
+    debt_grace_period: float
+    debt_grace_ceiling: float
+
+    notification_date_of_departure_remainders: List[int]
+    notification_balance_thresholds: List[float]
+
     email_host: str
     email_port: int
     email_username: str
@@ -25,6 +32,7 @@ class Config:
     email_sender: str
     email_reply_to: str
     email_bcc: List[str]
+    email_payment_methods: str
 
     dev: bool
     read_only: bool

@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from asyncio import Event
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, List, Tuple
 
@@ -17,14 +17,17 @@ from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
     BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui, MaintenanceScreen
 from coffee_tag.rfid import RFIDReader
+from mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
 
 
 class CoffeeManager:
-    def __init__(self, db: Database, rfid: RFIDReader, coffee_maker: Optional[CoffeeMaker], config: Config):
+    def __init__(self, db: Database, rfid: RFIDReader, email: EmailManager, coffee_maker: Optional[CoffeeMaker],
+                 config: Config):
         self.db = db
         self.rfid = rfid
+        self.email = email
         self.config = config
         self.coffee_maker = coffee_maker
         self.root_gui = MainGUI(self.__main_gui_callback__, self.__main_gui_create_user__, self.db.config.price)
@@ -106,6 +109,24 @@ class CoffeeManager:
                     await self.__save_statistics__(False)
                 elif d.hour == 23 and d.minute >= 60 - self.config.monitor_snap_delay:
                     await self.__save_statistics__(True)
+        return None
+
+    async def daily_clock(self) -> None:
+        if self.config.dev:
+            return None
+        while self.rfid.run:
+            now = datetime.now()
+            next_run = now.replace(hour=7, minute=0, second=0, microsecond=0)
+            if next_run <= now:
+                next_run += timedelta(days=1)
+            await asyncio.sleep((next_run - now).total_seconds())
+            # send date of departure remainder
+            for days in self.config.notification_date_of_departure_remainders:
+                for user in self.db.get_user_leaving_in(days) or []:
+                    if self.email.date_of_departure_remainder(user, [] if days != 1 else self.db.get_owners() or []):
+                        logger.info(f"Successfully sent remainder email to {user}.")
+                    else:
+                        logger.warning(f"Failed to sent remainder email to {user}.")
         return None
 
     async def listen_to_card_reader(self) -> None:
@@ -234,6 +255,7 @@ class CoffeeManager:
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None
+        coffee_bought = 0
         if self.config.authoritative:
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user, self.config.price,
@@ -268,11 +290,7 @@ class CoffeeManager:
             await brew.update()
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
-                logger.info(f"{user} bought 1 coffees at {self.db.config.price} €.")
-                if user.buy_coffees(1):
-                    logger.info("This was saved in db.")
-                else:
-                    logger.error("Couldn't save in db!")
+                coffee_bought = 1
 
             def _cb(reset):
                 logger.warning(f"Resetting param to actual default: {reset}")
@@ -290,18 +308,27 @@ class CoffeeManager:
                                            button_one="Yes", button_two="Oops").get_future()
                 if validate is None or validate is False:
                     return None
-            # if coffee was bought, saves it
-            if coffee_bought > 0:
-                logger.info(f"{user} bought {coffee_bought} coffees at {self.db.config.price} €.")
-                if user.buy_coffees(coffee_bought):
-                    logger.info("This was saved in db.")
+        # if coffee was bought, saves it
+        if coffee_bought > 0:
+            logger.info(f"{user} bought {coffee_bought} coffees at {self.db.config.price} €.")
+            ceiling = self.config.debt_grace_ceiling if self.config.debt_grace_period > (
+                    datetime.now(tz=timezone.utc) - user.creation_date).days else self.config.debt_default_ceiling
+            for threshold in self.config.notification_balance_thresholds:
+                if self.config.price >= - user.get_user_balance() - (threshold + ceiling) > 0:
+                    if self.email.send_low_balance(user):
+                        logger.info(f"Sent a low balance remainder to {user}.")
+                    else:
+                        logger.warning(f"Failed to send a low balance remainder to {user}.")
+            if user.buy_coffees(coffee_bought):
+                logger.info("This was saved in db.")
+                if not self.config.authoritative:
                     await GeneralUI(self.root_gui, title=f"Thank you {user}!",
                                     w=490, h=230,
                                     sub_text="Your balance is now",
                                     main_text=f"{-user.get_user_balance()} €",
                                     should_close_in_5=True).get_future_with_autoclosing()
-                else:
-                    logger.error("Couldn't save in db!")
+            else:
+                logger.error("Couldn't save in db!")
         return None
 
     async def add_or_update_user(self, current_user: Optional[User] = None) -> Optional[bool]:
@@ -344,6 +371,11 @@ class CoffeeManager:
                             main_text="Your profile is now created!" if current_user is None \
                                 else "Your profile was updated!",
                             button_one="Ok").get_future()
+            if current_user is None:
+                if self.email.registration_email(tmp_user, self.db.get_owners() or []):
+                    logger.info(f"Successfully sent registration email to {tmp_user}.")
+                else:
+                    logger.warning(f"Failed to send registration email to {tmp_user}.")
             return True
         else:
             logger.warning(f"Error while creating profile '{tmp_user}'")

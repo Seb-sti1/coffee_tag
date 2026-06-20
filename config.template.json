@@ -11,6 +11,28 @@
   "monitor_snap_delay_description": "Query Jura totals at clock-synced intervals in minutes (e.g., 30 = :00, :30). 0 to disable.",
   "contact_email": "your-contact@email.net",
   "contact_email_description": "The email displayed to users when contact might be required.",
+  "debt": {
+    "default_ceiling": 0,
+    "default_ceiling_description": "The default debt ceiling allowing to take coffees.",
+    "grace_period": 7,
+    "grace_period_description": "Number of days after account creation during which the grace_ceiling applies instead of the default_ceiling.",
+    "grace_ceiling": -5,
+    "grace_ceiling_description": "The debt ceiling for the first grace_period days after account creation."
+  },
+  "notification": {
+    "date_of_departure_remainders": [
+      10,
+      3,
+      1
+    ],
+    "date_of_departure_remainders_description": "The number of days before departure to send reminders.",
+    "balance_thresholds": [
+      7.5,
+      5,
+      1
+    ],
+    "balance_thresholds_description": "The debt ceilings above default_ceiling or grace_ceiling triggering a notification by email."
+  },
   "email": {
     "host": "server-mail.example.com",
     "host_description": "The host of the SMTP server.",
@@ -25,6 +47,8 @@
     "reply_to": null,
     "reply_to_description": "The mail to specify as replyTo.",
     "bcc": [],
-    "bcc_description": "The list of blind carbon copy to use."
+    "bcc_description": "The list of blind carbon copy to use.",
+    "payment_methods": "<p>You can choose from the following payment methods:</p><ul><li style=\"line-height: 19.6px;\"><p>Cash deposit in room XXXX,</p></li><li style=\"line-height: 19.6px;\"><p>Via bank transfer to [IBAN].</p></li></ul>",
+    "payment_methods_description": "The details on how to pay to top up one's account."
   }
 }

@@ -17,11 +17,12 @@ from coffee_tag.database import Database
 from coffee_tag.gui import show_gui, get_app_version, get_driver_version
 from coffee_tag.rfid import RFIDReader
 from coffee_tag.website.app import Website
+from coffee_tag.mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
 
 
-def setup() -> Tuple[Config, Database, RFIDReader, Website]:
+def setup() -> Tuple[Config, Database, RFIDReader, Website, EmailManager]:
     parser = argparse.ArgumentParser(prog="coffee_tag")
     parser.add_argument('config', default="config.json", type=Path, help='Path to the config file.')
     # prod related arguments regarding how the app should behave
@@ -46,6 +47,11 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website]:
                         json_content["power_gpio"],
                         json_content["monitor_snap_delay"],
                         json_content["contact_email"],
+                        json_content["debt"]["default_ceiling"],
+                        json_content["debt"]["grace_period"],
+                        json_content["debt"]["grace_ceiling"],
+                        json_content["notification"]["date_of_departure_remainders"],
+                        json_content["notification"]["balance_thresholds"],
                         json_content["email"]["host"],
                         json_content["email"]["port"],
                         json_content["email"]["username"],
@@ -53,6 +59,7 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website]:
                         json_content["email"]["sender"],
                         json_content["email"]["reply_to"],
                         json_content["email"]["bcc"],
+                        json_content["email"]["payment_methods"],
                         args.dev,
                         args.read_only)
 
@@ -88,15 +95,16 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website]:
     db = Database(config)
     rfid = RFIDReader(config)
     website = Website(db)
+    email = EmailManager(config)
 
-    return config, db, rfid, website
+    return config, db, rfid, website, email
 
 
 def main():
-    config, db, rfid, website = setup()
+    config, db, rfid, website, email = setup()
 
     async def asyncio_main():
-        CoffeeManager(db, rfid,
+        CoffeeManager(db, rfid, email,
                       CoffeeMaker.create_from_uart(config.tty, config.power_gpio) if not config.dev else None, config)
         await website.app.run_task(host="0.0.0.0", port=8080)
 
