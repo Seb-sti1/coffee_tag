@@ -237,24 +237,42 @@ class CoffeeManager:
                             button_one="Ok").get_future()
             return None
         # ask missing infos
-        if user.is_valid() not in [True, "date_of_departure_in_the_past"] and not signed_in_by_admin:
+        if user.is_valid() not in [True, "date_of_departure_in_the_past"]:
             was_updated = await self.add_or_update_user(user)
             if was_updated is False or was_updated is None:
                 await GeneralUI(self.root_gui, "Please update your profile.",
                                 320, 250,
                                 main_text="To access your account please update your profile.",
                                 button_one="Ok").get_future()
-                return None
+                if not signed_in_by_admin:
+                    return None
         # check date_of_departure
-        if (user.date_of_departure is None or user.date_of_departure <= datetime.now(tz=timezone.utc)) \
-                and not signed_in_by_admin:
+        if user.date_of_departure is None or user.date_of_departure <= datetime.now(tz=timezone.utc):
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
                             main_text="Your account is past its date of departure.",
                             sub_text=f"Please contact an admin or email us at {self.config.contact_email}.",
                             sub_after_main=True,
                             button_one="Ok").get_future()
-            return None
+            if not signed_in_by_admin:
+                return None
+        # check debt
+        ceiling = self.config.debt_grace_ceiling if self.config.debt_grace_period > (
+                datetime.now(tz=timezone.utc) - user.creation_date).days else self.config.debt_default_ceiling
+        if self.config.price > - user.get_user_balance() - ceiling:
+            await GeneralUI(self.root_gui, "You're at or under the debt ceiling.",
+                            320, 300,
+                            main_text="To brew a new coffee, top up your account.",
+                            sub_text="Check your email for more information.",
+                            sub_after_main=True,
+                            button_one="Ok").get_future()
+            if self.email.send_low_balance(user):
+                logger.info(f"Sent a low balance remainder to {user}.")
+            else:
+                logger.warning(f"Failed to send a low balance remainder to {user}.")
+            if not signed_in_by_admin:
+                return None
+        # show order gui
         coffee_bought = 0
         if self.config.authoritative:
             await self.check_for_meme(user)
@@ -306,8 +324,6 @@ class CoffeeManager:
         # if coffee was bought, saves it
         if coffee_bought > 0:
             logger.info(f"{user} bought {coffee_bought} coffees at {self.db.config.price} €.")
-            ceiling = self.config.debt_grace_ceiling if self.config.debt_grace_period > (
-                    datetime.now(tz=timezone.utc) - user.creation_date).days else self.config.debt_default_ceiling
             for threshold in self.config.notification_balance_thresholds:
                 if self.config.price >= - user.get_user_balance() - (threshold + ceiling) > 0:
                     if self.email.send_low_balance(user):
