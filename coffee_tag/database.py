@@ -45,9 +45,8 @@ class User(AuthUser):
         self.id_badge: Optional[str] = id_badge
         self.beans_q: int = beans_q
         self.water_v: int = water_v
-        self.creation_date: Optional[datetime] = (dt.strptime(creation_date, "%Y-%m-%d %H:%M:%S")
-        .replace(
-            tzinfo=timezone.utc)) if creation_date is not None else None
+        self.creation_date: datetime = dt.strptime(creation_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc) \
+            if creation_date is not None else dt.now(tz=timezone.utc)
 
     @staticmethod
     def create_table(db: Database):
@@ -56,20 +55,20 @@ class User(AuthUser):
                        CREATE TABLE IF NOT EXISTS users
                        (
                            id                INTEGER primary key,
-                           name              TEXT,
-                           surname           TEXT,
+                           name              TEXT                     not null,
+                           surname           TEXT                     not null,
                            nickname          TEXT,
                            cascad_username   TEXT,
-                           initial_balance   real    default 0,
+                           initial_balance   real    default 0        not null,
                            passcode          TEXT,
-                           permissions       TEXT    default 'user',
-                           status            TEXT    default 'active',
+                           permissions       TEXT    default 'user'   not null,
+                           status            TEXT    default 'active' not null,
                            date_of_departure TEXT,
-                           mail              TEXT,
+                           mail              TEXT                     not null,
                            id_badge          TEXT,
-                           beans_q           integer default 4,
-                           water_v           integer default 100,
-                           creation_date     DATE,
+                           beans_q           integer default 4        not null,
+                           water_v           integer default 100      not null,
+                           creation_date     DATE                     not null,
                            check (permissions IN ('user', 'maintainer', 'owner')),
                            check (status IN ('active', 'banned', 'shadow_banned'))
                        );
