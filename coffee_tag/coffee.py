@@ -203,7 +203,7 @@ class CoffeeManager:
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
                             main_text="Your account has been blocked indefinitely.",
-                            sub_text="Please contact us at cafe.u2is@gmail.com.",
+                            sub_text=f"Please contact us at {self.config.contact_email}.",
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None
@@ -211,7 +211,7 @@ class CoffeeManager:
             await GeneralUI(self.root_gui, "Oops...",
                             320, 300,
                             main_text="An unexpected error occurred while opening your profile!",
-                            sub_text="If it is continues, please contact us at cafe.u2is@gmail.com.",
+                            sub_text=f"If it is continues, please contact us at {self.config.contact_email}.",
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None
@@ -230,7 +230,7 @@ class CoffeeManager:
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
                             main_text="Your account is past its date of departure.",
-                            sub_text="Please contact an admin or email us at cafe.u2is@gmail.com.",
+                            sub_text=f"Please contact an admin or email us at {self.config.contact_email}.",
                             sub_after_main=True,
                             button_one="Ok").get_future()
             return None

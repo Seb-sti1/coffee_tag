@@ -45,6 +45,7 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website]:
                         json_content["tty"],
                         json_content["power_gpio"],
                         json_content["monitor_snap_delay"],
+                        json_content["contact_email"],
                         json_content["email"]["host"],
                         json_content["email"]["port"],
                         json_content["email"]["username"],

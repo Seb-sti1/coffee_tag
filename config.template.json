@@ -9,6 +9,8 @@
   "power_gpio_description": "The GPIO number turning on the jura power.",
   "monitor_snap_delay": 20,
   "monitor_snap_delay_description": "Query Jura totals at clock-synced intervals in minutes (e.g., 30 = :00, :30). 0 to disable.",
+  "contact_email": "your-contact@email.net",
+  "contact_email_description": "The email displayed to users when contact might be required.",
   "email": {
     "host": "server-mail.example.com",
     "host_description": "The host of the SMTP server.",

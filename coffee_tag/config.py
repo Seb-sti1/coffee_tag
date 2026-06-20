@@ -16,6 +16,8 @@ class Config:
     power_gpio: int
     monitor_snap_delay: int
 
+    contact_email: str
+
     email_host: str
     email_port: int
     email_username: str

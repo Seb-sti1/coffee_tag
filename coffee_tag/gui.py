@@ -761,8 +761,9 @@ class BrewCoffee(AbstractUI):
             self.title_order_rect.config(text="Oops...")
             self.progress_label.config(text=self.ERROR_LBL.get(self.jura_feedback, "Unknown error"))
             if self.jura_feedback is None:
-                self.add_label("If you continue to get this message, please contact us at cafe.u2is@gmail.com.",
-                               gui=self.order_rect, font='Helvetica 12 italic')
+                self.add_label(
+                    f"If you continue to get this message, please contact us at {config.contact_email}.",
+                    gui=self.order_rect, font='Helvetica 12 italic')
             self.add_label("Nothing will be debited from your account.", gui=self.order_rect,
                            font='Helvetica 13 bold')
             self.closing_delay = 15
@@ -1289,13 +1290,13 @@ def show_gui(config: Config):
         loop.create_task(wrapper(GeneralUI, main=gui, title="Your account is deactivated.",
                                  w=320, h=300,
                                  main_text="Your account has been blocked indefinitely.",
-                                 sub_text="Please contact us at cafe.u2is@gmail.com.",
+                                 sub_text=f"Please contact us at {config.contact_email}.",
                                  sub_after_main=True,
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Oops...",
                                  w=320, h=300,
                                  main_text="An unexpected error occurred while opening your profile!",
-                                 sub_text="If it is continues, please contact us at cafe.u2is@gmail.com.",
+                                 sub_text=f"If it is continues, please contact us at {config.contact_email}.",
                                  sub_after_main=True,
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title="Wrong password!",
@@ -1334,7 +1335,7 @@ def show_gui(config: Config):
         loop.create_task(wrapper(GeneralUI, main=gui, title="Your account is deactivated.",
                                  w=320, h=300,
                                  main_text="Your account is past its date of departure.",
-                                 sub_text="Please contact an admin or email us at cafe.u2is@gmail.com.",
+                                 sub_text=f"Please contact an admin or email us at {config.contact_email}.",
                                  sub_after_main=True,
                                  button_one="Ok"))
         loop.create_task(wrapper(GeneralUI, main=gui, title=f"Welcome {str(users[0])}!",
