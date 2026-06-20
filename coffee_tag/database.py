@@ -53,7 +53,7 @@ class User(AuthUser):
     def create_table(db: Database):
         def create(db: sqlite3.Cursor):
             db.execute("""
-                       create table users
+                       CREATE TABLE IF NOT EXISTS users
                        (
                            id                INTEGER primary key,
                            name              TEXT,
@@ -62,15 +62,16 @@ class User(AuthUser):
                            cascad_username   TEXT,
                            initial_balance   real    default 0,
                            passcode          TEXT,
-                           permissions       TEXT,
-                           banned            INTEGER,
-                           date_of_departure DATETIME,
+                           permissions       TEXT    default 'user',
+                           status            TEXT    default 'active',
+                           date_of_departure TEXT,
                            mail              TEXT,
                            id_badge          TEXT,
-                           beans_q           INTEGER default 3,
-                           water_v           INTEGER default 100,
-                           creation_date     DATETIME,
-                           CHECK (permissions IN ('user', 'maintainer', 'owner'))
+                           beans_q           integer default 4,
+                           water_v           integer default 100,
+                           creation_date     DATE,
+                           check (permissions IN ('user', 'maintainer', 'owner')),
+                           check (status IN ('active', 'banned', 'shadow_banned'))
                        );
                        """)
 
@@ -241,14 +242,13 @@ class Purchase:
     def create_table(db: Database):
         def create(db: sqlite3.Cursor):
             db.execute("""
-                       create table purchase
+                       CREATE TABLE IF NOT EXISTS purchase
                        (
                            id        INTEGER primary key,
-                           user_id   INTEGER,
+                           user_id   INTEGER references users,
                            date      TEXT,
                            nb_coffee INTEGER,
-                           price     REAL,
-                           FOREIGN KEY (user_id) REFERENCES users (id)
+                           price     REAL
                        );
                        """)
 
@@ -286,16 +286,15 @@ class Repayment:
     def create_table(db: Database):
         def create(db: sqlite3.Cursor):
             db.execute("""
-                       create table repayment
+                       CREATE TABLE IF NOT EXISTS repayment
                        (
                            id         INTEGER primary key,
-                           user_id    INTEGER,
+                           user_id    INTEGER references users,
                            date       TEXT,
                            credit     REAL,
                            label      TEXT,
                            is_cash    INTEGER,
-                           in_balance INTEGER,
-                           FOREIGN KEY (user_id) REFERENCES users (id)
+                           in_balance INTEGER
                        );
                        """)
 
@@ -307,6 +306,33 @@ class Database:
     def __init__(self, config: Config):
         self.connector = sqlite3.connect(config.database)
         self.config = config
+
+        self.create_tables()
+
+    def create_tables(self):
+        User.create_table(self)
+        Purchase.create_table(self)
+        Repayment.create_table(self)
+
+        def create(db: sqlite3.Cursor):
+            db.execute("""
+                       CREATE TABLE IF NOT EXISTS jura_count
+                       (
+                           id              integer not null
+                               constraint jura_count_pk
+                                   primary key autoincrement,
+                           date            date    not null,
+                           tot_espresso    integer,
+                           tot_2_espresso  integer,
+                           tot_ristretto   integer,
+                           tot_2_ristretto integer,
+                           tot_coffee      integer,
+                           tot_2_coffee    integer,
+                           tot_special     integer
+                       );
+                       """)
+
+        self.exec_safely_at_once(create)
 
     def select_one(self, query, option) -> Optional[Any]:
         def func(c: sqlite3.Cursor):
