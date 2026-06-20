@@ -291,11 +291,6 @@ class CoffeeManager:
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
                 coffee_bought = 1
-
-            def _cb(reset):
-                logger.warning(f"Resetting param to actual default: {reset}")
-
-            self.coffee_maker.reset_coffee_param(cb=_cb)
         else:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()
             if coffee_bought is None:
