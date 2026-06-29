@@ -46,7 +46,7 @@
     "sender_description": "The sender mail to use.",
     "reply_to": null,
     "reply_to_description": "The mail to specify as replyTo.",
-    "bcc": [],
+    "bcc": null,
     "bcc_description": "The list of blind carbon copy to use.",
     "payment_methods": "<p>You can choose from the following payment methods:</p><ul><li style=\"line-height: 19.6px;\"><p>Cash deposit in room XXXX,</p></li><li style=\"line-height: 19.6px;\"><p>Via bank transfer to [IBAN].</p></li></ul>",
     "payment_methods_description": "The details on how to pay to top up one's account."

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -27,11 +27,11 @@ class Config:
 
     email_host: str
     email_port: int
-    email_username: str
-    email_password: str
+    email_username: Optional[str]
+    email_password: Optional[str]
     email_sender: str
-    email_reply_to: str
-    email_bcc: List[str]
+    email_reply_to: Optional[str]
+    email_bcc: Optional[List[str]]
     email_payment_methods: str
 
     dev: bool
