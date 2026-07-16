@@ -36,7 +36,10 @@ class EmailManager:
         if bcc is not None:
             all_bcc += bcc
         with smtplib.SMTP(self.config.email_host, self.config.email_port) as server:
-            server.starttls()
+            server.ehlo()
+            if server.has_extn("STARTTLS"):
+                server.starttls()
+                server.ehlo()
             if self.config.email_username is not None and self.config.email_password is not None:
                 server.login(self.config.email_username, self.config.email_password)
             try:
