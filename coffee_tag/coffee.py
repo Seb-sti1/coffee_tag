@@ -17,7 +17,7 @@ from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
     BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui, MaintenanceScreen
 from coffee_tag.rfid import RFIDReader
-from mail.email import EmailManager
+from coffee_tag.mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
 
