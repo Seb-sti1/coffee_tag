@@ -35,15 +35,15 @@ class EmailManager:
             all_bcc += self.config.email_bcc
         if bcc is not None:
             all_bcc += bcc
-        with smtplib.SMTP(self.config.email_host, self.config.email_port) as server:
-            server.ehlo()
-            if server.has_extn("STARTTLS"):
-                server.starttls()
+        try:
+            with smtplib.SMTP(self.config.email_host, self.config.email_port) as server:
                 server.ehlo()
-            if self.config.email_username is not None and self.config.email_password is not None:
-                server.login(self.config.email_username, self.config.email_password)
-            try:
-                html_content = self.__get_template__(template_name).render(**kwargs)
+                if server.has_extn("STARTTLS"):
+                    server.starttls()
+                    server.ehlo()
+                if self.config.email_username is not None and self.config.email_password is not None:
+                    server.login(self.config.email_username, self.config.email_password)
+                    html_content = self.__get_template__(template_name).render(**kwargs)
                 msg = MIMEText(html_content, "html")
                 msg["Subject"] = subject
                 msg["From"] = self.config.email_sender
@@ -55,11 +55,11 @@ class EmailManager:
                 server.send_message(msg)
                 logger.info(f"Sending a mail to '{recipient.mail}' with template '{template_name}'.")
                 result = True
-            except:
-                logger.warning(f"Error will sending to '{recipient.mail}'")
-                result = False
-            recipient.log_email(datetime.datetime.now(), subject, template_name, kwargs, all_bcc, result)
-            return result
+        except:
+            logger.warning(f"Error will sending to '{recipient.mail}'")
+            result = False
+        recipient.log_email(datetime.datetime.now(), subject, template_name, kwargs, all_bcc, result)
+        return result
 
     def send_low_balance(self, user: User) -> bool:
         return self.__send_email__("Low balance on the U2IS coffee machine", "low_balance",
