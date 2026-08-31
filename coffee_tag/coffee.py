@@ -87,8 +87,8 @@ class CoffeeManager:
 
         logging.getLogger("juracoffeemachine").setLevel(level=logging.FATAL)
         self.coffee_maker.get_totals_statistics(cb=_cb, use_power_gpio=use_power_gpio)
-        logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if self.config.verbose else logging.INFO)
         await done.wait()
+        logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if self.config.verbose else logging.INFO)
         if last_stat[0] is not None:
             if self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0]):
                 logger.info(f"Statistics were saved."
