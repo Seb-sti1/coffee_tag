@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime as dt, timezone
 
+from jinja2 import select_autoescape
 from quart import Quart, render_template, redirect, url_for, request, Response
 from quart_auth import logout_user, login_required, current_user, QuartAuth, login_user, Unauthorized
 
@@ -17,6 +18,10 @@ class Website:
         self.app = Quart(__name__)
         self.app.secret_key = os.urandom(24)
 
+        # autoescape files by default
+        self.app.jinja_env.autoescape = select_autoescape(
+            enabled_extensions=('html', 'xml', 'jinja'),
+        )
         # cookie_secure=False allow authentication to work on non local ips
         self.auth_manager = QuartAuth(self.app, cookie_secure=False)
 
