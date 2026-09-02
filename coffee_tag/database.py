@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import logging
 import re
 import sqlite3
@@ -214,7 +215,7 @@ class User(AuthUser):
                                       "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                                       "subject": subject,
                                       "template_name": template_name,
-                                      "template_args": ";".join(map(str, template_args.values())),
+                                      "template_args": json.dumps(template_args),
                                       "bcc": ";".join(bcc),
                                       "success": success,
                                   })
@@ -317,16 +318,17 @@ class Repayment:
 
 class EmailLog:
 
-    def __init__(self, db: Database, repayment_id: int, user_id: int, date: str,
-                 credit: float, label: str, is_cash: int, in_balance: int):
+    def __init__(self, db: Database, emaillog_id: int, user_id: int, date: str,
+                 subject: str, template_name: str, template_args: str, bcc: str, success: bool):
         self.db: Database = db
-        self.repayment_id: int = repayment_id
+        self.emaillog_id: int = emaillog_id
         self.user_id: int = user_id
         self.date: str = date
-        self.credit: float = credit
-        self.label: str = label
-        self.is_cash: int = is_cash
-        self.in_balance: int = in_balance
+        self.subject: str = subject
+        self.template_name: str = template_name
+        self.template_args: Dict[str, str] = json.loads(template_args)
+        self.bcc: List[str] = bcc.split(";")
+        self.success: bool = success
 
     @staticmethod
     def create_table(db: Database):
