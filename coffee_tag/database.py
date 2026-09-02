@@ -587,9 +587,10 @@ class Database:
                                           water_v,
                                           IFNULL(bought, 0)                                               as 'purchased',
                                           IFNULL(paid, 0)                                                 as 'paid',
-                                          ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "current balance"
+                                          ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "current balance",
+                                          p.last_coffee
                                    FROM users
-                                            LEFT JOIN (SELECT user_id, SUM(price) AS bought
+                                            LEFT JOIN (SELECT user_id, SUM(price) AS bought, MAX(date) AS last_coffee
                                                        FROM purchase
                                                        GROUP BY user_id) as p ON p.user_id = users.id
                                             LEFT JOIN (SELECT user_id, SUM(credit) AS paid
@@ -669,7 +670,7 @@ class Database:
         writer.writerow(["id", "name", "surname", "nickname", "cascad_username",
                          "initial_balance", "passcode", "permissions",
                          "status", "date_of_departure", "mail", "id_badge", "purchased",
-                         "paid", "current_balance"])
+                         "paid", "current_balance", "last coffee"])
         writer.writerows(r)
         writer.writerows([[], [], []])
         r = self.connector.execute("SELECT id, user_id, date, nb_coffee, price FROM purchase")

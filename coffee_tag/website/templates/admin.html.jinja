@@ -79,6 +79,7 @@
         </div>
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 h-100 overflow-y-auto">
             <div class="tab-content">
+                {# =================== DASHBOARD =================== #}
                 <div class="tab-pane fade show active" id="dashboard">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Dashboard</h1>
@@ -86,6 +87,7 @@
                     <p>Dashboard content...</p>
                 </div>
 
+                {# =================== USERS =================== #}
                 <div class="tab-pane fade" id="users">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Users</h1>
@@ -138,6 +140,8 @@
                                         class="bi bi-arrow-down-up text-secondary small"></i></th>
                                 <th class="sortable" onclick="sortTable(17, true)">balance<i
                                         class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(18, false, true)">last coffee<i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
                             </tr>
                             </thead>
                             <tbody>
@@ -167,6 +171,7 @@
                     </div>
                 </div>
 
+                {# =================== REPAYMENTS =================== #}
                 <div class="tab-pane fade" id="repayments">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Repayments</h1>
@@ -308,6 +313,7 @@
                     <p>Purchases content...</p>
                 </div>
 
+                {# =================== STOCKS =================== #}
                 <div class="tab-pane fade" id="stocks">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Stocks</h1>
@@ -315,6 +321,7 @@
                     <p>Stocks content...</p>
                 </div>
 
+                {# =================== REPORTS =================== #}
                 <div class="tab-pane fade" id="reports">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Reports</h1>
@@ -410,6 +417,7 @@
                     </div>
                 </div>
 
+                {# =================== EXPORTS =================== #}
                 <div class="tab-pane fade" id="exports">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Exports</h1>
