@@ -27,29 +27,39 @@ function toggleColumn(i, visible) {
 }
 
 // --- Sort rows ---
-function sortTable(n, is_number = false) {
-    let table = document.getElementById("userList");
-    let switching = true, dir = "asc", switchcount = 0;
+function sortTable(n, is_number = false, is_date = false) {
+    const table = document.getElementById("userList");
+    const tbody = table.tBodies[0];
+    const rows = Array.from(tbody.rows);
+    const header = table.tHead.rows[0].cells[n];
 
-    while (switching) {
-        switching = false;
-        const rows = table.rows;
-        for (let i = 1; i < rows.length - 1; i++) {
-            const x = rows[i].getElementsByTagName("TD")[n];
-            const y = rows[i + 1].getElementsByTagName("TD")[n];
-            const xVal = is_number ? parseFloat(x.innerHTML) : x.innerHTML.toLowerCase();
-            const yVal = is_number ? parseFloat(y.innerHTML) : y.innerHTML.toLowerCase();
-            const shouldSwitch = dir === "asc" ? xVal > yVal : xVal < yVal;
-            if (shouldSwitch) {
-                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                switching = true;
-                switchcount++;
-                break;
-            }
-        }
-        if (!switching && switchcount === 0 && dir === "asc") {
-            dir = "desc";
-            switching = true;
-        }
-    }
+    // Toggle direction using a data attribute on the header
+    const currentDir = header.dataset.sortDir === "asc" ? "desc" : "asc";
+    Array.from(table.tHead.rows[0].cells).forEach(th => delete th.dataset.sortDir);
+    header.dataset.sortDir = currentDir;
+
+    const getText = (row) => (row.cells[n].innerText ?? row.cells[n].textContent).trim();
+
+    const parseVal = (text) => {
+        if (!text || text.toLowerCase() === "none") return null;
+        if (is_number) return parseFloat(text);
+        if (is_date) return new Date(text);
+        return text.toLowerCase();
+    };
+
+    const compare = (a, b) => {
+        if (a === null && b === null) return 0;
+        if (a === null) return -1; // null always smallest
+        if (b === null) return 1;
+        if (a instanceof Date) return a - b;
+        if (typeof a === "number") return a - b;
+        return a < b ? -1 : a > b ? 1 : 0;
+    };
+
+    rows.sort((rowA, rowB) => {
+        const cmp = compare(parseVal(getText(rowA)), parseVal(getText(rowB)));
+        return currentDir === "asc" ? cmp : -cmp;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
 }
