@@ -94,8 +94,8 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website, EmailManager]:
 
     db = Database(config)
     rfid = RFIDReader(config)
-    website = Website(db)
     email = EmailManager(config)
+    website = Website(db, email)
 
     return config, db, rfid, website, email
 

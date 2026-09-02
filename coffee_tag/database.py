@@ -559,6 +559,43 @@ class Database:
                                         """)
         return None if result is None else list(result)
 
+    def get_email_logs(self) -> list[Tuple[int, int, str, str, str, str, str, bool, str]]:
+        result = self.connector.execute("""
+                                        SELECT emaillog.id,
+                                               emaillog.user_id,
+                                               CONCAT(u.name, " ", u.surname),
+                                               date,
+                                               subject,
+                                               template_name,
+                                               template_args,
+                                               bcc,
+                                               success
+                                        FROM emaillog
+                                                 JOIN users u ON u.id = emaillog.user_id
+                                        ORDER BY date DESC;
+                                        """)
+        return list(result)
+
+    def get_email_log(self, email_id) -> Optional[EmailLog]:
+        result = self.select_one("""
+                                 SELECT emaillog.id,
+                                        emaillog.user_id,
+                                        date,
+                                        subject,
+                                        template_name,
+                                        template_args,
+                                        bcc,
+                                        success
+                                 FROM emaillog
+                                 WHERE emaillog.id = :email_id;
+                                 """, {"email_id": email_id})
+        return None if result is None else EmailLog(self, *list(result))
+
+    def succeeded_to_resend_email(self, email_id) -> bool:
+        return self.edit_query("UPDATE emaillog SET success = true "
+                               "WHERE id = :email_id;",
+                               {"email_id": email_id})
+
     async def auth_user(self, mail: str, password: str) -> Optional[User]:
         result = self.select_one("SELECT * FROM users "
                                  "WHERE mail = :mail AND mail IS NOT NULL AND passcode IS NOT NULL",

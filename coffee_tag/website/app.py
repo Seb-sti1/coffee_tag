@@ -2,19 +2,22 @@ import asyncio
 import logging
 import os
 from datetime import datetime as dt, timezone
+from typing import List
 
 from jinja2 import select_autoescape
 from quart import Quart, render_template, redirect, url_for, request, Response
 from quart_auth import logout_user, login_required, current_user, QuartAuth, login_user, Unauthorized
 
 from coffee_tag.database import Database, User
+from mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
 
 
 class Website:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, email: EmailManager):
         self.db = db
+        self.email = email
         self.app = Quart(__name__)
         self.app.secret_key = os.urandom(24)
 
@@ -97,11 +100,35 @@ class Website:
                 else:
                     logger.info(f"Removing new repayment {form_repayment_id}")
                     returned_form_values["remove_repayment"] = self.db.delete_repayment(form_repayment_id)
+            elif form_type == "resend_email":
+                form_email_id = form.get("email", type=int)
+                returned_form_values["resend_email"] = form_email_id is None
+                if form_email_id is not None:
+                    returned_form_values["resend_email"] = True
+                    asyncio.get_event_loop().create_task(self.email.resend_email(self.db, form_email_id))
+            elif form_type == "send_email":
+                form_subject = form.get("subject", type=str)
+                form_content = form.get("content", type=str)
+                form_ids: List[int] = form.getlist("ids", int)
+                if form_subject is None or form_content is None or len(form_ids) == 0:
+                    returned_form_values["send_email"] = False
+                else:
+                    async def _send_all():
+                        for user_id in form_ids:
+                            recipient = self.db.get_user_by_id(user_id)
+                            if recipient is None:
+                                logger.error("Recipient does not exists anymore.")
+                            else:
+                                self.email.generic_notification(recipient, form_subject, form_content)
+
+                    asyncio.get_event_loop().create_task(_send_all())
+                    returned_form_values["send_email"] = True
 
         return await render_template("admin.html.jinja",
                                      user=current_user,
                                      users=self.db.get_users_balance(),
                                      repayments=self.db.get_repayments(),
+                                     emails=self.db.get_email_logs(),
                                      daily_counts=self.db.get_daily_counts(),
                                      error_counts=self.db.get_error_counts(),
                                      returned_form_values=returned_form_values)

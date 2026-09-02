@@ -39,6 +39,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#emails">
+                                <i class="bi bi-envelope-at"></i>
+                                Emails
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#purchases">
                                 <i class="bi bi-cart3"></i>
                                 Purchases
@@ -306,6 +312,217 @@
                     </div>
                 </div>
 
+                {# =================== EMAILS =================== #}
+                <div class="tab-pane fade" id="emails">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">Emails</h1>
+                    </div>
+
+                    {# ERROR #}
+                    {% if "resend_email" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['add_repayment'] else 'alert-danger' }} alert-dismissible fade show"
+                             role="alert">
+                            {{ 'Email(s) scheduled for resending successfully. Refresh the page in a few minutes for it to show in the list.' if returned_form_values['send_email'] else 'An error occurred while scheduling the email(s) for resending.' }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                    {% if "send_email" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['send_email'] else 'alert-danger' }} alert-dismissible fade show"
+                             role="alert">
+                            {{ 'Email(s) scheduled for sending successfully. Refresh the page in a few minutes for it to show in the list.' if returned_form_values['send_email'] else 'An error occurred while scheduling the email(s) for sending.' }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+
+                    {# FORM #}
+                    <div class="d-flex flex-column gap-2 pb-2 mb-3">
+                        <div class="d-flex flex-row gap-2 w-100" style="height: 400px">
+                            <div class="d-flex flex-column gap-1" style="width: 20%">
+                                <div class="d-flex flex-row gap-1 flex-wrap">
+                                    <button class="btn btn-primary" onclick="selectEmails('all')">All</button>
+                                    <button class="btn btn-primary" onclick="selectEmails('none')">None</button>
+                                    <button class="btn btn-primary" onclick="selectEmails('active')">Active in the last
+                                        6 months
+                                    </button>
+                                    <button class="btn btn-primary" onclick="selectEmails('withdebt')">With debt
+                                    </button>
+                                    <button class="btn btn-primary" onclick="selectEmails('nodebt')">No debt</button>
+                                </div>
+                                <div class="d-flex flex-column flex-nowrap input-group border border-1 rounded p-1
+                border-dark overflow-y-scroll" id="emailReceiverSelection">
+                                    {% for user in users | sort(attribute='2,1') %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value=""
+                                                   id="checkUser{{ user[0] }}">
+                                            <label class="form-check-label text-nowrap" for="checkUser{{ user[0] }}">
+                                                {{ user[1] }} {{ user[2] }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column gap-1 w-100 h-100">
+                                <p class="m-0 p-0">
+                                    Write the content of the mail below. Know that for each user you can use the
+                                    following macros: the firstname of the user [NAME], the surname of the user
+                                    [SURNAME], the current balance of the user [USER_BALANCE], the date of departure of
+                                    the user [DATE_OF_DEPARTURE], the configured contact email [ADMIN_EMAIL], the
+                                    initial period [GRACE_PERIOD] where the alternative ceiling is used [GRACE_CEILING],
+                                    the default debt ceiling [DEFAULT_CEILING], the configured available payment methods
+                                    [PAYMENT_METHODS].
+                                </p>
+                                <input id="emailSubject" class="form-control w-100" placeholder="Subject" type="text">
+                                <textarea id="emailContent" class="form-control w-100 h-100"></textarea>
+                            </div>
+                        </div>
+                        <div class="ms-auto">
+                            <button class="btn btn-primary" onclick="checkAndSubmit()">Send</button>
+                        </div>
+                        <script>
+                            const users = {{ users | tojson }};
+
+                            const KNOWN_MACROS = new Set([
+                                'NAME', 'SURNAME', 'USER_BALANCE', 'DATE_OF_DEPARTURE',
+                                'ADMIN_EMAIL', 'GRACE_PERIOD', 'GRACE_CEILING', 'DEFAULT_CEILING', 'PAYMENT_METHODS'
+                            ]);
+
+                            function selectEmails(type) {
+                                const sixMonthsAgo = new Date();
+                                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+                                for (const user of users) {
+                                    const id = user[0];
+                                    const balance = user[17];
+                                    // format: "2026-08-28 10:49:58"
+                                    const lastCoffee = user[18] ? new Date(user[18].replace(' ', 'T')) : null;
+                                    const checkbox = document.getElementById('checkUser' + id);
+                                    if (!checkbox) continue;
+
+                                    let checked = false;
+                                    if (type === 'all') {
+                                        checked = true;
+                                    } else if (type === 'none') {
+                                        checked = false;
+                                    } else if (type === 'active') {
+                                        checked = lastCoffee !== null && lastCoffee >= sixMonthsAgo;
+                                    } else if (type === 'withdebt') {
+                                        checked = balance > 0;
+                                    } else if (type === 'nodebt') {
+                                        checked = balance < 0;
+                                    }
+                                    checkbox.checked = checked;
+                                }
+                            }
+
+                            function checkAndSubmit() {
+                                const subject = document.getElementById('emailSubject').value.trim();
+                                if (!subject) {
+                                    alert('Please enter a subject.');
+                                    return;
+                                }
+                                const content = document.getElementById('emailContent').value.trim();
+                                if (!content) {
+                                    alert('Please enter email content.');
+                                    return;
+                                }
+                                // Validate that every [MACRO] in the body is a known one
+                                const foundMacros = content.match(/\[[A-Z_]+\]/g) || [];
+                                const unknownMacros = foundMacros.filter(m => !KNOWN_MACROS.has(m.slice(1, -1)));
+                                if (unknownMacros.length > 0) {
+                                    alert('Unknown macro(s) in content: ' + unknownMacros.join(', '));
+                                    return;
+                                }
+                                // Collect checked user IDs
+                                const selectedIds = users
+                                    .map(u => u[0])
+                                    .filter(id => document.getElementById('checkUser' + id)?.checked);
+                                if (selectedIds.length === 0) {
+                                    alert('Please select at least one recipient.');
+                                    return;
+                                }
+                                const confirmed = confirm(
+                                    `Send email to ${selectedIds.length} recipient${selectedIds.length !== 1 ? 's' : ''}?\n\nSubject: ${subject}`
+                                );
+                                if (!confirmed) return;
+                                // Build and submit a hidden form, mirroring the resend pattern
+                                const form = document.createElement('form');
+                                form.method = 'post';
+                                const addField = (name, value) => {
+                                    const input = document.createElement('input');
+                                    input.type = 'hidden';
+                                    input.name = name;
+                                    input.value = value;
+                                    form.appendChild(input);
+                                };
+                                addField('type', 'send_email');
+                                addField('subject', subject);
+                                addField('content', content);
+                                // One 'ids' field per recipient so the backend receives a list
+                                for (const id of selectedIds) {
+                                    addField('ids', id);
+                                }
+                                document.body.appendChild(form);
+                                form.submit();
+                            }
+                        </script>
+                    </div>
+
+
+                    <div class="table-responsive">
+                        <table id="emailList" class="table table-bordered table-hover table-sm align-middle">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>id</th>
+                                <th>User id</th>
+                                <th>Name</th>
+                                <th>Date</th>
+                                <th>Subject</th>
+                                <th>Template name</th>
+                                <th>Template args</th>
+                                <th>BCC</th>
+                                <th>Success</th>
+                                <th>Resend</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for email in emails %}
+                                <tr>
+                                    <td class="text-muted small">{{ email[0] }}</td>
+                                    <td class="text-muted small">{{ email[1] }}</td>
+                                    <td class="text-center">{{ email[2] }}</td>
+                                    <td class="text-center">{{ email[3] }}</td>
+                                    <td class="text-center">{{ email[4] }}</td>
+                                    <td class="text-center">{{ email[5] }}</td>
+                                    <td class="text-center">
+                                        <div style="max-height: 100px;overflow-y: scroll;">{{ email[6] }}</div>
+                                    </td>
+                                    <td class="text-center">{{ email[7] }}</td>
+                                    <td class="text-center">
+                                        {% if email[8] == 1 %}
+                                            <i class="bi bi-check-circle"></i>
+                                        {% else %}
+                                            <i class="bi bi-x-circle"></i>
+                                        {% endif %}
+                                    <td>
+                                        <form method="post">
+                                            <input name="email" type="number" value="{{ email[0] }}" required
+                                                   readonly hidden/>
+                                            <input name="type" type="text" value="resend_email" required readonly
+                                                   hidden/>
+                                            <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                    {% if email[8] == 1 %}disabled{% endif %}>
+                                                <i class="bi bi-send"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {# =================== PURCHASED =================== #}
                 <div class="tab-pane fade" id="purchases">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Purchases</h1>

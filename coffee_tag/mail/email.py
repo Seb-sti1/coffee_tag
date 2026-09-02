@@ -1,14 +1,16 @@
 import datetime
 import logging
 import os
+import re
 import smtplib
 from email.mime.text import MIMEText
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from jinja2 import Template
+from markupsafe import escape
 
 from coffee_tag.config import Config
-from coffee_tag.database import User
+from coffee_tag.database import User, Database
 from coffee_tag.mail import template
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,29 @@ class EmailManager:
                                           balance=float(-user.get_user_balance()),
                                           payment_methods=self.config.email_payment_methods)
 
+    def generic_notification(self, user: User, subject: str, content: str) -> bool:
+        content = str(escape(content))
+        macros: Dict[str, str] = {
+            "[NAME]": str(escape(user.name)),
+            "[SURNAME]": str(escape(user.surname)),
+            "[USER_BALANCE]": str(float(-user.get_user_balance()) or 0.0),
+            "[DATE_OF_DEPARTURE]": user.date_of_departure.strftime("%Y-%m-%d"),
+            "[ADMIN_EMAIL]": self.config.contact_email,
+            "[GRACE_PERIOD]": str(self.config.debt_grace_period),
+            "[GRACE_CEILING]": str(self.config.debt_grace_ceiling),
+            "[DEFAULT_CEILING]": str(self.config.debt_default_ceiling),
+            "[PAYMENT_METHODS]": self.config.email_payment_methods,
+        }
+        for name, value in macros.items():
+            content = content.replace(name, value)
+        content = re.split(r"\n\r?\n\r?", content)
+        return self.__safely_send_email__(subject,
+                                          "generic_notification",
+                                          user,
+                                          title=subject,
+                                          name=f"{user.name} {user.surname}",
+                                          content=content)
+
     def __safely_send_email__(self, subject: str, template_name: str, recipient: User,
                               bcc: Optional[List[str]] = None, **kwargs) -> bool:
         all_bcc = []
@@ -72,9 +97,27 @@ class EmailManager:
         recipient.log_email(datetime.datetime.now(), subject, template_name, kwargs, all_bcc, result)
         return result
 
+    async def resend_email(self, db: Database, email_id: int):
+        log = db.get_email_log(email_id)
+        if log is None:
+            logger.error("EmailLog does not exists anymore.")
+            return
+        recipient = db.get_user_by_id(log.user_id)
+        if recipient is None:
+            logger.error("Recipient does not exists anymore.")
+            return
+
+        try:
+            self.__send_email__(log.subject, log.template_name, recipient, log.bcc, **log.template_args)
+            logger.info(f"Resent an mail to '{recipient.mail}' with template '{log.template_name}'.")
+            db.succeeded_to_resend_email(email_id)
+        except Exception as e:
+            logger.warning(f"Error will resending to '{recipient.mail}'")
+            logger.warning(e)
+
     def __send_email__(self, subject: str, template_name: str, recipient: User,
                        bcc: List[str], **kwargs):
-        if self.config.dev and recipient.user_id != 100:
+        if self.config.dev:
             logger.warning(f"Dev mode activated. Mail {subject}, {template_name}, {kwargs} not sent to {recipient}")
             return
         with smtplib.SMTP(self.config.email_host, self.config.email_port) as server:

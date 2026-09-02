@@ -8,3 +8,4 @@ spidev
 pyserial
 juracoffeemachine
 jinja2
+markupsafe
