@@ -622,8 +622,8 @@ class Database:
                                           id_badge,
                                           beans_q,
                                           water_v,
-                                          IFNULL(bought, 0)                                               as 'purchased',
-                                          IFNULL(paid, 0)                                                 as 'paid',
+                                          ROUND(IFNULL(bought, 0), 2)                                     as 'purchased',
+                                          ROUND(IFNULL(paid, 0), 2)                                       as 'paid',
                                           ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "current balance",
                                           p.last_coffee
                                    FROM users
