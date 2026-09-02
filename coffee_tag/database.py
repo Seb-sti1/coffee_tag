@@ -566,7 +566,7 @@ class Database:
         u = User(self, *list(result)[:15])
         return u if bcrypt.checkpw(password.encode(), u.passcode.encode()) else None
 
-    def get_users_balance(self) -> Optional[list]:
+    def get_users_balance(self) -> list:
         r = self.connector.execute("""
                                    SELECT id,
                                           name,
@@ -596,8 +596,6 @@ class Database:
                                                        GROUP BY user_id) as r ON r.user_id = users.id
                                    GROUP BY users.id
                                    """)
-        if r is None:
-            return []
         return list(r)
 
     def register_new_repayment(self, userid: int, date: dt, credit: float, label: str,
@@ -609,7 +607,7 @@ class Database:
                                 "credit": credit, "label": label,
                                 "re": int(is_cash), "al": int(in_balance)})
 
-    def get_repayments(self) -> Optional[list]:
+    def get_repayments(self) -> list:
         r = self.connector.execute("""
                                    SELECT repayment.id,
                                           name || ' ' || surname as fullname,
@@ -621,8 +619,6 @@ class Database:
                                    FROM repayment
                                             JOIN users ON repayment.user_id = users.id;
                                    """)
-        if r is None:
-            return []
         return list(r)
 
     def delete_repayment(self, repayment_id: int) -> bool:
