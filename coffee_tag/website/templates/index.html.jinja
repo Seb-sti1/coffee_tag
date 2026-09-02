@@ -29,10 +29,11 @@
     </div>
 </div>
 <script>
-    const labels = ["{{ last_coffee_totals|map(attribute=0)|join('", "') }}"];
-    const data = [{{ last_coffee_totals|map(attribute=1)|join(', ') }}];
-    const ctx = document.getElementById('myChart');
+    const last_coffee_totals = {{ last_coffee_totals | tojson }};
+    const labels = last_coffee_totals.map(d => d[0]);
+    const data = last_coffee_totals.map(d => d[1]);
 
+    const ctx = document.getElementById('myChart');
     new Chart(ctx, {
         type: 'bar',
         data: {
@@ -52,26 +53,20 @@
             },
             scales: {
                 y: {
-                    grid: {
-                        display: false,
-                    },
+                    grid: {display: false},
                     display: false,
                     beginAtZero: true
                 },
                 x: {
-                    ticks: {
-                        color: "#c9a589",
-                    },
-                    grid: {
-                        display: false,
-                    },
+                    ticks: {color: "#c9a589"},
+                    grid: {display: false}
                 }
             }
         }
     });
 </script>
 <script>
-    const target = parseInt("{{ total_coffees }}");
+    const target = parseInt("{{ total_coffees | tojson}}");
 
     const elem = document.getElementById("coffee-count");
     const duration = 1500; // ms
