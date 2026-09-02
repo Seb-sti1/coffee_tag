@@ -77,22 +77,26 @@ class Website:
             form = await request.form
             form_type = form.get("type")
             if form_type == "add_repayment":
-                form_userid = form.get("user")
-                form_date = dt.fromisoformat(form.get("date")) if form.get("date") != "" else dt.now(timezone.utc)
-                form_credit = float(form.get("credit"))
-                form_label = form.get("label")
-                form_is_cash = form.get("is_cash") == "on"
-                form_in_balance = form.get("in_balance") == "on"
-                logger.info(f"Adding new repayment {form_userid} {form_date}"
-                            f" {form_credit} {form_label} {form_is_cash} {form_in_balance}")
-                returned_form_values["add_repayment"] = self.db.register_new_repayment(form_userid, form_date,
-                                                                                       form_credit, form_label,
-                                                                                       form_is_cash,
-                                                                                       form_in_balance)
+                form_userid = form.get("user", type=int)
+                form_date = form.get("date", default=dt.now(timezone.utc), type=dt.fromisoformat)
+                form_credit = form.get("credit", type=float)
+                form_label = form.get("label", type=str)
+                form_is_cash = form.get("is_cash", type=lambda v: v == "on")
+                form_in_balance = form.get("in_balance", type=lambda v: v == "on")
+                if form_userid is not None and form_credit is not None and form_label is not None and form_is_cash is not None and form_in_balance:
+                    logger.info(f"Adding new repayment {form_userid} {form_date}"
+                                f" {form_credit} {form_label} {form_is_cash} {form_in_balance}")
+                    returned_form_values["add_repayment"] = self.db.register_new_repayment(form_userid, form_date,
+                                                                                           form_credit, form_label,
+                                                                                           form_is_cash,
+                                                                                           form_in_balance)
             elif form_type == "remove_repayment":
-                form_repayment_id = int(form.get("repayment"))
-                logger.info(f"Removing new repayment {form_repayment_id}")
-                returned_form_values["remove_repayment"] = self.db.delete_repayment(form_repayment_id)
+                form_repayment_id = form.get("repayment", type=int)
+                if form_repayment_id is None:
+                    returned_form_values["remove_repayment"] = False
+                else:
+                    logger.info(f"Removing new repayment {form_repayment_id}")
+                    returned_form_values["remove_repayment"] = self.db.delete_repayment(form_repayment_id)
 
         return await render_template("admin.html.jinja",
                                      user=current_user,
