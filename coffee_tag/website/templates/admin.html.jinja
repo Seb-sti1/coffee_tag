@@ -544,7 +544,7 @@
                         <h1 class="h2">Reports</h1>
                     </div>
                     <div class="row g-3 mb-4">
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="card border-0 bg-white shadow-sm h-100">
                                 <div class="card-body">
                                     <p class="text-muted small mb-1">Total brewed</p>
@@ -552,7 +552,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="card border-0 bg-white shadow-sm h-100">
                                 <div class="card-body">
                                     <p class="text-muted small mb-1">Total purchased</p>
@@ -560,7 +560,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="card border-0 bg-white shadow-sm h-100">
                                 <div class="card-body">
                                     <p class="text-muted small mb-1">Total lost</p>
@@ -568,11 +568,19 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="card border-0 bg-white shadow-sm h-100">
                                 <div class="card-body">
                                     <p class="text-muted small mb-1">Total stolen</p>
                                     <p class="fs-4 fw-medium mb-0" id="m-stolen">—</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Total miscount</p>
+                                    <p class="fs-4 fw-medium mb-0 text-purple" id="m-miscount">—</p>
                                 </div>
                             </div>
                         </div>
@@ -605,7 +613,6 @@
                         <div class="card border-0 bg-white shadow-sm">
                             <div class="card-body">
                                 <div class="table-responsive">
-
                                     <table class="table table-bordered table-hover table-sm align-middle">
                                         <thead class="table-dark">
                                         <tr>
@@ -614,16 +621,18 @@
                                             <th>Brewed</th>
                                             <th>Purchased/Loss</th>
                                             <th>Stolen</th>
+                                            <th>Miscount</th>
                                         </tr>
                                         </thead>
                                         <tbody>
-                                        {% for error_count in error_counts | reverse %}
+                                        {% for r in error_counts | reverse %}
                                             <tr>
-                                                <td>{{ error_count[0] }}</td>
-                                                <td>{{ error_count[1] }}</td>
-                                                <td>{{ error_count[2] }}</td>
-                                                <td>{{ error_count[3] }}</td>
-                                                <td class="text-danger">{{ error_count[2] - error_count[3] }}</td>
+                                                <td>{{ r[0] }}</td>
+                                                <td>{{ r[1] }}</td>
+                                                <td>{{ r[2] }}</td>
+                                                <td>{{ r[3] }}</td>
+                                                <td class="text-danger">{{ [r[2] - r[3], 0] | max }}</td>
+                                                <td class="text-purple">{{ [r[3] - r[2], 0] | max }}</td>
                                             </tr>
                                         {% endfor %}
                                         </tbody>
@@ -681,51 +690,53 @@
 
     const pct = (v, t) => t === 0 ? 0 : parseFloat((v / t * 100).toFixed(2));
     const stolen = r => Math.max(0, r[2] - r[3] - r[4]);
+    const miscount = r => Math.max(0, r[3] + r[4] - r[2]);
 
-    const purchasedPct = daily_counts.map(r => pct(r[3], r[2]));
+    const purchasedPct = daily_counts.map(r => pct(r[3] - miscount(r), r[2]));
     const lostPct = daily_counts.map(r => pct(r[4], r[2]));
     const stolenPct = daily_counts.map(r => pct(stolen(r), r[2]));
+    const miscountPct = daily_counts.map(r => pct(miscount(r), r[2]));
 
-    const purchasedRaw = daily_counts.map(r => r[3]);
+    const purchasedRaw = daily_counts.map(r => r[3] - miscount(r));
     const lostRaw = daily_counts.map(r => r[4]);
     const stolenRaw = daily_counts.map(r => stolen(r));
+    const miscountRaw = daily_counts.map(r => miscount(r));
 
     document.getElementById('m-brewed').textContent = daily_counts.reduce((a, r) => a + r[2], 0);
     document.getElementById('m-purchased').textContent = daily_counts.reduce((a, r) => a + r[3], 0);
     document.getElementById('m-lost').textContent = daily_counts.reduce((a, r) => a + r[4], 0);
     document.getElementById('m-stolen').textContent = daily_counts.reduce((a, r) => a + stolen(r), 0);
+    document.getElementById('m-miscount').textContent = daily_counts.reduce((a, r) => a + miscount(r), 0);
+
+    const findRow = label => daily_counts.find(r => {
+        const [datePart] = r[0].split(' ');
+        const d = new Date(datePart);
+        return d.getDate() + '/' + (d.getMonth() + 1) === label;
+    });
 
     const tooltipTitle = items => {
-        const lbl = items[0].label;
-        const i = active.findIndex(r => {
-            const [datePart] = r[0].split(' ');
-            const d = new Date(datePart);
-            return (d.getMonth() + 1) + '/' + d.getDate() === lbl;
-        });
-        const r = active[i];
+        const r = findRow(items[0].label);
+        if (!r) return items[0].label;
         return r[0] + '  →  ' + r[1] + '  (' + r[2] + ' brewed)';
     };
 
     const tooltipLabel = (ctx, isPct) => {
-        const lbl = ctx.label;
-        const i = active.findIndex(r => {
-            const [datePart] = r[0].split(' ');
-            const d = new Date(datePart);
-            return (d.getMonth() + 1) + '/' + d.getDate() === lbl;
-        });
-        const r = active[i];
+        const r = findRow(ctx.label);
+        if (!r) return ctx.dataset.label;
         const val = ctx.dataset.label === 'Purchased' ? r[3]
             : ctx.dataset.label === 'Lost' ? r[4]
-                : stolen(r);
+                : ctx.dataset.label === 'Stolen' ? stolen(r)
+                    : miscount(r);
         return isPct
-            ? ' ' + ctx.dataset.label + ': ' + val + '  (' + ctx.parsed.y.toFixed(1) + '%)'
+            ? ' ' + ctx.dataset.label + ': ' + val + '  (' + Math.abs(ctx.parsed.y).toFixed(1) + '%)'
             : ' ' + ctx.dataset.label + ': ' + val;
     };
 
-    const makeDatasets = (pArr, lArr, sArr) => [
+    const makeDatasets = (pArr, lArr, sArr, mArr) => [
         {label: 'Purchased', data: pArr, backgroundColor: '#008000', stack: 's', borderRadius: 0, borderSkipped: false},
         {label: 'Lost', data: lArr, backgroundColor: '#ffa500', stack: 's', borderRadius: 0, borderSkipped: false},
-        {label: 'Stolen', data: sArr, backgroundColor: '#FF0000', stack: 's', borderRadius: 0, borderSkipped: false}
+        {label: 'Stolen', data: sArr, backgroundColor: '#FF0000', stack: 's', borderRadius: 0, borderSkipped: false},
+        {label: 'Miscount', data: mArr, backgroundColor: '#9b59b6', stack: 's', borderRadius: 0, borderSkipped: false},
     ];
 
     const commonOptions = (title, isPct) => ({
@@ -733,10 +744,7 @@
         maintainAspectRatio: false,
         plugins: {
             legend: {display: true},
-            title: {
-                display: true,
-                text: title
-            },
+            title: {display: true, text: title},
             tooltip: {
                 callbacks: {
                     title: tooltipTitle,
@@ -752,22 +760,20 @@
             },
             y: {
                 stacked: true,
-                ...(isPct
-                    ? {min: 0, max: 100, ticks: {callback: v => v + '%', stepSize: 25}}
-                    : {beginAtZero: true})
+                ...(isPct ? {ticks: {callback: v => v + '%', stepSize: 25}} : {})
             }
         }
     });
 
     new Chart(document.getElementById('pctChart'), {
         type: 'bar',
-        data: {labels, datasets: makeDatasets(purchasedPct, lostPct, stolenPct)},
+        data: {labels, datasets: makeDatasets(purchasedPct, lostPct, stolenPct, miscountPct)},
         options: commonOptions('Share of brewed', true)
     });
 
     new Chart(document.getElementById('rawChart'), {
         type: 'bar',
-        data: {labels, datasets: makeDatasets(purchasedRaw, lostRaw, stolenRaw)},
+        data: {labels, datasets: makeDatasets(purchasedRaw, lostRaw, stolenRaw, miscountRaw)},
         options: commonOptions('Raw counts', false)
     });
 </script>
