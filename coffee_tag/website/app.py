@@ -84,8 +84,8 @@ class Website:
                 form_date = form.get("date", default=dt.now(timezone.utc), type=dt.fromisoformat)
                 form_credit = form.get("credit", type=float)
                 form_label = form.get("label", type=str)
-                form_is_cash = form.get("is_cash", type=lambda v: v == "on")
-                form_in_balance = form.get("in_balance", type=lambda v: v == "on")
+                form_is_cash = form.get("is_cash", default=False, type=lambda v: v == "on")
+                form_in_balance = form.get("in_balance", default=False, type=lambda v: v == "on")
                 if form_userid is not None and form_credit is not None and form_label is not None and form_is_cash is not None and form_in_balance:
                     logger.info(f"Adding new repayment {form_userid} {form_date}"
                                 f" {form_credit} {form_label} {form_is_cash} {form_in_balance}")
