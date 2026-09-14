@@ -48,7 +48,7 @@ class EmailManager:
                                           payment_methods=self.config.email_payment_methods)
 
     def date_of_departure_remainder(self, user: User, admins: List[User]) -> bool:
-        return self.__safely_send_email__("Message from the U2IS Team before you leave", "departure",
+        return self.__safely_send_email__("Message from the U2IS Coffee Team before you leave", "departure",
                                           user,
                                           [u.mail for u in admins],
                                           name=f"{user.name} {user.surname}",
@@ -71,7 +71,7 @@ class EmailManager:
         }
         for name, value in macros.items():
             content = content.replace(name, value)
-        content = re.split(r"\n\r?\n\r?", content)
+        content = re.split(r"\r?\n\r?\n", content)
         return self.__safely_send_email__(subject,
                                           "generic_notification",
                                           user,
