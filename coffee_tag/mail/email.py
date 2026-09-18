@@ -62,7 +62,8 @@ class EmailManager:
             "[NAME]": str(escape(user.name)),
             "[SURNAME]": str(escape(user.surname)),
             "[USER_BALANCE]": str(float(-user.get_user_balance()) or 0.0),
-            "[DATE_OF_DEPARTURE]": user.date_of_departure.strftime("%Y-%m-%d"),
+            "[DATE_OF_DEPARTURE]": "an undefined value" if user.date_of_departure is None \
+                else user.date_of_departure.strftime("%Y-%m-%d"),
             "[ADMIN_EMAIL]": self.config.contact_email,
             "[GRACE_PERIOD]": str(self.config.debt_grace_period),
             "[GRACE_CEILING]": str(self.config.debt_grace_ceiling),
