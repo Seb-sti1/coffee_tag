@@ -50,7 +50,7 @@ class User(AuthUser):
             if creation_date is not None else dt.now(tz=timezone.utc)
 
     @staticmethod
-    def create_table(db: Database):
+    def create_table() -> Callable[[sqlite3.Cursor], None]:
         def create(db: sqlite3.Cursor):
             db.execute("""
                        CREATE TABLE IF NOT EXISTS users
@@ -75,7 +75,7 @@ class User(AuthUser):
                        );
                        """)
 
-        db.exec_safely_at_once(create)
+        return create
 
     def get_user_balance(self) -> float:
         return self.db.select_one("""
@@ -252,7 +252,7 @@ class Purchase:
         self.price: float = price
 
     @staticmethod
-    def create_table(db: Database):
+    def create_table() -> Callable[[sqlite3.Cursor], None]:
         def create(db: sqlite3.Cursor):
             db.execute("""
                        CREATE TABLE IF NOT EXISTS purchase
@@ -264,8 +264,10 @@ class Purchase:
                            price     REAL
                        );
                        """)
+            db.execute("CREATE INDEX IF NOT EXISTS idx_purchase_date ON purchase (date);")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_purchase_user_id ON purchase (user_id);")
 
-        db.exec_safely_at_once(create)
+        return create
 
     def __str__(self):
         return f"[{self.user_id}#{self.nb_coffee}@{self.date.strftime('%Y-%m-%d %H:%M:%S')}={self.price}]"
@@ -296,7 +298,7 @@ class Repayment:
         self.in_balance: int = in_balance
 
     @staticmethod
-    def create_table(db: Database):
+    def create_table() -> Callable[[sqlite3.Cursor], None]:
         def create(db: sqlite3.Cursor):
             db.execute("""
                        CREATE TABLE IF NOT EXISTS repayment
@@ -310,8 +312,9 @@ class Repayment:
                            in_balance INTEGER
                        );
                        """)
+            db.execute("CREATE INDEX IF NOT EXISTS idx_repayment_user_id ON repayment (user_id);")
 
-        db.exec_safely_at_once(create)
+        return create
 
 
 class EmailLog:
@@ -329,7 +332,7 @@ class EmailLog:
         self.success: bool = success
 
     @staticmethod
-    def create_table(db: Database):
+    def create_table() -> Callable[[sqlite3.Cursor], None]:
         def create(db: sqlite3.Cursor):
             db.execute("""
                        CREATE TABLE IF NOT EXISTS emaillog
@@ -346,7 +349,7 @@ class EmailLog:
                        );
                        """)
 
-        db.exec_safely_at_once(create)
+        return create
 
 
 class Database:
@@ -358,12 +361,11 @@ class Database:
         self.create_tables()
 
     def create_tables(self):
-        User.create_table(self)
-        Purchase.create_table(self)
-        Repayment.create_table(self)
-        EmailLog.create_table(self)
-
         def create(db: sqlite3.Cursor):
+            User.create_table()(db)
+            Purchase.create_table()(db)
+            Repayment.create_table()(db)
+            EmailLog.create_table()(db)
             db.execute("""
                        CREATE TABLE IF NOT EXISTS jura_count
                        (
@@ -380,6 +382,7 @@ class Database:
                            tot_special     integer
                        );
                        """)
+            db.execute("CREATE INDEX IF NOT EXISTS idx_jura_count_date ON jura_count (date);")
 
         self.exec_safely_at_once(create)
 
