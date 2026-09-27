@@ -366,6 +366,7 @@ class Database:
             Purchase.create_table()(db)
             Repayment.create_table()(db)
             EmailLog.create_table()(db)
+            # Create jura_count
             db.execute("""
                        CREATE TABLE IF NOT EXISTS jura_count
                        (
@@ -383,6 +384,37 @@ class Database:
                        );
                        """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_jura_count_date ON jura_count (date);")
+            # Create jura_intervals with a trigger for insert on jura_count
+            db.execute("""
+                       CREATE TABLE IF NOT EXISTS jura_intervals
+                       (
+                           id          INTEGER PRIMARY KEY REFERENCES jura_count (id),
+                           start_date  TEXT    NOT NULL,
+                           end_date    TEXT    NOT NULL,
+                           delta_total INTEGER NOT NULL DEFAULT 0
+                       );
+                       """)
+            db.execute("CREATE INDEX IF NOT EXISTS idx_jura_intervals_start_date ON jura_intervals (start_date);")
+            db.execute("""
+                       CREATE TRIGGER IF NOT EXISTS trg_jura_intervals_insert
+                           AFTER INSERT
+                           ON jura_count
+                       BEGIN
+                           INSERT OR IGNORE INTO jura_intervals (id, start_date, end_date, delta_total)
+                           SELECT prev.id,
+                                  prev.date,
+                                  NEW.date,
+                                  (NEW.tot_espresso - prev.tot_espresso)
+                                      + 2 * (NEW.tot_2_espresso - prev.tot_2_espresso)
+                                      + (NEW.tot_ristretto - prev.tot_ristretto)
+                                      + 2 * (NEW.tot_2_ristretto - prev.tot_2_ristretto)
+                                      + (NEW.tot_coffee - prev.tot_coffee)
+                                      + 2 * (NEW.tot_2_coffee - prev.tot_2_coffee)
+                                      + (NEW.tot_special - prev.tot_special)
+                           FROM jura_count AS prev
+                           WHERE prev.id = (SELECT MAX(id) FROM jura_count WHERE id < NEW.id);
+                       END;
+                       """)
 
         self.exec_safely_at_once(create)
 
@@ -497,65 +529,53 @@ class Database:
 
     def get_daily_counts(self, loss_user_id: int = LOSS_USER_ID) -> Optional[list[Tuple[str, str, int, int, int]]]:
         result = self.connector.execute("""
-                                        WITH intervals AS (WITH counts
-                                                                    AS (SELECT row_number() OVER (ORDER BY date) as rowid, *
-                                                                        FROM jura_count
-                                                                        WHERE TIME(date) >= "21:00:00"
-                                                                          AND date > "2026-04-07 09:00:30")
-                                                           SELECT j1.date                           AS start_date,
-                                                                  j2.date                           AS end_date,
-                                                                  (j2.tot_coffee - j1.tot_coffee) +
-                                                                  2 * (j2.tot_2_coffee - j1.tot_2_coffee) +
-                                                                  (j2.tot_espresso - j1.tot_espresso) +
-                                                                  2 * (j2.tot_2_espresso - j1.tot_2_espresso) +
-                                                                  (j2.tot_ristretto - j1.tot_ristretto) +
-                                                                  2 * (j2.tot_2_ristretto - j1.tot_2_ristretto) +
-                                                                  (j2.tot_special - j1.tot_special) AS delta_juracount
-                                                           FROM counts AS j1
-                                                                    JOIN counts AS j2 ON j1.rowid = j2.rowid - 1)
-                                        SELECT i.start_date,
-                                               i.end_date,
-                                               COALESCE(i.delta_juracount, 0) AS brewed,
+                                        WITH nightly AS (SELECT start_date
+                                                         FROM jura_intervals
+                                                         WHERE TIME(start_date) >= '21:00:00'
+                                                           AND start_date > '2026-04-07 09:00:30'
+                                                         UNION ALL
+                                                         SELECT end_date
+                                                         FROM jura_intervals
+                                                         WHERE id = (SELECT MAX(id) FROM jura_intervals)
+                                                           AND TIME(start_date) < '21:00:00'),
+                                             bounded AS (SELECT start_date,
+                                                                LEAD(start_date) OVER (ORDER BY start_date) AS next_start
+                                                         FROM nightly),
+                                             day_brewed AS (SELECT b.start_date,
+                                                                   b.next_start       AS end_date,
+                                                                   SUM(i.delta_total) AS brewed
+                                                            FROM bounded b
+                                                                     JOIN jura_intervals i
+                                                                          ON i.start_date >= b.start_date AND i.start_date < b.next_start
+                                                            WHERE b.next_start IS NOT NULL
+                                                            GROUP BY b.start_date, b.next_start)
+                                        SELECT d.start_date,
+                                               d.end_date,
+                                               d.brewed,
                                                COALESCE(SUM(CASE WHEN p.user_id != :loss_user_id THEN p.nb_coffee END),
-                                                        0)                    AS purchased,
+                                                        0) AS purchased,
                                                COALESCE(SUM(CASE WHEN p.user_id = :loss_user_id THEN p.nb_coffee END),
-                                                        0)                    AS loss
-                                        FROM intervals i
-                                                 LEFT JOIN purchase p
-                                                           ON p.date > i.start_date
-                                                               AND p.date <= i.end_date
-                                        GROUP BY i.start_date, i.end_date
-                                        ORDER BY i.start_date;
+                                                        0) AS loss
+                                        FROM day_brewed d
+                                                 LEFT JOIN purchase p ON p.date > d.start_date AND p.date <= d.end_date
+                                        GROUP BY d.start_date, d.end_date
+                                        ORDER BY d.start_date;
                                         """, {"loss_user_id": loss_user_id})
         return None if result is None else list(result)
 
     def get_error_counts(self) -> Optional[list[Tuple[str, str, int, int]]]:
         result = self.connector.execute("""
-                                        WITH intervals AS (SELECT j1.date                           AS start_date,
-                                                                  j2.date                           AS end_date,
-                                                                  (j2.tot_coffee - j1.tot_coffee) +
-                                                                  2 * (j2.tot_2_coffee - j1.tot_2_coffee) +
-                                                                  (j2.tot_espresso - j1.tot_espresso) +
-                                                                  2 * (j2.tot_2_espresso - j1.tot_2_espresso) +
-                                                                  (j2.tot_ristretto - j1.tot_ristretto) +
-                                                                  2 * (j2.tot_2_ristretto - j1.tot_2_ristretto) +
-                                                                  (j2.tot_special - j1.tot_special) AS delta_juracount
-                                                           FROM jura_count j1
-                                                                    JOIN jura_count j2
-                                                                         ON j2.id = (SELECT MIN(id)
-                                                                                     FROM jura_count
-                                                                                     WHERE j1.date < date
-                                                                                       AND j1.date > "2026-04-07 09:00:30"))
                                         SELECT i.start_date,
                                                i.end_date,
-                                               i.delta_juracount             as brewed,
+                                               i.delta_total                 AS brewed,
                                                COALESCE(SUM(p.nb_coffee), 0) AS purchased
-                                        FROM intervals i
+                                        FROM jura_intervals i
                                                  LEFT JOIN purchase p
                                                            ON p.date > i.start_date
                                                                AND p.date <= i.end_date
+                                        WHERE i.start_date > '2026-04-07 09:00:30'
                                         GROUP BY i.start_date, i.end_date
-                                        HAVING purchased != delta_juracount
+                                        HAVING purchased != brewed
                                         ORDER BY i.start_date;
                                         """)
         return None if result is None else list(result)
