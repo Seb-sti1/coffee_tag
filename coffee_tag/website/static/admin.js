@@ -27,10 +27,10 @@ function toggleColumn(i, visible) {
 }
 
 // --- Sort rows ---
-function sortTable(n, is_number = false, is_date = false) {
-    const table = document.getElementById("userList");
+function sortTable(n, is_number = false, is_date = false, tableId) {
+    const table = document.getElementById(tableId);
     const tbody = table.tBodies[0];
-    const rows = Array.from(tbody.rows);
+    const rows = Array.from(tbody.rows).filter(r => r.style.display !== 'none');
     const header = table.tHead.rows[0].cells[n];
 
     // Toggle direction using a data attribute on the header
