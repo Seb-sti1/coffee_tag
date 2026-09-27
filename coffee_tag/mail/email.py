@@ -87,6 +87,7 @@ class EmailManager:
             all_bcc += self.config.email_bcc
         if bcc is not None:
             all_bcc += bcc
+        all_bcc = list(set(all_bcc)) # remove duplicated emails in bcc
         try:
             self.__send_email__(subject, template_name, recipient, all_bcc, **kwargs)
             logger.info(f"Sent an mail to '{recipient.mail}' with template '{template_name}'.")
