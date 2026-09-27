@@ -106,7 +106,7 @@ class User(AuthUser):
             return None
         return Purchase(self.db, *list(r))
 
-    def get_coffees(self) -> Optional[List[Purchase]]:
+    def get_coffees(self) -> List[Purchase]:
         r = self.db.connector.execute("""
                                       SELECT id, user_id, date, nb_coffee, price
                                       FROM purchase
@@ -114,8 +114,6 @@ class User(AuthUser):
                                       ORDER BY date DESC
                                       """,
                                       {"user": self.user_id})
-        if r is None:
-            return None
         return [Purchase(self.db, *row[:5]) for row in r]
 
     def __str__(self):
@@ -473,7 +471,7 @@ class Database:
 
     def get_owners(self) -> Optional[List[User]]:
         rows = self.connector.execute("SELECT * FROM users "
-                                      'WHERE permissions = "owner"')
+                                      "WHERE permissions = 'owner'")
         return None if rows is None else [User(self, *list(row)[:15]) for row in rows]
 
     def get_user_leaving_in(self, days: int) -> Optional[List[User]]:
@@ -563,7 +561,7 @@ class Database:
         result = self.connector.execute("""
                                         SELECT emaillog.id,
                                                emaillog.user_id,
-                                               CONCAT(u.name, " ", u.surname),
+                                               CONCAT(u.name, ' ', u.surname),
                                                date,
                                                subject,
                                                template_name,
@@ -666,30 +664,24 @@ class Database:
                                "WHERE id = :id",
                                {"id": repayment_id})
 
-    def get_users(self) -> Optional[List[User]]:
+    def get_users(self) -> List[User]:
         r = self.connector.execute("""SELECT *
                                       FROM users;""")
-        if r is None:
-            return None
         return [User(self, *row[:15]) for row in r]
 
-    def get_recent_users(self) -> Optional[List[User]]:
+    def get_recent_users(self) -> List[User]:
         r = self.connector.execute("""SELECT *
                                       FROM users
                                       ORDER BY creation_date DESC;""")
-        if r is None:
-            return None
         return [User(self, *row[:15]) for row in r]
 
-    def get_recent_coffees(self) -> Optional[List[Purchase]]:
+    def get_recent_coffees(self) -> List[Purchase]:
         r = self.connector.execute("""
                                    SELECT id, user_id, date, nb_coffee, price
                                    FROM purchase
                                    ORDER BY date DESC
                                    LIMIT 100;
                                    """)
-        if r is None:
-            return None
         return [Purchase(self, *row[:5]) for row in r]
 
     def export(self) -> str:

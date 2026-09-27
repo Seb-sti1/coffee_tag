@@ -275,6 +275,8 @@ class CoffeeManager:
         # show order gui
         coffee_bought = 0
         if self.config.authoritative:
+            if self.coffee_maker is None:
+                return None
             await self.check_for_meme(user)
             brew = BrewCoffee(self.root_gui, user, self.config.price,
                               self.coffee_maker.get_brewing_status,

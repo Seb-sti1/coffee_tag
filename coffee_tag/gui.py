@@ -37,7 +37,7 @@ DARK_BROWN = '#5b3719'
 class AbstractUI:
 
     def __init__(self, main: MainGUI, title: str, w: int, h: int,
-                 border: int = 3, x: int = None, y: int = None):
+                 border: int = 3, x: Optional[int] = None, y: Optional[int] = None):
         self.future = asyncio.get_event_loop().create_future()
         self.main = main
         self.w = w
@@ -762,7 +762,7 @@ class BrewCoffee(AbstractUI):
             self.progress_label.config(text=self.ERROR_LBL.get(self.jura_feedback, "Unknown error"))
             if self.jura_feedback is None:
                 self.add_label(
-                    f"If you continue to get this message, please contact us at {config.contact_email}.",
+                    f"If you continue to get this message, please contact us at {self.user.db.config.contact_email}.",
                     gui=self.order_rect, font='Helvetica 12 italic')
             self.add_label("Nothing will be debited from your account.", gui=self.order_rect,
                            font='Helvetica 13 bold')
