@@ -526,8 +526,56 @@
                 <div class="tab-pane fade" id="purchases">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Purchases</h1>
+                        <form method="get" action="" class="d-flex align-items-center gap-2" id="dateFilterForm">
+                            <label class="form-label mb-0 text-nowrap" for="purchaseFrom">From</label>
+                            <input type="date" id="purchaseFrom" name="from" class="form-control form-control-sm"
+                                   value="{{ filter_from }}"/>
+                            <label class="form-label mb-0 text-nowrap" for="purchaseTo">To</label>
+                            <input type="date" id="purchaseTo" name="to" class="form-control form-control-sm"
+                                   value="{{ filter_to }}"/>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i> Apply
+                            </button>
+                            <a href="?" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </a>
+                        </form>
                     </div>
-                    <p>Purchases content...</p>
+                    <div class="table-responsive">
+                        <table id="purchaseList" class="table table-bordered table-hover table-sm align-middle">
+                            <thead class="table-dark">
+                            <tr>
+                                <th class="sortable" onclick="sortTable(0, true, false, 'purchaseList')">id <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(1, false, false, 'purchaseList')">name <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(2, false, false, 'purchaseList')">surname <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(3, true, false, 'purchaseList')">user id <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(4, false, true, 'purchaseList')">date <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(5, true, false, 'purchaseList')">nb coffee <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(6, true, false, 'purchaseList')">price <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                            </tr>
+                            </thead>
+                            <tbody id="purchaseBody">
+                            {% for p in purchases %}
+                                <tr data-date="{{ p[4] }}">
+                                    <td class="text-muted small">{{ p[0] }}</td>
+                                    <td>{{ p[1] }}</td>
+                                    <td>{{ p[2] }}</td>
+                                    <td class="text-muted small">{{ p[3] }}</td>
+                                    <td class="text-nowrap">{{ p[4] }}</td>
+                                    <td>{{ p[5] }}</td>
+                                    <td>{{ p[6] }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {# =================== STOCKS =================== #}
@@ -676,6 +724,31 @@
             tab.addEventListener("shown.bs.tab", e => {
                 history.replaceState(null, null, e.target.getAttribute("href"));
             });
+        });
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Column toggle for purchase table
+        const purchaseHeaders = document.querySelectorAll('#purchaseList thead th');
+        const purchaseMenu = document.getElementById('purchaseColMenu');
+        purchaseHeaders.forEach((th, i) => {
+            const li = document.createElement('li');
+            const label = document.createElement('label');
+            label.className = 'dropdown-item d-flex align-items-center gap-2';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.addEventListener('change', () => {
+                const show = cb.checked;
+                document.querySelectorAll(`#purchaseList tr`).forEach(row => {
+                    if (row.children[i]) row.children[i].style.display = show ? '' : 'none';
+                });
+            });
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(' ' + th.textContent.trim()));
+            li.appendChild(label);
+            purchaseMenu.appendChild(li);
         });
     });
 </script>

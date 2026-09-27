@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import os
-from datetime import datetime as dt, timezone
-from typing import List
+from datetime import datetime as dt, timezone, timedelta
+from typing import List, Tuple, Optional
 
 from jinja2 import select_autoescape
 from quart import Quart, render_template, redirect, url_for, request, Response
@@ -12,6 +12,20 @@ from coffee_tag.database import Database, User
 from coffee_tag.mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
+
+
+def parse_date_params(r) -> Tuple[Optional[dt], Optional[dt]]:
+    from_str = r.args.get("from")
+    to_str = r.args.get("to")
+    try:
+        from_date = dt.strptime(from_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) if from_str else None
+    except ValueError:
+        from_date = None
+    try:
+        to_date = dt.strptime(to_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) if to_str else None
+    except ValueError:
+        to_date = None
+    return from_date, to_date
 
 
 class Website:
@@ -124,6 +138,11 @@ class Website:
                     asyncio.get_event_loop().create_task(_send_all())
                     returned_form_values["send_email"] = True
 
+        # get the selected period
+        from_date, to_date = parse_date_params(request)
+        from_date = (from_date or dt.now(timezone.utc) - timedelta(weeks=4))
+        to_date = (to_date or dt.now(timezone.utc))
+
         return await render_template("admin.html.jinja",
                                      user=current_user,
                                      users=self.db.get_users_balance(),
@@ -131,6 +150,9 @@ class Website:
                                      emails=self.db.get_email_logs(),
                                      daily_counts=self.db.get_daily_counts(),
                                      error_counts=self.db.get_error_counts(),
+                                     purchases=self.db.get_purchases(from_date, to_date),
+                                     filter_from=from_date.strftime("%Y-%m-%d"),
+                                     filter_to=to_date.strftime("%Y-%m-%d"),
                                      returned_form_values=returned_form_values)
 
     async def export_sql(self):

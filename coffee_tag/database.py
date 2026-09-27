@@ -707,6 +707,26 @@ class Database:
                                    """)
         return [Purchase(self, *row[:5]) for row in r]
 
+    def get_purchases(self, from_date: dt, to_date: dt) -> list:
+        r = self.connector.execute("""
+                                   SELECT p.id,
+                                          u.name,
+                                          u.surname,
+                                          p.user_id,
+                                          p.date,
+                                          p.nb_coffee,
+                                          p.price
+                                   FROM purchase p
+                                            JOIN users u ON u.id = p.user_id
+                                   WHERE p.date >= :from_date
+                                     AND p.date <= :to_date
+                                   ORDER BY p.date DESC;
+                                   """, {
+                                       "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                       "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
+                                   })
+        return list(r)
+
     def export(self) -> str:
         logger.info(f"Creating a sql dump file")
         exported_sql = "\n".join(self.connector.iterdump())
