@@ -9,7 +9,7 @@ from quart import Quart, render_template, redirect, url_for, request, Response
 from quart_auth import logout_user, login_required, current_user, QuartAuth, login_user, Unauthorized
 
 from coffee_tag.database import Database, User
-from mail.email import EmailManager
+from coffee_tag.mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
 
