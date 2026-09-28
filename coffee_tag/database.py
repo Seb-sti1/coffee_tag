@@ -527,7 +527,8 @@ class Database:
                                            GROUP BY week;""")
         return None if result is None else list(result)
 
-    def get_daily_counts(self, loss_user_id: int = LOSS_USER_ID) -> Optional[list[Tuple[str, str, int, int, int]]]:
+    def get_daily_counts(self, from_date: dt, to_date: dt,
+                         loss_user_id: int = LOSS_USER_ID) -> Optional[list[Tuple[str, str, int, int, int]]]:
         result = self.connector.execute("""
                                         WITH nightly AS (SELECT start_date
                                                          FROM jura_intervals
@@ -540,7 +541,9 @@ class Database:
                                                            AND TIME(start_date) < '21:00:00'),
                                              bounded AS (SELECT start_date,
                                                                 LEAD(start_date) OVER (ORDER BY start_date) AS next_start
-                                                         FROM nightly),
+                                                         FROM nightly
+                                                         WHERE start_date >= :from_date
+                                                           AND start_date <= :to_date),
                                              day_brewed AS (SELECT b.start_date,
                                                                    b.next_start       AS end_date,
                                                                    SUM(i.delta_total) AS brewed
@@ -560,10 +563,12 @@ class Database:
                                                  LEFT JOIN purchase p ON p.date > d.start_date AND p.date <= d.end_date
                                         GROUP BY d.start_date, d.end_date
                                         ORDER BY d.start_date;
-                                        """, {"loss_user_id": loss_user_id})
+                                        """, {"loss_user_id": loss_user_id,
+                                              "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                              "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")})
         return None if result is None else list(result)
 
-    def get_error_counts(self) -> Optional[list[Tuple[str, str, int, int]]]:
+    def get_error_counts(self, from_date: dt, to_date: dt) -> Optional[list[Tuple[str, str, int, int]]]:
         result = self.connector.execute("""
                                         SELECT i.start_date,
                                                i.end_date,
@@ -574,13 +579,17 @@ class Database:
                                                            ON p.date > i.start_date
                                                                AND p.date <= i.end_date
                                         WHERE i.start_date > '2026-04-07 09:00:30'
+                                          AND i.start_date >= :from_date
+                                          AND i.start_date <= :to_date
                                         GROUP BY i.start_date, i.end_date
                                         HAVING purchased != brewed
                                         ORDER BY i.start_date;
-                                        """)
+                                        """, {
+                                            "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                            "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")})
         return None if result is None else list(result)
 
-    def get_email_logs(self) -> list[Tuple[int, int, str, str, str, str, str, bool, str]]:
+    def get_email_logs(self, from_date: dt, to_date: dt) -> list[Tuple[int, int, str, str, str, str, str, bool, str]]:
         result = self.connector.execute("""
                                         SELECT emaillog.id,
                                                emaillog.user_id,
@@ -593,8 +602,14 @@ class Database:
                                                success
                                         FROM emaillog
                                                  JOIN users u ON u.id = emaillog.user_id
+                                        WHERE date >= :from_date
+                                          AND date <= :to_date
                                         ORDER BY date DESC;
-                                        """)
+                                        """,
+                                        {
+                                            "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                            "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
+                                        })
         return list(result)
 
     def get_email_log(self, email_id) -> Optional[EmailLog]:
@@ -668,7 +683,7 @@ class Database:
                                 "credit": credit, "label": label,
                                 "re": int(is_cash), "al": int(in_balance)})
 
-    def get_repayments(self) -> list:
+    def get_repayments(self, from_date: dt, to_date: dt) -> list:
         r = self.connector.execute("""
                                    SELECT repayment.id,
                                           name || ' ' || surname as fullname,
@@ -678,8 +693,14 @@ class Database:
                                           is_cash,
                                           in_balance
                                    FROM repayment
-                                            JOIN users ON repayment.user_id = users.id;
-                                   """)
+                                            JOIN users ON repayment.user_id = users.id
+                                   WHERE date >= :from_date
+                                     AND date <= :to_date
+                                   ORDER BY date DESC;
+                                   """, {
+                                       "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                       "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
+                                   })
         return list(r)
 
     def delete_repayment(self, repayment_id: int) -> bool:

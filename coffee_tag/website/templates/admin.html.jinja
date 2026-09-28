@@ -181,6 +181,20 @@
                 <div class="tab-pane fade" id="repayments">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Repayments</h1>
+                        <form method="get" action="" class="d-flex align-items-center gap-2" id="dateFilterForm">
+                            <label class="form-label mb-0 text-nowrap" for="purchaseFrom">From</label>
+                            <input type="date" id="purchaseFrom" name="from" class="form-control form-control-sm"
+                                   value="{{ filter_from }}"/>
+                            <label class="form-label mb-0 text-nowrap" for="purchaseTo">To</label>
+                            <input type="date" id="purchaseTo" name="to" class="form-control form-control-sm"
+                                   value="{{ filter_to }}"/>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i> Apply
+                            </button>
+                            <a href="?" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </a>
+                        </form>
                     </div>
 
                     {# ERROR #}
@@ -316,6 +330,20 @@
                 <div class="tab-pane fade" id="emails">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Emails</h1>
+                        <form method="get" action="" class="d-flex align-items-center gap-2" id="dateFilterForm">
+                            <label class="form-label mb-0 text-nowrap" for="purchaseFrom">From</label>
+                            <input type="date" id="purchaseFrom" name="from" class="form-control form-control-sm"
+                                   value="{{ filter_from }}"/>
+                            <label class="form-label mb-0 text-nowrap" for="purchaseTo">To</label>
+                            <input type="date" id="purchaseTo" name="to" class="form-control form-control-sm"
+                                   value="{{ filter_to }}"/>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i> Apply
+                            </button>
+                            <a href="?" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </a>
+                        </form>
                     </div>
 
                     {# ERROR #}
@@ -590,6 +618,20 @@
                 <div class="tab-pane fade" id="reports">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Reports</h1>
+                        <form method="get" action="" class="d-flex align-items-center gap-2" id="dateFilterForm">
+                            <label class="form-label mb-0 text-nowrap" for="purchaseFrom">From</label>
+                            <input type="date" id="purchaseFrom" name="from" class="form-control form-control-sm"
+                                   value="{{ filter_from }}"/>
+                            <label class="form-label mb-0 text-nowrap" for="purchaseTo">To</label>
+                            <input type="date" id="purchaseTo" name="to" class="form-control form-control-sm"
+                                   value="{{ filter_to }}"/>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i> Apply
+                            </button>
+                            <a href="?" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </a>
+                        </form>
                     </div>
                     <div class="row g-3 mb-4">
                         <div class="col-6 col-md">
