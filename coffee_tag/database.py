@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import re
+import secrets
 import sqlite3
 from datetime import datetime as dt, timezone, datetime
 from typing import Callable, Optional, Tuple, Any, Literal, List, Dict
@@ -17,7 +18,10 @@ from coffee_tag.config import Config
 
 logger = logging.getLogger(__name__)
 
-LOSS_USER_ID = 121
+LOSS_USER_ID = 1000000000
+BANK_USER_ID = 1000000001
+CASH_USER_ID = 1000000002
+SUPPLY_USER_ID = 1000000003
 
 
 class User(AuthUser):
@@ -279,9 +283,9 @@ class Purchase:
         return self.db.edit_query("DELETE FROM purchase WHERE id=:uid",
                                   {"uid": self.purchase_id})
 
-    def to_loss(self, loss_user_id: int = LOSS_USER_ID) -> bool:
+    def to_loss(self) -> bool:
         return self.db.edit_query("UPDATE purchase SET user_id = :user_id WHERE id=:uid",
-                                  {"user_id": loss_user_id, "uid": self.purchase_id})
+                                  {"user_id": LOSS_USER_ID, "uid": self.purchase_id})
 
 
 class Repayment:
@@ -415,6 +419,42 @@ class Database:
                            WHERE prev.id = (SELECT MAX(id) FROM jura_count WHERE id < NEW.id);
                        END;
                        """)
+            # Create system users
+            db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
+                       "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'loss', 'special',"
+                       "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
+                       ":mail, DATETIME())",
+                       {"user_id": LOSS_USER_ID,
+                        "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
+                                                  bcrypt.gensalt()).decode(),
+                        "mail": self.config.contact_email})
+            db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
+                       "status, date_of_departure, mail, creation_date) VALUES (1000000001, 'bank', 'special',"
+                       "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
+                       ":mail, DATETIME())",
+                       {
+                           "user_id": BANK_USER_ID,
+                           "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
+                                                     bcrypt.gensalt()).decode(),
+                           "mail": self.config.contact_email})
+            db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
+                       "status, date_of_departure, mail, creation_date) VALUES (1000000002, 'cash', 'special',"
+                       "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
+                       ":mail, DATETIME())",
+                       {
+                           "user_id": CASH_USER_ID,
+                           "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
+                                                     bcrypt.gensalt()).decode(),
+                           "mail": self.config.contact_email})
+            db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
+                       "status, date_of_departure, mail, creation_date) VALUES (1000000003, 'supply', 'special',"
+                       "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
+                       ":mail, DATETIME())",
+                       {
+                           "user_id": SUPPLY_USER_ID,
+                           "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
+                                                     bcrypt.gensalt()).decode(),
+                           "mail": self.config.contact_email})
 
         self.exec_safely_at_once(create)
 
@@ -527,8 +567,7 @@ class Database:
                                            GROUP BY week;""")
         return None if result is None else list(result)
 
-    def get_daily_counts(self, from_date: dt, to_date: dt,
-                         loss_user_id: int = LOSS_USER_ID) -> Optional[list[Tuple[str, str, int, int, int]]]:
+    def get_daily_counts(self, from_date: dt, to_date: dt) -> Optional[list[Tuple[str, str, int, int, int]]]:
         result = self.connector.execute("""
                                         WITH nightly AS (SELECT start_date
                                                          FROM jura_intervals
@@ -563,7 +602,7 @@ class Database:
                                                  LEFT JOIN purchase p ON p.date > d.start_date AND p.date <= d.end_date
                                         GROUP BY d.start_date, d.end_date
                                         ORDER BY d.start_date;
-                                        """, {"loss_user_id": loss_user_id,
+                                        """, {"loss_user_id": LOSS_USER_ID,
                                               "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
                                               "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")})
         return None if result is None else list(result)
