@@ -332,6 +332,7 @@ class CoffeeManager:
                         logger.info(f"Sent a low balance remainder to {user}.")
                     else:
                         logger.warning(f"Failed to send a low balance remainder to {user}.")
+                    break
             if user.buy_coffees(coffee_bought):
                 logger.info("This was saved in db.")
                 if not self.config.authoritative:
