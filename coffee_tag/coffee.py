@@ -122,7 +122,7 @@ class CoffeeManager:
             await asyncio.sleep((next_run - now).total_seconds())
             # send date of departure remainder
             for days in self.config.notification_date_of_departure_remainders:
-                for user in self.db.get_user_leaving_in(days) or []:
+                for user in self.db.get_users_leaving(days, days) or []:
                     if self.email.date_of_departure_remainder(user, [] if days != 1 else self.db.get_owners() or []):
                         logger.info(f"Successfully sent remainder email to {user}.")
                     else:

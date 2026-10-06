@@ -13,6 +13,19 @@ from coffee_tag.mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
 
+# The machine data alert turns to a warning when nothing was received for this long.
+MACHINE_STALE_AFTER = timedelta(hours=24)
+EPOCH = dt(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def format_age(delta: timedelta) -> str:
+    """Human readable duration: '5 minutes', '3 hours', '2 days'."""
+    seconds = max(int(delta.total_seconds()), 0)
+    for unit, size in (("day", 86400), ("hour", 3600), ("minute", 60)):
+        if seconds >= size:
+            n = seconds // size
+            return f"{n} {unit}{'s' if n > 1 else ''}"
+    return "less than a minute"
 
 def parse_date_params(r) -> Tuple[Optional[dt], Optional[dt]]:
     from_str = r.args.get("from")
@@ -85,6 +98,47 @@ class Website:
         logout_user()
         return redirect(url_for("index"))
 
+    def build_dashboard(self) -> dict:
+        now = dt.now(timezone.utc)
+
+        # Machine data freshness
+        last_sync = self.db.get_last_machine_sync()
+        if last_sync is None:
+            machine = {"age": None, "stale": True}
+        else:
+            age = now - dt.strptime(last_sync, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            machine = {"age": format_age(age), "stale": age > MACHINE_STALE_AFTER}
+
+        # Balance sheet
+        clients = self.db.get_client_balance_summary()
+        bank = self.db.get_special_account_balance("bank")
+        cash = self.db.get_special_account_balance("cash")
+        net_client = round(clients["credit_total"] + clients["debt_total"], 2)
+        balance_sheet = {**clients,
+                         "net_client": net_client,
+                         "bank": bank,
+                         "cash": cash,
+                         "loss": self.db.get_special_account_balance("loss"),
+                         "surplus": round(bank + cash + net_client, 2)}
+
+        # Stolen and miscounted coffees, overall and over the last 30 days.
+        errors = {}
+        for scope, since in (("total", EPOCH), ("recent", now - timedelta(days=30))):
+            errors[f"stolen_{scope}"], errors[f"miscount_{scope}"] = self.db.get_stolen_miscount(since, now)
+
+        return {
+            "machine": machine,
+            "email_failures": sum(1 for log in self.db.get_email_logs(EPOCH, now, limit=10) if log[8] != 1),
+            "errors": errors,
+            "price": self.db.config.price,
+            "bilan": balance_sheet,
+            "expense_income": self.db.get_expense_income_intervals(),
+            "leaving": [(str(u), u.date_of_departure.strftime("%Y-%m-%d"), u.get_user_balance())
+                        for u in self.db.get_users_leaving(0, 30)],
+            "new_users": [(str(u), u.creation_date.strftime("%Y-%m-%d"))
+                          for u in self.db.get_recent_users(30, clients_only=True)],
+        }
+
     async def admin(self):
         user = self.check_is_admin()
         if type(user) != User:
@@ -150,6 +204,7 @@ class Website:
                                      daily_counts=self.db.get_daily_counts(from_date, to_date),
                                      error_counts=self.db.get_error_counts(from_date, to_date),
                                      purchases=self.db.get_purchases(from_date, to_date),
+                                     dashboard=self.build_dashboard(),
                                      filter_from=from_date.strftime("%Y-%m-%d"),
                                      filter_to=to_date.strftime("%Y-%m-%d"),
                                      returned_form_values=returned_form_values)

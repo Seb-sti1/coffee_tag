@@ -86,11 +86,297 @@
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 h-100 overflow-y-auto">
             <div class="tab-content">
                 {# =================== DASHBOARD =================== #}
+                {% macro eur(v) %}{{ '%.2f' | format(v) }} €{% endmacro %}
                 <div class="tab-pane fade show active" id="dashboard">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Dashboard</h1>
                     </div>
-                    <p>Dashboard content...</p>
+                    {# Alert #}
+                    {% set machine = dashboard.machine %}
+                    <div class="alert {{ 'alert-warning' if machine.stale else 'alert-success' }} d-flex align-items-center gap-2 py-2"
+                         role="alert" id="alert-machine">
+                        <i class="bi bi-cpu"></i>
+                        {% if machine.age is none %}
+                            <div>No machine data received yet.</div>
+                        {% else %}
+                            <div>Machine data last received {{ machine.age }} ago.</div>
+                        {% endif %}
+                    </div>
+                    {% if dashboard.email_failures > 0 %}
+                        <div class="alert alert-warning d-flex align-items-center gap-2 py-2" role="alert"
+                             id="alert-emails">
+                            <i class="bi bi-envelope-exclamation"></i>
+                            <div>{{ dashboard.email_failures }} of the last 10 emails failed to send.</div>
+                        </div>
+                    {% endif %}
+                    {# KPI #}
+                    {% set errors = dashboard.errors %}
+                    <div class="row g-3 mb-4">
+                        {# Stolen #}
+                        <div class="col-6 col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Stolen coffees</p>
+                                    <p class="text-muted small mb-0">Last 30 days</p>
+                                    <p class="fs-3 fw-medium mb-0 {{ 'text-danger' if errors.stolen_recent > 0 else 'text-success' }}">
+                                        {{ errors.stolen_recent }}</p>
+                                    <p class="text-muted small mb-0">Overall: {{ errors.stolen_total }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {# Miscounted #}
+                        <div class="col-6 col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Miscounted coffees</p>
+                                    <p class="text-muted small mb-0">Last 30 days</p>
+                                    <p class="fs-3 fw-medium mb-0 {{ 'text-purple' if errors.miscount_recent > 0 else 'text-success' }}">
+                                        {{ errors.miscount_recent }}</p>
+                                    <p class="text-muted small mb-0">Overall: {{ errors.miscount_total }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {# Coffee weight estimate #}
+                        <div class="col-6 col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Coffee weight estimate</p>
+                                    <p class="fs-3 fw-medium mb-0">
+                                        <span class="placeholder-value" data-bs-toggle="tooltip"
+                                              title="No data source yet">{{ "TODO" }}</span> g
+                                    </p>
+                                    <p class="text-muted small mb-0">Per coffee</p>
+                                </div>
+                            </div>
+                        </div>
+                        {# Cost per coffee vs price #}
+                        <div class="col-6 col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Cost per coffee vs price</p>
+                                    <p class="fs-3 fw-medium mb-0">
+                                        <span class="placeholder-value" data-bs-toggle="tooltip"
+                                              title="No data source yet">{{ "TODO" }}</span>
+                                        / {{ eur(dashboard.price) }}
+                                    </p>
+                                    <p class="text-muted small mb-0">Cost / selling price</p>
+                                </div>
+                            </div>
+                        </div>
+                        {# Stock: kg (coffees left) #}
+                        <div class="col-6 col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Stock</p>
+                                    <p class="fs-3 fw-medium mb-0">
+                                        <span class="text-muted">{{ "TODO" }}</span> kg
+                                        (around <span class="text-muted">{{ "TODO" }}</span> coffees)
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        {# Predicted stock-out #}
+                        <div class="col-6 col-lg-4">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <p class="text-muted small mb-1">Predicted stock-out</p>
+                                    <p class="fs-3 fw-medium mb-0">
+                                        <span class="text-muted">{{ "TODO" }}</span>
+                                    </p>
+                                    <p class="text-muted small mb-0">
+                                        In <span class="placeholder-value" data-bs-toggle="tooltip"
+                                                 title="No data source yet">{{ "TODO" }}</span> days
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {# Balance sheet and expenses vs income #}
+                    {% set bilan = dashboard.bilan %}
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-xl-5">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-header bg-white fw-semibold">Balance sheet</div>
+                                <div class="card-body p-0">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <tbody>
+                                        <tr>
+                                            <td>Client debt</td>
+                                            <td class="text-end text-danger">{{ eur(bilan.debt_total) }}</td>
+                                        </tr>
+                                        <tr class="text-muted small">
+                                            <td class="ps-4">of which dormant (inactive for over 6 months, or banned)
+                                            </td>
+                                            <td class="text-end text-danger">{{ eur(bilan.debt_dormant) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Client prepayments</td>
+                                            <td class="text-end text-success">{{ eur(bilan.credit_total) }}</td>
+                                        </tr>
+                                        <tr class="text-muted small">
+                                            <td class="ps-4">of which dormant (inactive for over 6 months, or banned)
+                                            </td>
+                                            <td class="text-end text-success">{{ eur(bilan.credit_dormant) }}</td>
+                                        </tr>
+                                        <tr class="fw-semibold">
+                                            <td>Net client balance</td>
+                                            <td class="text-end">{{ eur(bilan.net_client) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Stock</td>
+                                            <td class="text-end">
+                                                <span class="placeholder-value" data-bs-toggle="tooltip"
+                                                      title="No data source yet">{{ "TODO" }}</span> €
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Bank</td>
+                                            <td class="text-end">{{ eur(bilan.bank) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Cash</td>
+                                            <td class="text-end">{{ eur(bilan.cash) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Losses</td>
+                                            <td class="text-end text-warning">{{ eur(bilan.loss) }}</td>
+                                        </tr>
+                                        </tbody>
+                                        <tfoot>
+                                        <tr class="table-light fw-bold">
+                                            <td>Surplus / deficit</td>
+                                            <td class="text-end {{ 'text-success' if bilan.surplus >= 0 else 'text-danger' }}">{{ eur(bilan.surplus) }}</td>
+                                        </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-xl-7">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-header bg-white fw-semibold">Expenses vs income</div>
+                                <div class="card-body">
+                                    {% if dashboard.expense_income %}
+                                        <div style="position: relative; height: 320px;">
+                                            <canvas id="expenseIncomeChart" role="img"
+                                                    aria-label="Bar chart of expenses and revenue per restocking interval"></canvas>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted mb-0">No restocking recorded yet.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {# User movement #}
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-header bg-white fw-semibold">Leaving in the next 30 days</div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Departure</th>
+                                                <th class="text-end">Balance</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for u in dashboard.leaving %}
+                                                <tr>
+                                                    <td>{{ u[0] }}</td>
+                                                    <td class="text-nowrap">{{ u[1][:10] }}</td>
+                                                    <td class="text-end {{ 'text-danger fw-semibold' if u[2] > 0 else ('text-success fw-semibold' if u[2] < 0 else '') }}">{{ eur(u[2]) }}</td>
+                                                </tr>
+                                            {% else %}
+                                                <tr>
+                                                    <td colspan="3" class="text-muted">Nobody is leaving in the next 30
+                                                        days.
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6">
+                            <div class="card border-0 bg-white shadow-sm h-100">
+                                <div class="card-header bg-white fw-semibold">New users in the last 30 days</div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Joined</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for u in dashboard.new_users %}
+                                                <tr>
+                                                    <td>{{ u[0] }}</td>
+                                                    <td class="text-nowrap">{{ u[1][:10] }}</td>
+                                                </tr>
+                                            {% else %}
+                                                <tr>
+                                                    <td colspan="2" class="text-muted">No new users in the last 30
+                                                        days.
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        const canvas = document.getElementById('expenseIncomeChart');
+                        const rows = {{ dashboard.expense_income | tojson }};
+                        const shortDate = s => {
+                            const d = new Date(s.split(' ')[0]);
+                            return d.getDate() + '/' + (d.getMonth() + 1);
+                        };
+                        new Chart(canvas, {
+                            type: 'bar',
+                            data: {
+                                labels: rows.map(r => shortDate(r[0])),
+                                datasets: [
+                                    {label: 'Expenses', data: rows.map(r => r[2]), backgroundColor: '#dc3545'},
+                                    {label: 'Revenue', data: rows.map(r => r[3]), backgroundColor: '#198754'},
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {display: true},
+                                    tooltip: {
+                                        callbacks: {
+                                            title: items => {
+                                                const r = rows[items[0].dataIndex];
+                                                return r[0].split(' ')[0] + '  →  ' + r[1].split(' ')[0];
+                                            },
+                                            label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' €'
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        grid: {display: false},
+                                        title: {display: true, text: 'Restocking interval (start date)'}
+                                    },
+                                    y: {beginAtZero: true, ticks: {callback: v => v + ' €'}}
+                                }
+                            }
+                        });
+                    </script>
                 </div>
 
                 {# =================== USERS =================== #}

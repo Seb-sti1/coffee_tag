@@ -86,22 +86,7 @@ class User(AuthUser):
         return create
 
     def get_user_balance(self) -> float:
-        return self.db.select_one("""
-                                  SELECT ROUND(initial_balance + IFNULL(bought, 0)
-                                                   - IFNULL(IFNULL(paid_p, 0) + IFNULL(paid_m, 0), 0), 2) as "balance"
-                                  FROM users
-                                           LEFT JOIN (SELECT user_id, SUM(price) AS bought
-                                                      FROM purchase
-                                                      WHERE user_id = :user
-                                                      GROUP BY user_id) as p ON p.user_id = users.id
-                                           LEFT JOIN (SELECT to_id, SUM(credit) AS paid_p
-                                                      FROM transfer
-                                                      GROUP BY to_id) as t_plus ON t_plus.to_id = users.id
-                                           LEFT JOIN (SELECT from_id, -SUM(credit) AS paid_m
-                                                      FROM transfer
-                                                      GROUP BY from_id) as t_minus ON t_minus.from_id = users.id
-                                  WHERE users.id = :user
-                                  """, {"user": self.user_id})[0]
+        return self.db.select_balances("balance", user_id=self.user_id)[0][0]
 
     def get_last_coffee(self) -> Optional[Purchase]:
         r = self.db.select_one("""
@@ -276,6 +261,7 @@ class Purchase:
                        """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_purchase_date ON purchase (date);")
             db.execute("CREATE INDEX IF NOT EXISTS idx_purchase_user_id ON purchase (user_id);")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_purchase_date_cov ON purchase (date, nb_coffee, price);")
 
         return create
 
@@ -320,6 +306,7 @@ class Transfer:
                        """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_transfer_from_id ON transfer (from_id);")
             db.execute("CREATE INDEX IF NOT EXISTS idx_transfer_to_id ON transfer (to_id);")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_transfer_from_date_cov ON transfer (from_id, date, id, credit);")
 
         return create
 
@@ -552,12 +539,6 @@ class Database:
                                       "WHERE permissions = 'owner'")
         return None if rows is None else [User(self, *list(row)[:15]) for row in rows]
 
-    def get_user_leaving_in(self, days: int) -> Optional[List[User]]:
-        rows = self.connector.execute("SELECT * FROM users "
-                                      " WHERE date_of_departure - DATE() == :days",
-                                      {"days": days})
-        return None if rows is None else [User(self, *list(row)[:15]) for row in rows]
-
     def get_total_number_of_coffees(self) -> Optional[int]:
         result = self.select_one("SELECT sum(nb_coffee) FROM purchase;", {})
         return None if result is None else result[0]
@@ -631,7 +612,58 @@ class Database:
                                             "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")})
         return None if result is None else list(result)
 
-    def get_email_logs(self, from_date: dt, to_date: dt) -> list[Tuple[int, int, str, str, str, str, str, bool, str]]:
+    def get_last_machine_sync(self) -> Optional[str]:
+        r = self.select_one("SELECT MAX(date) FROM jura_count;", {})
+        return None if r is None else r[0]
+
+    def get_special_account_balance(self, account: Literal["bank", "cash", "loss"]) -> float:
+        """Money in the bank/cash account."""
+        return self.select_balances("balance", user_id=SPECIAL_USER[account])[0][0]
+
+    def get_expense_income_intervals(self) -> list[Tuple[str, str, float, float]]:
+        """Expenses and revenue per interval between two supply reimbursements"""
+        result = self.connector.execute("""
+                                        WITH intervals AS (SELECT date                                                             AS start_date,
+                                                                  COALESCE(LEAD(date) OVER (ORDER BY date, id), CURRENT_TIMESTAMP) AS end_date,
+                                                                  credit
+                                                           FROM transfer
+                                                           WHERE from_id = :supply_user
+                                                             AND date > '2026-02-10 00:00:00')
+                                        SELECT i.start_date,
+                                               i.end_date,
+                                               i.credit                                     AS expenses,
+                                               COALESCE((SELECT SUM(p.price)
+                                                         FROM purchase p
+                                                         WHERE p.date > i.start_date
+                                                           AND p.date <= i.end_date
+                                                           AND p.user_id != :loss_user), 0) AS revenue
+                                        FROM intervals i
+                                        ORDER BY i.start_date;
+                                        """, {"supply_user": SPECIAL_USER["supply"], "loss_user": SPECIAL_USER["loss"]})
+        return list(result)
+
+    def get_stolen_miscount(self, from_date: dt, to_date: dt) -> Tuple[int, int]:
+        """(stolen, miscount) coffees over the period, clipped per day (same day bounds as get_daily_counts)."""
+        rows = self.get_daily_counts(from_date, to_date) or []
+        stolen = miscount = 0
+        for _, _, brewed, purchased, loss in rows:
+            delta = brewed - (purchased + loss)
+            stolen += max(delta, 0)
+            miscount += max(-delta, 0)
+        return stolen, miscount
+
+    def get_client_balance_summary(self) -> Dict[str, float]:
+        """Euros owed by/to the clients. {debt_total, debt_dormant, credit_total, credit_dormant}"""
+        kinds = {"debt": ("balance > 0", "balance"), "credit": ("balance < 0", "balance")}
+        scopes = {"total": "", "dormant": " AND (status != 'active' OR COALESCE(last_coffee, creation_date) < DATETIME('now', '-6 months'))"}
+        columns = {f"{kind}_{scope}": f"COALESCE(SUM(CASE WHEN {condition}{extra} THEN {value} END), 0)"
+                   for kind, (condition, value) in kinds.items()
+                   for scope, extra in scopes.items()}
+        row = self.select_balances(", ".join(columns.values()), clients_only=True)[0]
+        return {name: round(value, 2) for name, value in zip(columns, row)}
+
+    def get_email_logs(self, from_date: dt, to_date: dt,
+                       limit: Optional[int] = None) -> list[Tuple[int, int, str, str, str, str, str, bool, str]]:
         result = self.connector.execute("""
                                         SELECT emaillog.id,
                                                emaillog.user_id,
@@ -646,11 +678,13 @@ class Database:
                                                  JOIN users u ON u.id = emaillog.user_id
                                         WHERE date >= :from_date
                                           AND date <= :to_date
-                                        ORDER BY date DESC;
+                                        ORDER BY date DESC, emaillog.id DESC
+                                        LIMIT COALESCE(:limit, -1);
                                         """,
                                         {
                                             "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
-                                            "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
+                                            "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                            "limit": limit
                                         })
         return list(result)
 
@@ -683,42 +717,42 @@ class Database:
         u = User(self, *list(result)[:15])
         return u if bcrypt.checkpw(password.encode(), u.passcode.encode()) else None
 
+    def select_balances(self, select: str, where: str = "1", params: Optional[Dict[str, Any]] = None, *,
+                        user_id: Optional[int] = None, clients_only: bool = False,
+                        order_by: Optional[str] = None) -> list:
+        """Generic query on the balance of the users"""
+        conditions = [where]
+        params = dict(params or {})
+        if clients_only:
+            conditions.append("id < 1000000000")
+        if user_id is not None:
+            conditions.append("id = :user_id")
+            params["user_id"] = user_id
+        query = f"""WITH bal AS (SELECT users.*,
+                   ROUND(IFNULL(p.bought, 0), 2)                                AS purchased,
+                   ROUND(IFNULL(t_in.total, 0) - IFNULL(t_out.total, 0), 2)     AS paid,
+                   ROUND(users.initial_balance + IFNULL(p.bought, 0)
+                             - (IFNULL(t_in.total, 0) - IFNULL(t_out.total, 0)), 2) AS balance,
+                   p.last_coffee
+            FROM users
+                     LEFT JOIN (SELECT user_id, SUM(price) AS bought, MAX(date) AS last_coffee
+                                FROM purchase {"" if user_id is None else "WHERE user_id = :user_id"}
+                                GROUP BY user_id) AS p ON p.user_id = users.id
+                     LEFT JOIN (SELECT to_id, SUM(credit) AS total
+                                FROM transfer {"" if user_id is None else "WHERE to_id = :user_id"}
+                                GROUP BY to_id) AS t_in ON t_in.to_id = users.id
+                     LEFT JOIN (SELECT from_id, SUM(credit) AS total
+                                FROM transfer {"" if user_id is None else "WHERE from_id = :user_id"}
+                                GROUP BY from_id) AS t_out ON t_out.from_id = users.id)
+                SELECT {select} FROM bal WHERE {' AND '.join(f'({c})' for c in conditions)}"""
+        if order_by:
+            query += f" ORDER BY {order_by}"
+        return list(self.connector.execute(query, params))
+
     def get_users_balance(self) -> list:
-        r = self.connector.execute("""
-                                   SELECT id,
-                                          name,
-                                          surname,
-                                          nickname,
-                                          cascad_username,
-                                          initial_balance,
-                                          passcode,
-                                          permissions,
-                                          status,
-                                          creation_date,
-                                          date_of_departure,
-                                          mail,
-                                          id_badge,
-                                          beans_q,
-                                          water_v,
-                                          ROUND(IFNULL(bought, 0), 2)                     as 'purchased',
-                                          ROUND(IFNULL(paid_p, 0) + IFNULL(paid_m, 0), 2) as 'paid',
-                                          ROUND(initial_balance + IFNULL(bought, 0) -
-                                                IFNULL(IFNULL(paid_p, 0) + IFNULL(paid_m, 0), 0),
-                                                2)                                        as "current balance",
-                                          p.last_coffee
-                                   FROM users
-                                            LEFT JOIN (SELECT user_id, SUM(price) AS bought, MAX(date) AS last_coffee
-                                                       FROM purchase
-                                                       GROUP BY user_id) as p ON p.user_id = users.id
-                                            LEFT JOIN (SELECT to_id, SUM(credit) AS paid_p
-                                                       FROM transfer
-                                                       GROUP BY to_id) as t_plus ON t_plus.to_id = users.id
-                                            LEFT JOIN (SELECT from_id, -SUM(credit) AS paid_m
-                                                       FROM transfer
-                                                       GROUP BY from_id) as t_minus ON t_minus.from_id = users.id
-                                   GROUP BY users.id
-                                   """)
-        return list(r)
+        return self.select_balances(("id, name, surname, nickname, cascad_username, initial_balance, passcode, "
+                                     "permissions, status, creation_date, date_of_departure, mail, id_badge, "
+                                     "beans_q, water_v, purchased, paid, balance, last_coffee"))
 
     def register_new_transfer(self, from_id: int, to_id: int, date: dt, credit: float) -> bool:
         return self.edit_query("INSERT INTO transfer (from_id, to_id, date, credit) VALUES"
@@ -771,11 +805,27 @@ class Database:
                                       FROM users;""")
         return [User(self, *row[:15]) for row in r]
 
-    def get_recent_users(self) -> List[User]:
-        r = self.connector.execute("""SELECT *
-                                      FROM users
-                                      ORDER BY creation_date DESC;""")
-        return [User(self, *row[:15]) for row in r]
+    def select_users(self, where: str = "1", params: Optional[Dict[str, Any]] = None,
+                     order_by: Optional[str] = None) -> List[User]:
+        """Generic `SELECT * FROM users WHERE {where} ORDER BY {order_by}`. The sql arguments are never from a request."""
+        query = f"SELECT * FROM users WHERE {where}" + (f" ORDER BY {order_by}" if order_by else "")
+        return [User(self, *row[:15]) for row in self.connector.execute(query, params or {})]
+
+    def get_users_leaving(self, from_days: int = 0, to_days: int = 30) -> List[User]:
+        """Users whose departure date is between today + from_days and today + to_days (both included)."""
+        return self.select_users("DATE(date_of_departure) BETWEEN DATE('now', :start) AND DATE('now', :end)",
+                                 {"start": f"{from_days:+d} days", "end": f"{to_days:+d} days"},
+                                 order_by="date_of_departure")
+
+    def get_recent_users(self, within_days: Optional[int] = None, clients_only: bool = False) -> List[User]:
+        """Users, newest first. Optionally only the ones created in the last `within_days` days."""
+        conditions, params = ["1"], {}
+        if within_days is not None:
+            conditions.append("creation_date >= DATETIME('now', :window)")
+            params["window"] = f"-{within_days} days"
+        if clients_only:
+            conditions.append("id < 1000000000")
+        return self.select_users(" AND ".join(conditions), params, order_by="creation_date DESC")
 
     def get_recent_coffees(self) -> List[Purchase]:
         r = self.connector.execute("""
