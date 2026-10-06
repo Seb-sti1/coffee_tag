@@ -18,10 +18,14 @@ from coffee_tag.config import Config
 
 logger = logging.getLogger(__name__)
 
-LOSS_USER_ID = 1000000000
-BANK_USER_ID = 1000000001
-CASH_USER_ID = 1000000002
-SUPPLY_USER_ID = 1000000003
+SPECIAL_USER = {
+    "loss": 1000000000,
+    "bank": 1000000001,
+    "cash": 1000000002,
+    "supply": 1000000003,
+}
+
+SPECIAL_USER_LOOKUP = {v: k for k, v in SPECIAL_USER.items()}
 
 
 class User(AuthUser):
@@ -83,17 +87,19 @@ class User(AuthUser):
 
     def get_user_balance(self) -> float:
         return self.db.select_one("""
-                                  SELECT ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "balance"
+                                  SELECT ROUND(initial_balance + IFNULL(bought, 0)
+                                                   - IFNULL(IFNULL(paid_p, 0) + IFNULL(paid_m, 0), 0), 2) as "balance"
                                   FROM users
                                            LEFT JOIN (SELECT user_id, SUM(price) AS bought
                                                       FROM purchase
                                                       WHERE user_id = :user
                                                       GROUP BY user_id) as p ON p.user_id = users.id
-                                           LEFT JOIN (SELECT user_id, SUM(credit) AS paid
-                                                      FROM repayment
-                                                      WHERE user_id = :user
-                                                        AND in_balance <> 0
-                                                      GROUP BY user_id) as r ON r.user_id = users.id
+                                           LEFT JOIN (SELECT to_id, SUM(credit) AS paid_p
+                                                      FROM transfer
+                                                      GROUP BY to_id) as t_plus ON t_plus.to_id = users.id
+                                           LEFT JOIN (SELECT from_id, -SUM(credit) AS paid_m
+                                                      FROM transfer
+                                                      GROUP BY from_id) as t_minus ON t_minus.from_id = users.id
                                   WHERE users.id = :user
                                   """, {"user": self.user_id})[0]
 
@@ -285,38 +291,35 @@ class Purchase:
 
     def to_loss(self) -> bool:
         return self.db.edit_query("UPDATE purchase SET user_id = :user_id WHERE id=:uid",
-                                  {"user_id": LOSS_USER_ID, "uid": self.purchase_id})
+                                  {"user_id": SPECIAL_USER["loss"], "uid": self.purchase_id})
 
 
-class Repayment:
+class Transfer:
 
-    def __init__(self, db: Database, repayment_id: int, user_id: int, date: str,
-                 credit: float, label: str, is_cash: int, in_balance: int):
-        self.db: Database = db
-        self.repayment_id: int = repayment_id
-        self.user_id: int = user_id
-        self.date: str = date
-        self.credit: float = credit
-        self.label: str = label
-        self.is_cash: int = is_cash
-        self.in_balance: int = in_balance
+    def __init__(self, db: Database, transfer_id: int, from_id: int, to_id: int, date: str, credit: float):
+        self.db = db
+        self.transfer_id = transfer_id
+        self.from_id = from_id
+        self.to_id = to_id
+        self.date = dt.strptime(date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        self.credit = credit
 
     @staticmethod
     def create_table() -> Callable[[sqlite3.Cursor], None]:
         def create(db: sqlite3.Cursor):
             db.execute("""
-                       CREATE TABLE IF NOT EXISTS repayment
+                       CREATE TABLE IF NOT EXISTS transfer
                        (
-                           id         INTEGER primary key,
-                           user_id    INTEGER references users,
-                           date       TEXT,
-                           credit     REAL,
-                           label      TEXT,
-                           is_cash    INTEGER,
-                           in_balance INTEGER
+                           id      INTEGER not null
+                               constraint transfer_pk primary key autoincrement,
+                           from_id INTEGER references users,
+                           to_id   INTEGER references users,
+                           date    TEXT,
+                           credit  REAL
                        );
                        """)
-            db.execute("CREATE INDEX IF NOT EXISTS idx_repayment_user_id ON repayment (user_id);")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_transfer_from_id ON transfer (from_id);")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_transfer_to_id ON transfer (to_id);")
 
         return create
 
@@ -368,7 +371,7 @@ class Database:
         def create(db: sqlite3.Cursor):
             User.create_table()(db)
             Purchase.create_table()(db)
-            Repayment.create_table()(db)
+            Transfer.create_table()(db)
             EmailLog.create_table()(db)
             # Create jura_count
             db.execute("""
@@ -424,7 +427,7 @@ class Database:
                        "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'loss', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME())",
-                       {"user_id": LOSS_USER_ID,
+                       {"user_id": SPECIAL_USER["loss"],
                         "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
                                                   bcrypt.gensalt()).decode(),
                         "mail": self.config.contact_email})
@@ -433,7 +436,7 @@ class Database:
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME())",
                        {
-                           "user_id": BANK_USER_ID,
+                           "user_id": SPECIAL_USER["bank"],
                            "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
@@ -442,7 +445,7 @@ class Database:
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME())",
                        {
-                           "user_id": CASH_USER_ID,
+                           "user_id": SPECIAL_USER["cash"],
                            "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
@@ -451,7 +454,7 @@ class Database:
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME())",
                        {
-                           "user_id": SUPPLY_USER_ID,
+                           "user_id": SPECIAL_USER["supply"],
                            "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
@@ -602,7 +605,7 @@ class Database:
                                                  LEFT JOIN purchase p ON p.date > d.start_date AND p.date <= d.end_date
                                         GROUP BY d.start_date, d.end_date
                                         ORDER BY d.start_date;
-                                        """, {"loss_user_id": LOSS_USER_ID,
+                                        """, {"loss_user_id": SPECIAL_USER["loss"],
                                               "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
                                               "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")})
         return None if result is None else list(result)
@@ -697,55 +700,71 @@ class Database:
                                           id_badge,
                                           beans_q,
                                           water_v,
-                                          ROUND(IFNULL(bought, 0), 2)                                     as 'purchased',
-                                          ROUND(IFNULL(paid, 0), 2)                                       as 'paid',
-                                          ROUND(initial_balance + IFNULL(bought, 0) - IFNULL(paid, 0), 2) as "current balance",
+                                          ROUND(IFNULL(bought, 0), 2)                     as 'purchased',
+                                          ROUND(IFNULL(paid_p, 0) + IFNULL(paid_m, 0), 2) as 'paid',
+                                          ROUND(initial_balance + IFNULL(bought, 0) -
+                                                IFNULL(IFNULL(paid_p, 0) + IFNULL(paid_m, 0), 0),
+                                                2)                                        as "current balance",
                                           p.last_coffee
                                    FROM users
                                             LEFT JOIN (SELECT user_id, SUM(price) AS bought, MAX(date) AS last_coffee
                                                        FROM purchase
                                                        GROUP BY user_id) as p ON p.user_id = users.id
-                                            LEFT JOIN (SELECT user_id, SUM(credit) AS paid
-                                                       FROM repayment
-                                                       WHERE in_balance <> 0
-                                                       GROUP BY user_id) as r ON r.user_id = users.id
+                                            LEFT JOIN (SELECT to_id, SUM(credit) AS paid_p
+                                                       FROM transfer
+                                                       GROUP BY to_id) as t_plus ON t_plus.to_id = users.id
+                                            LEFT JOIN (SELECT from_id, -SUM(credit) AS paid_m
+                                                       FROM transfer
+                                                       GROUP BY from_id) as t_minus ON t_minus.from_id = users.id
                                    GROUP BY users.id
                                    """)
         return list(r)
 
-    def register_new_repayment(self, userid: int, date: dt, credit: float, label: str,
-                               is_cash: bool, in_balance: bool) -> bool:
-        return self.edit_query("INSERT INTO repayment (user_id, date, credit, label, is_cash,"
-                               "in_balance) VALUES"
-                               "(:userid, :date, :credit, :label, :re, :al)",
-                               {"userid": userid, "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                                "credit": credit, "label": label,
-                                "re": int(is_cash), "al": int(in_balance)})
+    def register_new_transfer(self, from_id: int, to_id: int, date: dt, credit: float) -> bool:
+        return self.edit_query("INSERT INTO transfer (from_id, to_id, date, credit) VALUES"
+                               "(:from_id, :to_id, :date, :credit)",
+                               {"from_id": from_id, "to_id": to_id,
+                                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                "credit": credit})
 
-    def get_repayments(self, from_date: dt, to_date: dt) -> list:
-        r = self.connector.execute("""
-                                   SELECT repayment.id,
-                                          name || ' ' || surname as fullname,
-                                          date,
-                                          credit,
-                                          label,
-                                          is_cash,
-                                          in_balance
-                                   FROM repayment
-                                            JOIN users ON repayment.user_id = users.id
-                                   WHERE date >= :from_date
-                                     AND date <= :to_date
-                                   ORDER BY date DESC;
-                                   """, {
-                                       "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
-                                       "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
-                                   })
-        return list(r)
+    def get_transfers(self, from_date: dt, to_date: dt) -> List:
+        results = self.connector.execute("""
+                                         SELECT *
+                                         FROM (SELECT transfer.id,
+                                                      name || ' ' || surname as fullname,
+                                                      date,
+                                                      -credit,
+                                                      to_id                  AS type
+                                               FROM transfer
+                                                        JOIN users ON transfer.from_id = users.id
+                                               WHERE date >= :from_date
+                                                 AND date <= :to_date
+                                                 AND to_id in (:bank_user, :cash_user, :supply_user)
+                                               UNION ALL
+                                               SELECT transfer.id,
+                                                      name || ' ' || surname as fullname,
+                                                      date,
+                                                      credit,
+                                                      from_id                AS type
+                                               FROM transfer
+                                                        JOIN users ON transfer.to_id = users.id
+                                               WHERE date >= :from_date
+                                                 AND date <= :to_date
+                                                 AND from_id in (:bank_user, :cash_user, :supply_user))
+                                         ORDER BY date DESC
+                                         """, {
+                                             "bank_user": SPECIAL_USER["bank"],
+                                             "cash_user": SPECIAL_USER["cash"],
+                                             "supply_user": SPECIAL_USER["supply"],
+                                             "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                             "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
+                                         })
+        return [(r[0], r[1], r[2], r[3], SPECIAL_USER_LOOKUP[r[4]]) for r in results]
 
-    def delete_repayment(self, repayment_id: int) -> bool:
-        return self.edit_query("DELETE FROM repayment "
+    def delete_transfer(self, transfer_id: int) -> bool:
+        return self.edit_query("DELETE FROM transfer "
                                "WHERE id = :id",
-                               {"id": repayment_id})
+                               {"id": transfer_id})
 
     def get_users(self) -> List[User]:
         r = self.connector.execute("""SELECT *
@@ -809,9 +828,10 @@ class Database:
         writer.writerow(["id", "user_id", "date", "nb_coffee", "price"])
         writer.writerows(list(r))
         writer.writerows([[], [], []])
-        r = self.connector.execute(
-            "SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayment")
-        writer.writerow(["id", "user_id", "date", "credit", "label", "is_cash", "in_balance"])
-        writer.writerows(list(r))
+        # r = self.connector.execute(
+        #     "SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayment")
+        # writer.writerow(["id", "user_id", "date", "credit", "label", "is_cash", "in_balance"])
+        # writer.writerows(list(r))
+        # TODO redo export_csv. if possible with automagic stuff.
         logger.info(f"Finish creating a csv dump file")
         return csv_file.getvalue()

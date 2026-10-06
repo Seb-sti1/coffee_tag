@@ -33,9 +33,9 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#repayments">
+                            <a class="nav-link d-flex align-items-center gap-2" data-bs-toggle="tab" href="#transfers">
                                 <i class="bi bi-coin"></i>
-                                Repayments
+                                Transfers
                             </a>
                         </li>
                         <li class="nav-item">
@@ -177,10 +177,10 @@
                     </div>
                 </div>
 
-                {# =================== REPAYMENTS =================== #}
-                <div class="tab-pane fade" id="repayments">
+                {# =================== TRANSFERS =================== #}
+                <div class="tab-pane fade" id="transfers">
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                        <h1 class="h2">Repayments</h1>
+                        <h1 class="h2">Transfers</h1>
                         <form method="get" action="" class="d-flex align-items-center gap-2" id="dateFilterForm">
                             <label class="form-label mb-0 text-nowrap" for="purchaseFrom">From</label>
                             <input type="date" id="purchaseFrom" name="from" class="form-control form-control-sm"
@@ -198,17 +198,17 @@
                     </div>
 
                     {# ERROR #}
-                    {% if "add_repayment" in returned_form_values %}
-                        <div class="alert {{ 'alert-success' if returned_form_values['add_repayment'] else 'alert-danger' }} alert-dismissible fade show"
+                    {% if "add_transfer" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['add_transfer'] else 'alert-danger' }} alert-dismissible fade show"
                              role="alert">
-                            {{ 'Repayment added successfully.' if returned_form_values['add_repayment'] else 'An error occurred while adding the repayment.' }}
+                            {{ 'Transfer added successfully.' if returned_form_values['add_transfer'] else 'An error occurred while adding the Transfer.' }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     {% endif %}
-                    {% if "remove_repayment" in returned_form_values %}
-                        <div class="alert {{ 'alert-success' if returned_form_values['remove_repayment'] else 'alert-danger' }} alert-dismissible fade show"
+                    {% if "remove_transfer" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['remove_transfer'] else 'alert-danger' }} alert-dismissible fade show"
                              role="alert">
-                            {{ 'Repayment removed successfully.' if returned_form_values['remove_repayment'] else 'An error occurred while removing the repayment.' }}
+                            {{ 'Transfer removed successfully.' if returned_form_values['remove_transfer'] else 'An error occurred while removing the transfer.' }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     {% endif %}
@@ -216,24 +216,33 @@
                     {# FORM #}
                     <div class="card mb-4">
                         <div class="card-header fw-semibold">
-                            <i class="bi bi-plus-circle me-1"></i> Add a repayment
+                            <i class="bi bi-plus-circle me-1"></i> Add a transfer
                         </div>
                         <div class="card-body">
-                            <form method="post" action="#repayments">
+                            <form method="post" action="#transfers" id="transferForm">
+                                <input name="type" type="text" value="add_transfer" required readonly hidden/>
+
                                 <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label" for="user">User</label>
-                                        <select name="user" id="user" class="form-select">
+                                    {# Client #}
+                                    <div class="col-md-5">
+                                        <label class="form-label" for="user">Client</label>
+                                        <select name="user" id="user" class="form-select" required>
                                             {% for user in users | sort(attribute='2') %}
                                                 <option value="{{ user[0] }}">{{ user[2] }} {{ user[1] }} ({{ user[0] }})</option>
                                             {% endfor %}
                                         </select>
                                     </div>
+
+                                    {# Date #}
                                     <div class="col-md-4">
-                                        <label class="form-label" for="date">Date</label>
+                                        <label class="form-label" for="date">
+                                            Date (optional, defaults to current date)
+                                        </label>
                                         <input name="date" id="date" type="date" class="form-control"/>
                                     </div>
-                                    <div class="col-md-4">
+
+                                    {# Credit #}
+                                    <div class="col-md-3">
                                         <label class="form-label" for="credit">Credit</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="bi bi-coin"></i></span>
@@ -241,78 +250,114 @@
                                                    placeholder="0.00" step=".01" required>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label" for="label">Label</label>
-                                        <input name="label" id="label" type="text" class="form-control"
-                                               placeholder="Label" required/>
-                                    </div>
-                                    <div class="col-md-3 d-flex align-items-end gap-4 pb-1">
-                                        <div class="form-check">
-                                            <input name="is_cash" type="checkbox" class="form-check-input" id="isCash"
-                                                   checked/>
-                                            <label class="form-check-label" for="isCash">Cash?</label>
+
+                                    {# Transfer type #}
+                                    <div class="col-12">
+                                        <label class="form-label d-block">Transfer type</label>
+                                        <div class="btn-group" role="group" aria-label="Transfer type">
+                                            <input type="radio" class="btn-check" name="transfer_type" id="typeBank"
+                                                   value="bank" autocomplete="off" checked>
+                                            <label class="btn btn-outline-primary" for="typeBank">
+                                                <i class="bi bi-bank me-1"></i> Bank transfer
+                                            </label>
+
+                                            <input type="radio" class="btn-check" name="transfer_type" id="typeCash"
+                                                   value="cash" autocomplete="off">
+                                            <label class="btn btn-outline-primary" for="typeCash">
+                                                <i class="bi bi-cash-stack me-1"></i> Cash transfer
+                                            </label>
+
+                                            <input type="radio" class="btn-check" name="transfer_type" id="typeSupply"
+                                                   value="supply" autocomplete="off">
+                                            <label class="btn btn-outline-primary" for="typeSupply">
+                                                <i class="bi bi-cup-hot me-1"></i> Supplies reimbursement
+                                            </label>
                                         </div>
-                                        <div class="form-check">
-                                            <input name="in_balance" type="checkbox" class="form-check-input"
-                                                   id="inBalance" checked/>
-                                            <label class="form-check-label" for="inBalance">Include in balance?</label>
+                                    </div>
+
+                                    {# Direction #}
+                                    <div class="col-12">
+                                        <label class="form-label d-block">Direction</label>
+                                        <div class="btn-group" role="group" aria-label="Direction">
+                                            <input type="radio" class="btn-check" name="direction" id="dirToClient"
+                                                   value="u2is_to_client" autocomplete="off" checked>
+                                            <label class="btn btn-outline-secondary" for="dirToClient">
+                                                Client account increases
+                                            </label>
+
+                                            <input type="radio" class="btn-check" name="direction" id="dirToU2IS"
+                                                   value="client_to_u2is" autocomplete="off">
+                                            <label class="btn btn-outline-secondary" for="dirToU2IS">
+                                                Client account decreases
+                                            </label>
+                                        </div>
+                                        <div class="form-text d-none" id="directionHint">
+                                            <i class="bi bi-lock-fill me-1"></i> Direction is fixed for supplies
+                                            reimbursement.
                                         </div>
                                     </div>
-                                    <div class="col-md-3 d-flex align-items-end">
-                                        <input name="type" type="text" value="add_repayment" required readonly hidden/>
-                                        <button type="submit" class="btn btn-primary w-100">
-                                            <i class="bi bi-plus-lg me-1"></i> Add repayment
+
+                                    {# Submit #}
+                                    <div class="col-12 text-end">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-plus-lg me-1"></i> Add transfer
                                         </button>
                                     </div>
                                 </div>
                             </form>
                         </div>
                     </div>
+                    <script>
+                        const FORCED_DIRECTION = 'dirToClient';
+                        const form = document.getElementById('transferForm');
+                        const hint = document.getElementById('directionHint');
+                        const dirRadios = form.querySelectorAll('input[name="direction"]');
 
-                    {# Repayments #}
+                        function syncDirection() {
+                            const isSupply = form.querySelector('input[name="transfer_type"]:checked').value === 'supply';
+                            hint.classList.toggle('d-none', !isSupply);
+                            dirRadios.forEach(r => {
+                                if (isSupply) {
+                                    r.checked = (r.id === FORCED_DIRECTION);
+                                    r.disabled = (r.id !== FORCED_DIRECTION);   // the checked one is still submitted
+                                } else {
+                                    r.disabled = false;
+                                }
+                            });
+                        }
+
+                        form.querySelectorAll('input[name="transfer_type"]').forEach(r =>
+                            r.addEventListener('change', syncDirection));
+                        syncDirection();
+                    </script>
+                    {# Transfers #}
                     <div class="table-responsive">
-                        <table id="repaymentList" class="table table-bordered table-hover table-sm align-middle">
+                        <table id="transferList" class="table table-bordered table-hover table-sm align-middle">
                             <thead class="table-dark">
                             <tr>
                                 <th>id</th>
                                 <th>Name</th>
                                 <th>Date</th>
                                 <th>Credit</th>
-                                <th>Label</th>
-                                <th>Cash?</th>
-                                <th>In balance?</th>
+                                <th>Type</th>
                                 <th></th>
                             </tr>
                             </thead>
                             <tbody>
-                            {% for repayment in repayments | reverse %}
+                            {% for transfer in transfers %}
                                 <tr>
-                                    <td class="text-muted small">{{ repayment[0] }}</td>
-                                    <td>{{ repayment[1] }}</td>
-                                    <td class="text-nowrap">{{ repayment[2] }}</td>
-                                    <td class="fw-semibold {{ 'text-success' if repayment[3] > 0 else 'text-danger' }}">
-                                        {{ repayment[3] }}
+                                    <td class="text-muted small">{{ transfer[0] }}</td>
+                                    <td>{{ transfer[1] }}</td>
+                                    <td class="text-nowrap">{{ transfer[2] }}</td>
+                                    <td class="fw-semibold {{ 'text-success' if transfer[3] > 0 else 'text-danger' }}">
+                                        {{ transfer[3] }}
                                     </td>
-                                    <td>{{ repayment[4] }}</td>
-                                    <td class="text-center">
-                                        {% if repayment[5] %}
-                                            <span class="badge text-bg-success">Yes</span>
-                                        {% else %}
-                                            <span class="badge text-bg-secondary">No</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if repayment[6] %}
-                                            <span class="badge text-bg-success">Yes</span>
-                                        {% else %}
-                                            <span class="badge text-bg-secondary">No</span>
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ transfer[4] }}</td>
                                     <td>
                                         <form method="post">
-                                            <input name="repayment" type="number" value="{{ repayment[0] }}" required
+                                            <input name="transfer" type="number" value="{{ transfer[0] }}" required
                                                    readonly hidden/>
-                                            <input name="type" type="text" value="remove_repayment" required readonly
+                                            <input name="type" type="text" value="remove_transfer" required readonly
                                                    hidden/>
                                             <button type="submit" class="btn btn-outline-danger btn-sm">
                                                 <i class="bi bi-trash3"></i>
@@ -348,7 +393,7 @@
 
                     {# ERROR #}
                     {% if "resend_email" in returned_form_values %}
-                        <div class="alert {{ 'alert-success' if returned_form_values['add_repayment'] else 'alert-danger' }} alert-dismissible fade show"
+                        <div class="alert {{ 'alert-success' if returned_form_values['resend_email'] else 'alert-danger' }} alert-dismissible fade show"
                              role="alert">
                             {{ 'Email(s) scheduled for resending successfully. Refresh the page in a few minutes for it to show in the list.' if returned_form_values['send_email'] else 'An error occurred while scheduling the email(s) for resending.' }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>

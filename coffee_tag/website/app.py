@@ -8,7 +8,7 @@ from jinja2 import select_autoescape
 from quart import Quart, render_template, redirect, url_for, request, Response
 from quart_auth import logout_user, login_required, current_user, QuartAuth, login_user, Unauthorized
 
-from coffee_tag.database import Database, User
+from coffee_tag.database import Database, User, SPECIAL_USER
 from coffee_tag.mail.email import EmailManager
 
 logger = logging.getLogger(__name__)
@@ -93,27 +93,27 @@ class Website:
         if request.method == "POST":
             form = await request.form
             form_type = form.get("type")
-            if form_type == "add_repayment":
+            if form_type == "add_transfer":
                 form_userid = form.get("user", type=int)
                 form_date = form.get("date", default=dt.now(timezone.utc), type=dt.fromisoformat)
                 form_credit = form.get("credit", type=float)
-                form_label = form.get("label", type=str)
-                form_is_cash = form.get("is_cash", default=False, type=lambda v: v == "on")
-                form_in_balance = form.get("in_balance", default=False, type=lambda v: v == "on")
-                if form_userid is not None and form_credit is not None and form_label is not None and form_is_cash is not None and form_in_balance:
-                    logger.info(f"Adding new repayment {form_userid} {form_date}"
-                                f" {form_credit} {form_label} {form_is_cash} {form_in_balance}")
-                    returned_form_values["add_repayment"] = self.db.register_new_repayment(form_userid, form_date,
-                                                                                           form_credit, form_label,
-                                                                                           form_is_cash,
-                                                                                           form_in_balance)
-            elif form_type == "remove_repayment":
-                form_repayment_id = form.get("repayment", type=int)
-                if form_repayment_id is None:
-                    returned_form_values["remove_repayment"] = False
+                form_type_userid = form.get("transfer_type", type=lambda v: int(SPECIAL_USER[v]))
+                form_dir = form.get("direction", default=False,
+                                    type=lambda v: v if v in ["u2is_to_client", "client_to_u2is"] else None)
+                if form_userid is not None and form_credit is not None \
+                        and form_type_userid is not None and form_dir is not None:
+                    logger.info(f"Adding new transfer {form_userid} {form_date} {form_credit} {form_type} {form_dir}.")
+                    from_id = form_type_userid if form_dir == "u2is_to_client" else form_userid
+                    to_id = form_userid if form_dir == "u2is_to_client" else form_type_userid
+                    returned_form_values["add_transfer"] = self.db.register_new_transfer(from_id, to_id,
+                                                                                         form_date, form_credit)
+            elif form_type == "remove_transfer":
+                form_transfer_id = form.get("transfer", type=int)
+                if form_transfer_id is None:
+                    returned_form_values["remove_transfer"] = False
                 else:
-                    logger.info(f"Removing new repayment {form_repayment_id}")
-                    returned_form_values["remove_repayment"] = self.db.delete_repayment(form_repayment_id)
+                    logger.info(f"Removing new transfer {form_transfer_id}")
+                    returned_form_values["remove_transfer"] = self.db.delete_transfer(form_transfer_id)
             elif form_type == "resend_email":
                 form_email_id = form.get("email", type=int)
                 returned_form_values["resend_email"] = form_email_id is None
@@ -142,11 +142,10 @@ class Website:
         from_date, to_date = parse_date_params(request)
         from_date = (from_date or dt.now(timezone.utc) - timedelta(weeks=4))
         to_date = (to_date or dt.now(timezone.utc))
-
         return await render_template("admin.html.jinja",
                                      user=current_user,
                                      users=self.db.get_users_balance(),
-                                     repayments=self.db.get_repayments(from_date, to_date),
+                                     transfers=self.db.get_transfers(from_date, to_date),
                                      emails=self.db.get_email_logs(from_date, to_date),
                                      daily_counts=self.db.get_daily_counts(from_date, to_date),
                                      error_counts=self.db.get_error_counts(from_date, to_date),
