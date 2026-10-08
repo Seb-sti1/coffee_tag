@@ -27,15 +27,16 @@ def format_age(delta: timedelta) -> str:
             return f"{n} {unit}{'s' if n > 1 else ''}"
     return "less than a minute"
 
+
 def parse_date_params(r) -> Tuple[Optional[dt], Optional[dt]]:
     from_str = r.args.get("from")
     to_str = r.args.get("to")
     try:
-        from_date = dt.strptime(from_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) if from_str else None
+        from_date = dt.strptime(from_str, "%Y-%m-%d") if from_str else None
     except ValueError:
         from_date = None
     try:
-        to_date = dt.strptime(to_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) if to_str else None
+        to_date = dt.strptime(to_str, "%Y-%m-%d") if to_str else None
     except ValueError:
         to_date = None
     return from_date, to_date
@@ -99,14 +100,14 @@ class Website:
         return redirect(url_for("index"))
 
     def build_dashboard(self) -> dict:
-        now = dt.now(timezone.utc)
+        now = dt.now()
 
         # Machine data freshness
         last_sync = self.db.get_last_machine_sync()
         if last_sync is None:
             machine = {"age": None, "stale": True}
         else:
-            age = now - dt.strptime(last_sync, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            age = now - dt.strptime(last_sync, "%Y-%m-%d %H:%M:%S")
             machine = {"age": format_age(age), "stale": age > MACHINE_STALE_AFTER}
 
         # Balance sheet
@@ -149,7 +150,7 @@ class Website:
             form_type = form.get("type")
             if form_type == "add_transfer":
                 form_userid = form.get("user", type=int)
-                form_date = form.get("date", default=dt.now(timezone.utc), type=dt.fromisoformat)
+                form_date = form.get("date", default=dt.now(), type=dt.fromisoformat)
                 form_credit = form.get("credit", type=float)
                 form_type_userid = form.get("transfer_type", type=lambda v: int(SPECIAL_USER[v]))
                 form_dir = form.get("direction", default=False,
@@ -194,8 +195,8 @@ class Website:
 
         # get the selected period
         from_date, to_date = parse_date_params(request)
-        from_date = (from_date or dt.now(timezone.utc) - timedelta(weeks=4))
-        to_date = (to_date or dt.now(timezone.utc))
+        from_date = (from_date or dt.now() - timedelta(weeks=4))
+        to_date = (to_date or dt.now())
         return await render_template("admin.html.jinja",
                                      user=current_user,
                                      users=self.db.get_users_balance(),
@@ -216,7 +217,7 @@ class Website:
         return Response(
             self.db.export(),
             mimetype='text/plain',
-            headers={"Content-Disposition": f"attachment;filename=coffee{dt.now(timezone.utc).date().isoformat()}.sql"}
+            headers={"Content-Disposition": f"attachment;filename=coffee{dt.now().date().isoformat()}.sql"}
         )
 
     async def export_csv(self):
@@ -226,7 +227,7 @@ class Website:
         return Response(
             self.db.export_csv(),
             mimetype='text/plain',
-            headers={"Content-Disposition": f"attachment;filename=coffee{dt.now(timezone.utc).date().isoformat()}.csv"}
+            headers={"Content-Disposition": f"attachment;filename=coffee{dt.now().date().isoformat()}.csv"}
         )
 
     async def user(self):

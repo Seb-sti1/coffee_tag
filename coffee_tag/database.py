@@ -7,7 +7,7 @@ import logging
 import re
 import secrets
 import sqlite3
-from datetime import datetime as dt, timezone, datetime
+from datetime import datetime as dt, datetime
 from typing import Callable, Optional, Tuple, Any, Literal, List, Dict
 
 import bcrypt
@@ -47,15 +47,14 @@ class User(AuthUser):
         self.passcode: Optional[str] = passcode
         self.permissions: str = permissions
         self.status: str = status
-        self.date_of_departure: Optional[datetime] = (dt.strptime(date_of_departure, "%Y-%m-%d %H:%M:%S")
-        .replace(
-            tzinfo=timezone.utc)) if date_of_departure is not None else None
+        self.date_of_departure: Optional[datetime] = dt.strptime(date_of_departure, "%Y-%m-%d %H:%M:%S") \
+            if date_of_departure is not None else None
         self.mail: str = mail
         self.id_badge: Optional[str] = id_badge
         self.beans_q: int = beans_q
         self.water_v: int = water_v
-        self.creation_date: datetime = dt.strptime(creation_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc) \
-            if creation_date is not None else dt.now(tz=timezone.utc)
+        self.creation_date: datetime = dt.strptime(creation_date, "%Y-%m-%d %H:%M:%S") \
+            if creation_date is not None else dt.now()
 
     @staticmethod
     def create_table() -> Callable[[sqlite3.Cursor], None]:
@@ -129,7 +128,7 @@ class User(AuthUser):
             return "missing_password"
         if self.date_of_departure is None:
             return "missing_date_of_departure"
-        if self.date_of_departure <= datetime.now(tz=timezone.utc):
+        if self.date_of_departure <= datetime.now():
             return "date_of_departure_in_the_past"
         if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.mail):
             return "mail_format"
@@ -146,7 +145,7 @@ class User(AuthUser):
                                   "status, date_of_departure, mail, id_badge,"
                                   "beans_q, water_v, creation_date) VALUES (:name, :surname, :nickname, :cascad,"
                                   ":initial_balance, :passcode, :permissions, :status, :date_of_departure,"
-                                  ":mail, :badge, :beans_q, :water_v, DATETIME())",
+                                  ":mail, :badge, :beans_q, :water_v, DATETIME('now', 'localtime'))",
                                   {"name": self.name, "surname": self.surname, "nickname": self.nickname,
                                    "cascad": self.cascad_username, "initial_balance": self.initial_balance,
                                    "passcode": self.passcode, "permissions": self.permissions, "status": self.status,
@@ -186,7 +185,7 @@ class User(AuthUser):
     def buy_coffees(self, coffee_bought: int, date: Optional[datetime] = None) -> bool:
         if date is None:
             return self.db.edit_query("INSERT INTO purchase (user_id, date, nb_coffee, price) VALUES"
-                                      "(:user, DATETIME('now'), :coffee_bought, :price)",
+                                      "(:user, DATETIME('now', 'localtime'), :coffee_bought, :price)",
                                       {"user": self.user_id,
                                        "coffee_bought": coffee_bought,
                                        "price": self.db.config.price * coffee_bought})
@@ -242,7 +241,7 @@ class Purchase:
         self.db: Database = db
         self.purchase_id: int = purchase_id
         self.user_id: int = user_id
-        self.date: datetime = dt.strptime(date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        self.date: datetime = dt.strptime(date, "%Y-%m-%d %H:%M:%S")
         self.nb_coffee: int = nb_coffee
         self.price: float = price
 
@@ -287,7 +286,7 @@ class Transfer:
         self.transfer_id = transfer_id
         self.from_id = from_id
         self.to_id = to_id
-        self.date = dt.strptime(date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        self.date = dt.strptime(date, "%Y-%m-%d %H:%M:%S")
         self.credit = credit
 
     @staticmethod
@@ -413,7 +412,7 @@ class Database:
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
                        "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'loss', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
-                       ":mail, DATETIME())",
+                       ":mail, DATETIME('now', 'localtime'))",
                        {"user_id": SPECIAL_USER["loss"],
                         "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
                                                   bcrypt.gensalt()).decode(),
@@ -421,7 +420,7 @@ class Database:
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
                        "status, date_of_departure, mail, creation_date) VALUES (1000000001, 'bank', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
-                       ":mail, DATETIME())",
+                       ":mail, DATETIME('now', 'localtime'))",
                        {
                            "user_id": SPECIAL_USER["bank"],
                            "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
@@ -430,7 +429,7 @@ class Database:
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
                        "status, date_of_departure, mail, creation_date) VALUES (1000000002, 'cash', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
-                       ":mail, DATETIME())",
+                       ":mail, DATETIME('now', 'localtime'))",
                        {
                            "user_id": SPECIAL_USER["cash"],
                            "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
@@ -439,7 +438,7 @@ class Database:
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
                        "status, date_of_departure, mail, creation_date) VALUES (1000000003, 'supply', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
-                       ":mail, DATETIME())",
+                       ":mail, DATETIME('now', 'localtime'))",
                        {
                            "user_id": SPECIAL_USER["supply"],
                            "passcode": bcrypt.hashpw(secrets.token_urlsafe(20).encode(),
@@ -547,7 +546,7 @@ class Database:
         result = self.connector.execute("""SELECT strftime('Week %W - %Y', date) as week,
                                                   sum(nb_coffee)
                                            FROM purchase
-                                           WHERE date >= DATE(DATE(), '-70 day')
+                                           WHERE date >= DATE('now', '-70 day', 'localtime')
                                            GROUP BY week;""")
         return None if result is None else list(result)
 
@@ -555,13 +554,13 @@ class Database:
         result = self.connector.execute("""
                                         WITH nightly AS (SELECT start_date
                                                          FROM jura_intervals
-                                                         WHERE TIME(start_date) >= '21:00:00'
-                                                           AND start_date > '2026-04-07 09:00:30'
+                                                         WHERE TIME(start_date) >= '23:00:00'
+                                                           AND start_date > '2026-04-07 11:00:30'
                                                          UNION ALL
                                                          SELECT end_date
                                                          FROM jura_intervals
                                                          WHERE id = (SELECT MAX(id) FROM jura_intervals)
-                                                           AND TIME(start_date) < '21:00:00'),
+                                                           AND TIME(start_date) < '23:00:00'),
                                              bounded AS (SELECT start_date,
                                                                 LEAD(start_date) OVER (ORDER BY start_date) AS next_start
                                                          FROM nightly
@@ -601,7 +600,7 @@ class Database:
                                                  LEFT JOIN purchase p
                                                            ON p.date > i.start_date
                                                                AND p.date <= i.end_date
-                                        WHERE i.start_date > '2026-04-07 09:00:30'
+                                        WHERE i.start_date > '2026-04-07 11:00:30'
                                           AND i.start_date >= :from_date
                                           AND i.start_date <= :to_date
                                         GROUP BY i.start_date, i.end_date
@@ -655,7 +654,8 @@ class Database:
     def get_client_balance_summary(self) -> Dict[str, float]:
         """Euros owed by/to the clients. {debt_total, debt_dormant, credit_total, credit_dormant}"""
         kinds = {"debt": ("balance > 0", "balance"), "credit": ("balance < 0", "balance")}
-        scopes = {"total": "", "dormant": " AND (status != 'active' OR COALESCE(last_coffee, creation_date) < DATETIME('now', '-6 months'))"}
+        scopes = {"total": "",
+                  "dormant": " AND (status != 'active' OR COALESCE(last_coffee, creation_date) < DATETIME('now', '-6 months', 'localtime'))"}
         columns = {f"{kind}_{scope}": f"COALESCE(SUM(CASE WHEN {condition}{extra} THEN {value} END), 0)"
                    for kind, (condition, value) in kinds.items()
                    for scope, extra in scopes.items()}
@@ -813,7 +813,7 @@ class Database:
 
     def get_users_leaving(self, from_days: int = 0, to_days: int = 30) -> List[User]:
         """Users whose departure date is between today + from_days and today + to_days (both included)."""
-        return self.select_users("DATE(date_of_departure) BETWEEN DATE('now', :start) AND DATE('now', :end)",
+        return self.select_users("DATE(date_of_departure) BETWEEN DATE('now', :start, 'localtime') AND DATE('now', :end, 'localtime')",
                                  {"start": f"{from_days:+d} days", "end": f"{to_days:+d} days"},
                                  order_by="date_of_departure")
 
@@ -821,7 +821,7 @@ class Database:
         """Users, newest first. Optionally only the ones created in the last `within_days` days."""
         conditions, params = ["1"], {}
         if within_days is not None:
-            conditions.append("creation_date >= DATETIME('now', :window)")
+            conditions.append("creation_date >= DATETIME('now', :window, 'localtime')")
             params["window"] = f"-{within_days} days"
         if clients_only:
             conditions.append("id < 1000000000")

@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from asyncio import Event
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Tuple
 
@@ -16,8 +16,8 @@ from coffee_tag.config import Config
 from coffee_tag.database import User, Database
 from coffee_tag.gui import GeneralUI, MainGUI, ManualEntry, UserMenu, UserProperties, AskPassword, \
     BrewCoffee, Meme, AdminGUI, AdminFeedGui, AdminJuraGui, MaintenanceScreen
-from coffee_tag.rfid import RFIDReader
 from coffee_tag.mail.email import EmailManager
+from coffee_tag.rfid import RFIDReader
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class CoffeeManager:
         await done.wait()
         logging.getLogger("juracoffeemachine").setLevel(level=logging.DEBUG if self.config.verbose else logging.INFO)
         if last_stat[0] is not None:
-            if self.db.save_statistics(datetime.now(tz=timezone.utc), last_stat[0]):
+            if self.db.save_statistics(datetime.now(), last_stat[0]):
                 logger.info(f"Statistics were saved."
                             f" Next statistics monitoring in {self.config.monitor_snap_delay} min.")
             else:
@@ -247,7 +247,7 @@ class CoffeeManager:
                 if not signed_in_by_admin:
                     return None
         # check date_of_departure
-        if user.date_of_departure is None or user.date_of_departure <= datetime.now(tz=timezone.utc):
+        if user.date_of_departure is None or user.date_of_departure <= datetime.now():
             await GeneralUI(self.root_gui, "Your account is deactivated.",
                             320, 300,
                             main_text="Your account is past its date of departure.",
@@ -258,7 +258,7 @@ class CoffeeManager:
                 return None
         # check debt
         ceiling = self.config.debt_grace_ceiling if self.config.debt_grace_period > (
-                datetime.now(tz=timezone.utc) - user.creation_date).days else self.config.debt_default_ceiling
+                datetime.now() - user.creation_date).days else self.config.debt_default_ceiling
         if self.config.price > - user.get_user_balance() - ceiling:
             await GeneralUI(self.root_gui, "You're at or under the debt ceiling.",
                             320, 300,

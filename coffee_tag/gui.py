@@ -9,7 +9,7 @@ import time
 import tkinter as tk
 import unicodedata
 from asyncio import Future
-from datetime import datetime as dt, timezone
+from datetime import datetime as dt
 from enum import Enum
 from itertools import count  # Islice for list iteration not starting at 0
 from tkinter import Button, Scale
@@ -263,7 +263,7 @@ class UserMenu(AbstractUI):
         self.add_label(f"{-user.get_user_balance()} €", font='Helvetica 22 bold')
         last_coffee = user.get_last_coffee()
         if last_coffee is not None:
-            self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
+            self.add_label(f"Your last coffee was {str(dt.now() - last_coffee.date).split('.')[0]} ago.",
                            font='Helvetica 15', fg=LIGHT_BROWN, pady=None)
         self.add_label("How many coffees will you take ?", font='Helvetica 15', fg=LIGHT_BROWN, pady=None, fill=None)
         self.entry = self.add_entry(width=3, font='Helvetica 15 bold', x=228, y=237)
@@ -368,8 +368,7 @@ class UserProperties(AbstractUI):
                                                bcrypt.gensalt()).decode() if len(passcode) >= 4 else None
         self.user.date_of_departure = None
         try:
-            self.user.date_of_departure = (dt.strptime(self.entries[6].get(), "%Y/%m/%d")
-                                           .replace(tzinfo=timezone.utc))
+            self.user.date_of_departure = dt.strptime(self.entries[6].get(), "%Y/%m/%d")
         except:
             pass
         self.user.id_badge = self.badge_lbl.cget("text") if len(self.badge_lbl.cget("text")) > 0 else None
@@ -467,7 +466,7 @@ class BrewCoffee(AbstractUI):
                                           font='Helvetica 15 bold', x=360, y=100, fill=None)
         last_coffee = user.get_last_coffee()
         if last_coffee is not None:
-            self.add_label(f"Your last coffee was {str(dt.now(timezone.utc) - last_coffee.date).split('.')[0]} ago.",
+            self.add_label(f"Your last coffee was {str(dt.now() - last_coffee.date).split('.')[0]} ago.",
                            fg=LIGHT_BROWN, x=225, y=125)
         self.settings_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
                                                                         "settings.png")).resize((50, 50)))
@@ -923,7 +922,7 @@ class AdminGUI(AbstractUI):
             logger.warning(f"Couldn't add coffee manually: no user selected.")
             return
         try:
-            date = dt.strptime(self.add_coffee_entry.get(), "%d/%m/%y %H:%M:%S").replace(tzinfo=timezone.utc)
+            date = dt.strptime(self.add_coffee_entry.get(), "%d/%m/%y %H:%M:%S")
         except:
             logger.warning(f"Couldn't add coffee manually: can't parse {self.add_coffee_entry.get()}.")
             self.add_coffee_btn.config(bg="red")
