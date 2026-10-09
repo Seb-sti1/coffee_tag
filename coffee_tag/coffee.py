@@ -266,7 +266,7 @@ class CoffeeManager:
                             sub_text="Check your email for more information.",
                             sub_after_main=True,
                             button_one="Ok").get_future()
-            if self.email.send_low_balance(user):
+            if self.email.send_low_balance(user, -user.get_user_balance()):
                 logger.info(f"Sent a low balance remainder to {user}.")
             else:
                 logger.warning(f"Failed to send a low balance remainder to {user}.")
@@ -328,7 +328,7 @@ class CoffeeManager:
             logger.info(f"{user} bought {coffee_bought} coffees at {self.db.config.price} €.")
             for threshold in self.config.notification_balance_thresholds:
                 if self.config.price >= - user.get_user_balance() - (threshold + ceiling) > 0:
-                    if self.email.send_low_balance(user):
+                    if self.email.send_low_balance(user, round(-user.get_user_balance() - user.db.config.price, 2)):
                         logger.info(f"Sent a low balance remainder to {user}.")
                     else:
                         logger.warning(f"Failed to send a low balance remainder to {user}.")

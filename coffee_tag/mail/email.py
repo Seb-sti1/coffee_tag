@@ -27,11 +27,11 @@ class EmailManager:
         with open(filepath) as f:
             return Template(f.read())
 
-    def send_low_balance(self, user: User) -> bool:
+    def send_low_balance(self, user: User, balance: float) -> bool:
         return self.__safely_send_email__("Low balance on the U2IS coffee machine", "low_balance",
                                           user,
                                           name=f"{user.name} {user.surname}",
-                                          balance=float(-user.get_user_balance()),
+                                          balance=balance,
                                           default_ceiling=self.config.debt_default_ceiling,
                                           payment_methods=self.config.email_payment_methods)
 
