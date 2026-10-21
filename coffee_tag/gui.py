@@ -434,6 +434,7 @@ class BrewCoffee(AbstractUI):
         CoffeeMakerResult.CANNOT_FETCH_GROUNDS_TANK: "Could not fetch Jura's status.",
         CoffeeMakerResult.CANNOT_SET_PARAM: "Could not send your order.",
         CoffeeMakerResult.CANNOT_PRESS_BTN: "Could not send your order.",
+        CoffeeMakerResult.CANNOT_GET_COFFEE_COUNT: "Could not send your order.",
         CoffeeMakerResult.SLEEPING: "The Jura is off. Please turn it on.",
         CoffeeMakerResult.WATER_TANK_MISSING: "Please refill/put the water tank back.",
         CoffeeMakerResult.DRAINING_TRAY_MISSING: "The draining tank is absent. Please put it back.",
@@ -532,6 +533,7 @@ class BrewCoffee(AbstractUI):
         self.curr_water_volume = 0.
         self.progress_bar = None
         self.stop_btn = None
+        self.coffee_date = None
 
         # EXIT UI
         self.closing_delay = 5
@@ -720,9 +722,10 @@ class BrewCoffee(AbstractUI):
                                             length=300, mode="determinate")
         self.progress_bar.pack()
 
-    def jura_brew_cb(self, result: CoffeeMakerResult):
+    def jura_brew_cb(self, result: CoffeeMakerResult, date: Optional[dt]):
         self.jura_feedback = result
         self.brew_sent_with_success = result == CoffeeMakerResult.OK
+        self.coffee_date = date
 
     async def update(self):
         start_time = time.time()

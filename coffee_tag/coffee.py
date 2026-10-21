@@ -274,6 +274,7 @@ class CoffeeManager:
                 return None
         # show order gui
         coffee_bought = 0
+        coffee_date = None
         if self.config.authoritative:
             if self.coffee_maker is None:
                 return None
@@ -310,6 +311,7 @@ class CoffeeManager:
             await brew.update()
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
+                coffee_date = brew.coffee_date
                 coffee_bought = 1
         else:
             coffee_bought = await UserMenu(self.root_gui, user).get_future()
@@ -333,7 +335,7 @@ class CoffeeManager:
                     else:
                         logger.warning(f"Failed to send a low balance remainder to {user}.")
                     break
-            if user.buy_coffees(coffee_bought):
+            if user.buy_coffees(coffee_bought, coffee_date):
                 logger.info("This was saved in db.")
                 if not self.config.authoritative:
                     await GeneralUI(self.root_gui, title=f"Thank you {user}!",
