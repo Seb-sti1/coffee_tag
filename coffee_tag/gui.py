@@ -12,6 +12,7 @@ from asyncio import Future
 from datetime import datetime as dt
 from enum import Enum
 from itertools import count  # Islice for list iteration not starting at 0
+from threading import Event
 from tkinter import Button, Scale
 from tkinter import ttk
 from typing import Tuple, Optional, Callable, Literal, List
@@ -458,6 +459,7 @@ class BrewCoffee(AbstractUI):
         self.get_brewing_status = get_brewing_status
         self.req_coffee_bean = beans_q
         self.req_water_volume = water_v
+        self.stop_event = Event()
 
         # TOP PART OF THE GUI
         self.add_label(f"Hello {user}!", font='Helvetica 22 bold', pady=3, fill=None)
@@ -721,6 +723,10 @@ class BrewCoffee(AbstractUI):
         self.progress_bar = ttk.Progressbar(self.order_rect, style="bg.Horizontal.TProgressbar", orient="horizontal",
                                             length=300, mode="determinate")
         self.progress_bar.pack()
+        self.stop_btn = self.add_button("Stop",
+                                        lambda: [self.stop_btn.config(state="disabled"), self.stop_event.set()],
+                                        gui=self.order_rect)
+        self.stop_btn.pack_forget()
 
     def jura_brew_cb(self, result: CoffeeMakerResult, date: Optional[dt]):
         self.jura_feedback = result
@@ -729,6 +735,7 @@ class BrewCoffee(AbstractUI):
 
     async def update(self):
         start_time = time.time()
+        prev_water_volume = 0
         while self.jura_feedback is None and (time.time() - start_time) < 120:
             status = self.get_brewing_status()
             if status is None:
@@ -742,16 +749,34 @@ class BrewCoffee(AbstractUI):
                         self.progress_label.config(text=f"Grinding the coffee beans...")
                 else:
                     if self.get_brewing_status().water_volume > 0:
+                        if self.get_brewing_status().water_volume < prev_water_volume:
+                            self.stop_btn.pack(pady=15)
                         self.gui_status = BrewCoffee.Status.JURA_PUMPING_WATER
-                        self.progress_label.config(text=f"Pumping the water...")
+                        if self.stop_event.is_set():
+                            self.progress_label.config(text=f"Wait while the coffee is been stopped...")
+                        else:
+                            self.progress_label.config(text=f"Pumping the water...")
                         self.curr_water_volume = max(self.curr_water_volume, self.get_brewing_status().water_volume)
                         self.progress_bar.config(value=self.curr_water_volume / self.req_water_volume * 100)
+                        prev_water_volume = self.get_brewing_status().water_volume
+            elif status.stage == BrewingStage.ENDING:
+                if self.stop_btn is not None:
+                    self.stop_btn.pack_forget()
+                    self.stop_btn = None
+                if self.stop_event.is_set():
+                    self.progress_label.config(text=f"Wait while the coffee is been stopped...")
+                else:
+                    self.progress_label.config(text=f"Confirming coffee ending...")
+
             await asyncio.sleep(1)
         self.ui_before_exit()
 
     # ================================ COFFEE BREWING PROGRESS UI ================================
     def ui_before_exit(self):
         self.progress_bar.pack_forget()
+        if self.stop_btn is not None:
+            self.stop_btn.pack_forget()
+            self.stop_btn = None
         self.close_btn.config(state="active")
         if self.brew_sent_with_success:
             self.title_order_rect.config(text="You're coffee is ready!")

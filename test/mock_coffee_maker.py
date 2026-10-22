@@ -4,7 +4,7 @@ from datetime import datetime
 from threading import Lock, Thread
 from typing import Optional, List
 
-from juracoffeemachine import CoffeeMaker, JuraCommand, Response, JuraProtocol, HZ, CS
+from juracoffeemachine import CoffeeMaker, JuraCommand, Response, JuraProtocol, HZ, CS, JuraAddress
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,26 @@ class MockJura(JuraProtocol):
                         CS("cs:03770000000ED000000000000006000000000000000"),
                         CS("cs:03770000000ED000000000000006000000800000000"),
                         CS("cs:03770000000ED000000000000006000000A00000000"),
+                        CS("cs:03770000000ED000000000000006000000000000000"),
+                        CS("cs:03770000000ED000000000000006000000800000000"),
+                        CS("cs:03770000000ED000000000000006000000A00000000"),
                         CS("cs:03770000000ED000000000000006000000F00000000"),
+                        CS("cs:03770000000ED000000000000006000002000000000"),
+                        CS("cs:03770000000ED000000000000006000005000000000"),
+                        CS("cs:03770000000ED000000000000006000008000000000"),
+                        CS("cs:03770000000ED00000000000000600000B000000000"),
                         CS("cs:03770000000ED000000000000006000011C00000000"),
                         CS("cs:03770000000ED000000000000006000011C00000000"),
                         CS("cs:03770000000ED000000000000006000011C00000000")]
         self.cs_idx = 0
+        self.epprom = {
+            JuraAddress.COFFEE_GROUNDS_TANK.value: [1000],
+            JuraAddress.TOT_COFFEE.value: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        }
+        self.epprom_idx = {
+            JuraAddress.COFFEE_GROUNDS_TANK.value: 0,
+            JuraAddress.TOT_COFFEE.value: 0
+        }
 
         self.first_hz = True
 
@@ -53,7 +68,11 @@ class MockJura(JuraProtocol):
         return None
 
     def read_eeprom(self, address: int, use_rt: bool = False) -> Optional[int]:
-        return 1000
+        if address not in self.epprom:
+            return None
+        value = self.epprom[address][self.epprom_idx[address]]
+        self.epprom_idx[address] = min(self.epprom_idx[address] + 1, len(self.epprom[address]) - 1)
+        return value
 
 
 class MockCoffeeMaker(CoffeeMaker):

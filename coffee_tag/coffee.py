@@ -307,7 +307,7 @@ class CoffeeManager:
             user.beans_q, user.water_v = r
             if not user.update():
                 logger.error(f"Could not save new coffee params.")
-            self.coffee_maker.brew_coffee(user.beans_q, user.water_v, brew.jura_brew_cb)
+            self.coffee_maker.brew_coffee(user.beans_q, user.water_v, brew.jura_brew_cb, brew.stop_event)
             await brew.update()
             await brew.get_future_with_autoclosing()
             if brew.brew_sent_with_success:
