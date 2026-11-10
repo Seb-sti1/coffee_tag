@@ -19,10 +19,10 @@ from coffee_tag.config import Config
 logger = logging.getLogger(__name__)
 
 SPECIAL_USER = {
-    "loss": 1000000000,
-    "bank": 1000000001,
-    "cash": 1000000002,
-    "supply": 1000000003,
+    "loss": -1,
+    "bank": -2,
+    "cash": -3,
+    "supply": -4,
 }
 
 SPECIAL_USER_LOOKUP = {v: k for k, v in SPECIAL_USER.items()}
@@ -418,7 +418,7 @@ class Database:
                                                   bcrypt.gensalt()).decode(),
                         "mail": self.config.contact_email})
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
-                       "status, date_of_departure, mail, creation_date) VALUES (1000000001, 'bank', 'special',"
+                       "status, date_of_departure, mail, creation_date) VALUES (SPECIAL_USER['bank'], 'bank', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME('now', 'localtime'))",
                        {
@@ -427,7 +427,7 @@ class Database:
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
-                       "status, date_of_departure, mail, creation_date) VALUES (1000000002, 'cash', 'special',"
+                       "status, date_of_departure, mail, creation_date) VALUES (SPECIAL_USER['cash'], 'cash', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME('now', 'localtime'))",
                        {
@@ -436,7 +436,7 @@ class Database:
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
-                       "status, date_of_departure, mail, creation_date) VALUES (1000000003, 'supply', 'special',"
+                       "status, date_of_departure, mail, creation_date) VALUES (SPECIAL_USER['supply'], 'supply', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME('now', 'localtime'))",
                        {
@@ -724,7 +724,7 @@ class Database:
         conditions = [where]
         params = dict(params or {})
         if clients_only:
-            conditions.append("id < 1000000000")
+            conditions.append(f"id < {SPECIAL_USER["loss"]}")
         if user_id is not None:
             conditions.append("id = :user_id")
             params["user_id"] = user_id
@@ -824,7 +824,7 @@ class Database:
             conditions.append("creation_date >= DATETIME('now', :window, 'localtime')")
             params["window"] = f"-{within_days} days"
         if clients_only:
-            conditions.append("id < 1000000000")
+            conditions.append(f"id < {SPECIAL_USER["loss"]}")
         return self.select_users(" AND ".join(conditions), params, order_by="creation_date DESC")
 
     def get_recent_coffees(self) -> List[Purchase]:
