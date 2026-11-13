@@ -724,7 +724,7 @@ class Database:
         conditions = [where]
         params = dict(params or {})
         if clients_only:
-            conditions.append(f"id < {SPECIAL_USER["loss"]}")
+            conditions.append(f"id >= 0")
         if user_id is not None:
             conditions.append("id = :user_id")
             params["user_id"] = user_id
