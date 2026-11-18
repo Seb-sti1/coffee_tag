@@ -418,7 +418,7 @@ class Database:
                                                   bcrypt.gensalt()).decode(),
                         "mail": self.config.contact_email})
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
-                       "status, date_of_departure, mail, creation_date) VALUES (SPECIAL_USER['bank'], 'bank', 'special',"
+                       "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'bank', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME('now', 'localtime'))",
                        {
@@ -427,7 +427,7 @@ class Database:
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
-                       "status, date_of_departure, mail, creation_date) VALUES (SPECIAL_USER['cash'], 'cash', 'special',"
+                       "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'cash', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME('now', 'localtime'))",
                        {
@@ -436,7 +436,7 @@ class Database:
                                                      bcrypt.gensalt()).decode(),
                            "mail": self.config.contact_email})
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
-                       "status, date_of_departure, mail, creation_date) VALUES (SPECIAL_USER['supply'], 'supply', 'special',"
+                       "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'supply', 'special',"
                        "0, :passcode, 'user', 'banned', '9999-12-31 00:00:00',"
                        ":mail, DATETIME('now', 'localtime'))",
                        {
@@ -824,7 +824,7 @@ class Database:
             conditions.append("creation_date >= DATETIME('now', :window, 'localtime')")
             params["window"] = f"-{within_days} days"
         if clients_only:
-            conditions.append(f"id < {SPECIAL_USER["loss"]}")
+            conditions.append(f"id >= 0")
         return self.select_users(" AND ".join(conditions), params, order_by="creation_date DESC")
 
     def get_recent_coffees(self) -> List[Purchase]:
