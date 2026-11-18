@@ -11,6 +11,8 @@
   "monitor_snap_delay_description": "Query Jura totals at clock-synced intervals in minutes (e.g., 30 = :00, :30). 0 to disable.",
   "contact_email": "your-contact@email.net",
   "contact_email_description": "The email displayed to users when contact might be required.",
+  "default_stock_uncertainty": 1.5,
+  "default_stock_uncertainty_description": "By default the stock will be between [stock, stock + default_stock_uncertainty].",
   "debt": {
     "default_ceiling": 0,
     "default_ceiling_description": "The default debt ceiling allowing to take coffees.",

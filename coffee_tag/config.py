@@ -22,6 +22,8 @@ class Config:
     debt_grace_period: float
     debt_grace_ceiling: float
 
+    default_stock_uncertainty: float
+
     notification_date_of_departure_remainders: List[int]
     notification_balance_thresholds: List[float]
 

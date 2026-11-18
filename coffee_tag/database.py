@@ -349,6 +349,7 @@ class Database:
 
     def __init__(self, config: Config):
         self.connector = sqlite3.connect(config.database)
+        self.connector.execute("PRAGMA foreign_keys = ON")
         self.config = config
 
         self.create_tables()
@@ -408,6 +409,20 @@ class Database:
                            WHERE prev.id = (SELECT MAX(id) FROM jura_count WHERE id < NEW.id);
                        END;
                        """)
+            # Create stock table
+            db.execute("""
+                        CREATE TABLE IF NOT EXISTS stock
+                        (
+                            id                INTEGER primary key,
+                            date              date    not null,
+                            transfer_id       INTEGER,
+                            quantity          REAL,
+                            total_price       REAL,
+                            stock_quantity    REAL    not null, -- the quantity in stock is stock_quantity +- stock_uncertainty. this differs from what is shown to the user on the webapp.
+                            stock_uncertainty REAL    not null,
+                            FOREIGN KEY (transfer_id) REFERENCES transfer (id) ON DELETE CASCADE
+                        );
+                        """)
             # Create system users
             db.execute("INSERT OR IGNORE INTO users (id, name, surname, initial_balance, passcode, permissions,"
                        "status, date_of_departure, mail, creation_date) VALUES (:user_id, 'loss', 'special',"
@@ -754,12 +769,27 @@ class Database:
                                      "permissions, status, creation_date, date_of_departure, mail, id_badge, "
                                      "beans_q, water_v, purchased, paid, balance, last_coffee"))
 
-    def register_new_transfer(self, from_id: int, to_id: int, date: dt, credit: float) -> bool:
-        return self.edit_query("INSERT INTO transfer (from_id, to_id, date, credit) VALUES"
+    def register_new_transfer(self, from_id: int, to_id: int, date: dt, credit: float,
+                              quantity: Optional[float], price: Optional[float],
+                              stock_quantity: Optional[float], stock_uncertainty: Optional[float]) -> bool:
+        if any(v is None for v in [quantity, price, stock_quantity, stock_uncertainty]) and \
+                any(v is not None for v in [quantity, price, stock_quantity, stock_uncertainty]):
+            return False
+        def _exec(cursor: sqlite3.Cursor):
+            r = cursor.execute("INSERT INTO transfer (from_id, to_id, date, credit) VALUES"
                                "(:from_id, :to_id, :date, :credit)",
                                {"from_id": from_id, "to_id": to_id,
                                 "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                                 "credit": credit})
+            if r.lastrowid and all(v is not None for v in [quantity, price, stock_quantity, stock_uncertainty]):
+                cursor.execute("INSERT INTO stock (date, transfer_id, quantity, total_price, stock_quantity,"
+                                   " stock_uncertainty) VALUES (:date, :transfer_id, :quantity, :total_price, :stock_quantity,"
+                                   " :stock_uncertainty)",
+                                   {"date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                    "transfer_id": r.lastrowid, "quantity": quantity,
+                                    "total_price": price, "stock_quantity": stock_quantity + stock_uncertainty / 2,
+                                    "stock_uncertainty": stock_uncertainty / 2})
+        return self.exec_safely_at_once(_exec)[0]
 
     def get_transfers(self, from_date: dt, to_date: dt) -> List:
         results = self.connector.execute("""
@@ -799,6 +829,30 @@ class Database:
         return self.edit_query("DELETE FROM transfer "
                                "WHERE id = :id",
                                {"id": transfer_id})
+
+    def register_new_stock(self, date:dt, stock_quantity: float, stock_uncertainty: float) -> bool:
+        return self.edit_query("INSERT INTO stock ( date, transfer_id, quantity, total_price, stock_quantity,"
+                               "stock_uncertainty) VALUES (:date, null, null, null, :stock_quantity, :stock_uncertainty)",
+                               {"date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                "stock_quantity": stock_quantity, "stock_uncertainty": stock_uncertainty})
+
+
+    def get_stocks(self, from_date: dt, to_date: dt) -> List:
+        results = self.connector.execute("""
+                                         SELECT *
+                                         FROM stock
+                                         WHERE date >= :from_date AND date <= :to_date
+                                         ORDER BY date DESC
+                                         """, {
+                                             "from_date": from_date.strftime("%Y-%m-%d %H:%M:%S"),
+                                             "to_date": to_date.strftime("%Y-%m-%d %H:%M:%S")
+                                         })
+        return [tuple(r[:7]) for r in results]
+
+    def delete_stock(self, stock_id: int) -> bool:
+        return self.edit_query("DELETE FROM stock "
+                               "WHERE id = :id",
+                               {"id": stock_id})
 
     def get_users(self) -> List[User]:
         r = self.connector.execute("""SELECT *

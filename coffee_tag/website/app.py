@@ -155,20 +155,44 @@ class Website:
                 form_type_userid = form.get("transfer_type", type=lambda v: int(SPECIAL_USER[v]))
                 form_dir = form.get("direction", default=False,
                                     type=lambda v: v if v in ["u2is_to_client", "client_to_u2is"] else None)
+                form_quantity = form.get("quantity", type=float)
+                form_price = form.get("price", type=float)
+                form_stock_quantity = form.get("stock_quantity", type=float)
+                form_stock_uncertainty = form.get("stock_uncertainty", type=float)
                 if form_userid is not None and form_credit is not None \
                         and form_type_userid is not None and form_dir is not None:
                     logger.info(f"Adding new transfer {form_userid} {form_date} {form_credit} {form_type} {form_dir}.")
                     from_id = form_type_userid if form_dir == "u2is_to_client" else form_userid
                     to_id = form_userid if form_dir == "u2is_to_client" else form_type_userid
                     returned_form_values["add_transfer"] = self.db.register_new_transfer(from_id, to_id,
-                                                                                         form_date, form_credit)
+                                                                                         form_date, form_credit,
+                                                                                         form_quantity, form_price,
+                                                                                         form_stock_quantity,
+                                                                                         form_stock_uncertainty)
             elif form_type == "remove_transfer":
                 form_transfer_id = form.get("transfer", type=int)
                 if form_transfer_id is None:
                     returned_form_values["remove_transfer"] = False
                 else:
-                    logger.info(f"Removing new transfer {form_transfer_id}")
+                    logger.info(f"Removing transfer {form_transfer_id}")
                     returned_form_values["remove_transfer"] = self.db.delete_transfer(form_transfer_id)
+            if form_type == "add_stock":
+                form_date = form.get("date", default=dt.now(), type=dt.fromisoformat)
+                form_stock_quantity = form.get("stock_quantity", type=float)
+                form_stock_uncertainty = form.get("stock_uncertainty", type=float)
+                if form_date is not None and form_stock_quantity is not None and form_stock_uncertainty is not None:
+                    returned_form_values["add_stock"] = self.db.register_new_stock(form_date,
+                                                                                   form_stock_quantity,
+                                                                                   form_stock_uncertainty)
+                else:
+                    returned_form_values["add_stock"] = False
+            elif form_type == "remove_stock":
+                form_stock_id = form.get("stock", type=int)
+                if form_stock_id is None:
+                    returned_form_values["remove_stock"] = False
+                else:
+                    logger.info(f"Removing stock {form_stock_id}")
+                    returned_form_values["remove_stock"] = self.db.delete_stock(form_stock_id)
             elif form_type == "resend_email":
                 form_email_id = form.get("email", type=int)
                 returned_form_values["resend_email"] = form_email_id is None
@@ -201,10 +225,12 @@ class Website:
                                      user=current_user,
                                      users=self.db.get_users_balance(),
                                      transfers=self.db.get_transfers(from_date, to_date),
+                                     default_stock_uncertainty=self.db.config.default_stock_uncertainty,
                                      emails=self.db.get_email_logs(from_date, to_date),
                                      daily_counts=self.db.get_daily_counts(from_date, to_date),
                                      error_counts=self.db.get_error_counts(from_date, to_date),
                                      purchases=self.db.get_purchases(from_date, to_date),
+                                     stocks=self.db.get_stocks(from_date, to_date),
                                      dashboard=self.build_dashboard(),
                                      filter_from=from_date.strftime("%Y-%m-%d"),
                                      filter_to=to_date.strftime("%Y-%m-%d"),

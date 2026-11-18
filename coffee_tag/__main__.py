@@ -50,6 +50,7 @@ def setup() -> Tuple[Config, Database, RFIDReader, Website, EmailManager]:
                         json_content["debt"]["default_ceiling"],
                         json_content["debt"]["grace_period"],
                         json_content["debt"]["grace_ceiling"],
+                        json_content["default_stock_uncertainty"],
                         json_content["notification"]["date_of_departure_remainders"],
                         json_content["notification"]["balance_thresholds"],
                         json_content["email"]["host"],

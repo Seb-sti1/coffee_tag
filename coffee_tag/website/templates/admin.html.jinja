@@ -583,6 +583,60 @@
                                         </div>
                                     </div>
 
+                                    {# Supplies options (only for "Supplies reimbursement") #}
+                                    <div class="col-12 d-none" id="supplyOptions">
+                                        <label class="form-label d-block">Does the supplies contain coffee?</label>
+                                        <div class="btn-group" role="group" aria-label="Coffee supply">
+                                            <input type="radio" class="btn-check" name="coffee_supply" id="coffeeYes"
+                                                   value="yes" autocomplete="off">
+                                            <label class="btn btn-outline-primary" for="coffeeYes">Yes</label>
+                                            <input type="radio" class="btn-check" name="coffee_supply" id="coffeeNo"
+                                                   value="no" autocomplete="off">
+                                            <label class="btn btn-outline-primary" for="coffeeNo">No</label>
+                                        </div>
+                                    </div>
+
+                                    {# Coffee stock fields (only if "Coffee supply" is checked) #}
+                                    <div class="col-12 d-none" id="coffeeFields">
+                                        <div class="row g-3">
+                                            <div class="col-md-2">
+                                                <label class="form-label" for="quantity">Quantity of coffee</label>
+                                                <input name="quantity" id="quantity" type="number" class="form-control"
+                                                       min="0" step="any" placeholder="0">
+                                            </div>
+
+                                            <div class="col-md-2">
+                                                <label class="form-label" for="price">Total price of coffee</label>
+                                                <input name="price" id="price" type="number" class="form-control"
+                                                       min="0" step="any" placeholder="0">
+                                            </div>
+
+                                            <div class="col-md-2">
+                                                <label class="form-label">Unit price</label>
+                                                <div class="form-control bg-body-secondary" id="unitPrice">-</div>
+                                            </div>
+
+                                            <div class="col-md-2">
+                                                <label class="form-label" for="stock_quantity">Stock quantity</label>
+                                                <input name="stock_quantity" id="stock_quantity" type="number"
+                                                       class="form-control" min="0" step="any" placeholder="0">
+                                            </div>
+
+                                            <div class="col-md-2">
+                                                <label class="form-label" for="stock_uncertainty">Stock
+                                                    uncertainty</label>
+                                                <input name="stock_uncertainty" id="stock_uncertainty" type="number"
+                                                       class="form-control" min="0" step="any"
+                                                       value="{{ default_stock_uncertainty }}">
+                                            </div>
+
+                                            <div class="col-md-2">
+                                                <label class="form-label">Stock interval</label>
+                                                <div class="form-control bg-body-secondary" id="stockInterval">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {# Submit #}
                                     <div class="col-12 text-end">
                                         <button type="submit" class="btn btn-primary">
@@ -599,22 +653,73 @@
                         const hint = document.getElementById('directionHint');
                         const dirRadios = form.querySelectorAll('input[name="direction"]');
 
+                        const supplyOptions = document.getElementById('supplyOptions');
+                        const coffeeRadios = form.querySelectorAll('input[name="coffee_supply"]');
+                        const coffeeYes = document.getElementById('coffeeYes');
+                        const coffeeFields = document.getElementById('coffeeFields');
+                        const coffeeInputs = coffeeFields.querySelectorAll('input');
+
+                        const priceInput = document.getElementById('price');
+                        const quantityInput = document.getElementById('quantity');
+                        const stockInput = document.getElementById('stock_quantity');
+                        const uncertaintyInput = document.getElementById('stock_uncertainty');
+                        const unitPriceCell = document.getElementById('unitPrice');
+                        const stockIntervalCell = document.getElementById('stockInterval');
+
                         function syncDirection() {
                             const isSupply = form.querySelector('input[name="transfer_type"]:checked').value === 'supply';
                             hint.classList.toggle('d-none', !isSupply);
                             dirRadios.forEach(r => {
                                 if (isSupply) {
                                     r.checked = (r.id === FORCED_DIRECTION);
-                                    r.disabled = (r.id !== FORCED_DIRECTION);   // the checked one is still submitted
+                                    r.disabled = (r.id !== FORCED_DIRECTION);
                                 } else {
                                     r.disabled = false;
                                 }
                             });
                         }
 
+                        function syncCoffee() {
+                            const isSupply = form.querySelector('input[name="transfer_type"]:checked').value === 'supply';
+                            supplyOptions.classList.toggle('d-none', !isSupply);
+                            coffeeRadios.forEach(r => {
+                                r.required = isSupply;              // forces a choice, only for supplies
+                                if (!isSupply) r.checked = false;   // clear the choice when leaving supplies
+                            });
+
+                            const active = coffeeYes.checked;
+                            coffeeFields.classList.toggle('d-none', !active);
+                            coffeeInputs.forEach(i => i.required = active);
+                        }
+
+                        function updateUnitPrice() {
+                            const credit = parseFloat(priceInput.value);
+                            const qty = parseFloat(quantityInput.value);
+                            unitPriceCell.textContent = (credit >= 0 && qty > 0) ? (credit / qty).toFixed(2) : '-';
+                        }
+
+                        function updateStockInterval() {
+                            const stock = parseFloat(stockInput.value);
+                            const uncertainty = parseFloat(uncertaintyInput.value);
+                            stockIntervalCell.textContent = (!isNaN(stock) && !isNaN(uncertainty))
+                                ? `[${stock}, ${+(stock + uncertainty).toFixed(2)}]`
+                                : '-';
+                        }
+
                         form.querySelectorAll('input[name="transfer_type"]').forEach(r =>
-                            r.addEventListener('change', syncDirection));
+                            r.addEventListener('change', () => {
+                                syncDirection();
+                                syncCoffee();
+                            }));
+                        coffeeRadios.forEach(r => r.addEventListener('change', syncCoffee));
+                        priceInput.addEventListener('input', updateUnitPrice);
+                        quantityInput.addEventListener('input', updateUnitPrice);
+                        stockInput.addEventListener('input', updateStockInterval);
+                        uncertaintyInput.addEventListener('input', updateStockInterval);
+
                         syncDirection();
+                        syncCoffee();
+                        updateStockInterval();
                     </script>
                     {# Transfers #}
                     <div class="table-responsive">
@@ -942,7 +1047,145 @@
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2">Stocks</h1>
                     </div>
-                    <p>Stocks content...</p>
+
+                    {# ERROR #}
+                    {% if "add_stock" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['add_stock'] else 'alert-danger' }} alert-dismissible fade show"
+                             role="alert">
+                            {{ 'Stock row added successfully.' if returned_form_values['add_stock'] else 'An error occurred while adding the Stock row.' }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                    {% if "remove_stock" in returned_form_values %}
+                        <div class="alert {{ 'alert-success' if returned_form_values['remove_stock'] else 'alert-danger' }} alert-dismissible fade show"
+                             role="alert">
+                            {{ 'Stock removed successfully.' if returned_form_values['remove_stock'] else 'An error occurred while removing the stock.' }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+
+                    <div class="alert alert-warning d-flex align-items-center gap-2 py-2" role="alert">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <div>When adding a stock row related to a reimbursement of supplies, use <a
+                                href="#transfers">transfer</a> instead.
+                            The form below is for adding pure inventory stock data.
+                        </div>
+                    </div>
+
+                    {# FORM #}
+                    <div class="card mb-4">
+                        <div class="card-header fw-semibold">
+                            <i class="bi bi-plus-circle me-1"></i> Add a pure inventory stock row
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="#stocks" id="stockForm">
+                                <input name="type" type="text" value="add_stock" required readonly hidden/>
+                                {# Date #}
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label" for="date">
+                                            Date (optional, defaults to current date)
+                                        </label>
+                                        <input name="date" id="date" type="date" class="form-control"/>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label" for="stock_quantity2">Stock quantity</label>
+                                        <input name="stock_quantity" id="stock_quantity2" type="number"
+                                               class="form-control" min="0" step="any" placeholder="0">
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label" for="stock_uncertainty2">Stock
+                                            uncertainty</label>
+                                        <input name="stock_uncertainty" id="stock_uncertainty2" type="number"
+                                               class="form-control" min="0" step="any"
+                                               value="{{ default_stock_uncertainty }}">
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Stock interval</label>
+                                        <div class="form-control bg-body-secondary" id="stockInterval2">-</div>
+                                    </div>
+
+                                    {# Submit #}
+                                    <div class="col-12 text-end">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-plus-lg me-1"></i> Add stock
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <script>
+                        const stockInput2 = document.getElementById('stock_quantity2');
+                        const uncertaintyInput2 = document.getElementById('stock_uncertainty2');
+                        const stockIntervalCell2 = document.getElementById('stockInterval2');
+
+                        function updateStockInterval2() {
+                            const stock = parseFloat(stockInput2.value);
+                            const uncertainty = parseFloat(uncertaintyInput2.value);
+                            stockIntervalCell2.textContent = (!isNaN(stock) && !isNaN(uncertainty))
+                                ? `[${stock}, ${+(stock + uncertainty).toFixed(2)}]`
+                                : '-';
+                        }
+                        stockInput2.addEventListener('input', updateStockInterval2);
+                        uncertaintyInput2.addEventListener('input', updateStockInterval2);
+                    </script>
+
+
+                    {# STOCK #}
+                    <div class="table-responsive">
+                        <table id="stockList" class="table table-bordered table-hover table-sm align-middle">
+                            <thead class="table-dark">
+                            <tr>
+                                <th class="sortable" onclick="sortTable(0, true, false, 'stockList')">id <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(1, false, true, 'stockList')">date <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(2, true, false, 'stockList')">transfer id <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(3, true, false, 'stockList')">quantity <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(4, true, false, 'stockList')">total price <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(5, true, false, 'stockList')">stock quantity <i
+                                        class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th class="sortable" onclick="sortTable(6, true, false, 'stockList')">stock uncertainty
+                                    <i class="bi bi-arrow-down-up text-secondary small"></i></th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody id="stockBody">
+                            {% for s in stocks %}
+                                <tr data-date="{{ s[1] }}">
+                                    <td class="text-muted small">{{ s[0] }}</td>
+                                    <td class="text-nowrap">{{ s[1] }}</td>
+                                    <td class="text-muted small">{{ s[2] if s[2] is not none else '' }}</td>
+                                    <td>{{ s[3] }}</td>
+                                    <td>{{ s[4] }}</td>
+                                    <td>{{ s[5] }}</td>
+                                    <td>{{ s[6] }}</td>
+                                    <td>
+                                        <form method="post"
+                                                {% if s[2] is not none %}
+                                              onsubmit="return confirm('Warning: this stock entry is linked to transfer #{{ s[2] }}. Deleting it may leave that transfer inconsistent with your stock. Delete anyway?');"
+                                                {% endif %}>
+                                            <input name="stock" type="number" value="{{ s[0] }}" required readonly
+                                                   hidden/>
+                                            <input name="type" type="text" value="remove_stock" required readonly
+                                                   hidden/>
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {# =================== REPORTS =================== #}
