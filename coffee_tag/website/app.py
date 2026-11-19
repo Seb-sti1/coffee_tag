@@ -169,6 +169,8 @@ class Website:
                                                                                          form_quantity, form_price,
                                                                                          form_stock_quantity,
                                                                                          form_stock_uncertainty)
+                else:
+                    returned_form_values["add_transfer"] = False
             elif form_type == "remove_transfer":
                 form_transfer_id = form.get("transfer", type=int)
                 if form_transfer_id is None:
