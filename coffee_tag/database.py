@@ -917,25 +917,17 @@ class Database:
         return exported_sql
 
     def export_csv(self) -> str:
-        logger.info(f"Creating a csv dump file")
+        logger.info("Creating a csv dump file")
         csv_file = io.StringIO()
-        writer = csv.writer(csv_file, delimiter=',',
-                            quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        r = self.get_users_balance()
-        writer.writerow(["id", "name", "surname", "nickname", "cascad_username",
-                         "initial_balance", "passcode", "permissions",
-                         "status", "date_of_departure", "mail", "id_badge", "purchased",
-                         "paid", "current_balance", "last coffee"])
-        writer.writerows(r)
-        writer.writerows([[], [], []])
-        r = self.connector.execute("SELECT id, user_id, date, nb_coffee, price FROM purchase")
-        writer.writerow(["id", "user_id", "date", "nb_coffee", "price"])
-        writer.writerows(list(r))
-        writer.writerows([[], [], []])
-        # r = self.connector.execute(
-        #     "SELECT id, user_id, date, credit, label, is_cash <> 0, in_balance <> 0 FROM repayment")
-        # writer.writerow(["id", "user_id", "date", "credit", "label", "is_cash", "in_balance"])
-        # writer.writerows(list(r))
-        # TODO redo export_csv. if possible with automagic stuff.
-        logger.info(f"Finish creating a csv dump file")
+        writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        tables = [row[0] for row in self.connector.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+        for table in tables:
+            cursor = self.connector.execute(f'SELECT * FROM "{table}"')
+            writer.writerow([f"# table: {table}"])
+            writer.writerow([col[0] for col in cursor.description])  # headers
+            writer.writerows(cursor)
+            writer.writerows([[], []])  # blank separator lines
+        logger.info("Finish creating a csv dump file")
         return csv_file.getvalue()
