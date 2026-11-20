@@ -1344,31 +1344,6 @@
     });
 </script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Column toggle for purchase table
-        const purchaseHeaders = document.querySelectorAll('#purchaseList thead th');
-        const purchaseMenu = document.getElementById('purchaseColMenu');
-        purchaseHeaders.forEach((th, i) => {
-            const li = document.createElement('li');
-            const label = document.createElement('label');
-            label.className = 'dropdown-item d-flex align-items-center gap-2';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = true;
-            cb.addEventListener('change', () => {
-                const show = cb.checked;
-                document.querySelectorAll(`#purchaseList tr`).forEach(row => {
-                    if (row.children[i]) row.children[i].style.display = show ? '' : 'none';
-                });
-            });
-            label.appendChild(cb);
-            label.appendChild(document.createTextNode(' ' + th.textContent.trim()));
-            li.appendChild(label);
-            purchaseMenu.appendChild(li);
-        });
-    });
-</script>
-<script>
     let daily_counts = {{ daily_counts | tojson }};
     daily_counts = daily_counts.filter(r => r[2] > 0);
     const labels = daily_counts.map(r => {
