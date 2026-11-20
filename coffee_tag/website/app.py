@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime as dt, timezone, timedelta
+from datetime import datetime as dt, timezone, timedelta, time
 from typing import List, Tuple, Optional
 
 from jinja2 import select_autoescape
@@ -221,8 +221,8 @@ class Website:
 
         # get the selected period
         from_date, to_date = parse_date_params(request)
-        from_date = (from_date or dt.now() - timedelta(weeks=4))
-        to_date = (to_date or dt.now())
+        from_date = dt.combine((from_date or dt.now() - timedelta(weeks=4)), time())
+        to_date = dt.combine((to_date or dt.now()), time(23, 59, 59))
         return await render_template("admin.html.jinja",
                                      user=current_user,
                                      users=self.db.get_users_balance(),
