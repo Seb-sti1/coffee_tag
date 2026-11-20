@@ -772,8 +772,8 @@ class Database:
     def register_new_transfer(self, from_id: int, to_id: int, date: dt, credit: float,
                               quantity: Optional[float], price: Optional[float],
                               stock_quantity: Optional[float], stock_uncertainty: Optional[float]) -> bool:
-        if any(v is None for v in [quantity, price, stock_quantity, stock_uncertainty]) and \
-                any(v is not None for v in [quantity, price, stock_quantity, stock_uncertainty]):
+        if any(v is None for v in [quantity, price, stock_quantity]) and \
+                any(v is not None for v in [quantity, price, stock_quantity]):
             return False
         def _exec(cursor: sqlite3.Cursor):
             r = cursor.execute("INSERT INTO transfer (from_id, to_id, date, credit) VALUES"
