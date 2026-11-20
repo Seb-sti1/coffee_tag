@@ -491,20 +491,29 @@ class BrewCoffee(AbstractUI):
                                              x=740, y=100, px_width=50, px_height=50)
             if not user.is_owner():
                 self.admin_btn.config(state="disabled")
+            self.feed_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                         "feed.png")).resize((50, 40)))
             self.feed_btn = self.add_button("feed", lambda: [self.future.set_result("feed"),
                                                              self.on_closing(),
                                                              self.gui.destroy()],
+                                            image=self.feed_icon,
                                             x=680, y=100, px_width=50, px_height=50)
             if not user.is_owner():
                 self.feed_btn.config(state="disabled")
+            self.jura_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                         "jurabtn.png")).resize((50, 40)))
             self.jura_btn = self.add_button("jura btn", lambda: [self.future.set_result("jura_btn"),
                                                                  self.on_closing(),
                                                                  self.gui.destroy()],
+                                            image=self.jura_icon,
                                             x=620, y=100, px_width=50, px_height=50)
+            self.maintenance_icon = ImageTk.PhotoImage(Image.open(os.path.join(os.path.dirname(media.__file__),
+                                                                         "maintenance.png")).resize((50, 40)))
             self.maintenance_btn = self.add_button("maintenance",
                                                    lambda: [self.future.set_result("maintenance"),
                                                             self.on_closing(),
                                                             self.gui.destroy()],
+                                                   image=self.maintenance_icon,
                                                    x=560, y=100, px_width=50, px_height=50)
 
         self.debug_label = self.add_label("", font='Helvetica 12', fg=LIGHT_BROWN, x=0, y=120, fill=None)
